@@ -132,3 +132,42 @@ export function kolonOner({ fck, Ndm, Nd, adim = 50, kirissizAciklik = null }) {
   }
   return en && { ...en, Ac: en.b * en.h, Agerek };
 }
+
+// ── Tablo (Excel tarzı, satır başına bir eleman) girişi
+// Türkçe Excel biçimi okunur: "1.262,5", "1262,5"; İngilizce "1,262.5" de. Yalnız noktalı "1.262" binlik sayılır
+// (mm ve kN'de 1,262 gibi değer olmaz); "0.4" gibi sıfırla başlayan ondalıktır.
+export function sayiOku(v) {
+  v = String(v ?? '').replace(/\s/g, '');
+  const virgul = v.lastIndexOf(','), nokta = v.lastIndexOf('.');
+  if (virgul > nokta) v = v.replace(/\./g, '').replace(',', '.');
+  else if (virgul >= 0) v = v.replace(/,/g, '');
+  else if (/^[1-9]\d{0,2}(\.\d{3})+$/.test(v)) v = v.replace(/\./g, '');
+  return /^\d+(\.\d+)?$/.test(v) ? +v : NaN;
+}
+
+export const SUTUNLAR = ['ad', 'b', 'h', 'H', 'beton', 'Ndm', 'Nd'];
+
+// s: SUTUNLAR sırasıyla hücre metinleri. Boş H ve beton tablonun varsayılanını alır (ayar.H, ayar.beton).
+// Dönüş: null (boş satır) | { hata: {sütun: ileti}, r?: kontrol sonucu, oneri?, sinif, H }.
+// N_d yalnız kolonda zorunlu (TS 500 Denk. 7.7); geçersiz kesitte öneri için gerekir.
+export function tabloSatiri(s, ayar) {
+  const [, bS, hS, HS, betonS, ndmS, ndS] = s.map(v => String(v ?? '').trim());
+  if (s.every(v => !String(v ?? '').trim())) return null;
+  const b = sayiOku(bS), h = sayiOku(hS), H = HS ? sayiOku(HS) : ayar.H, Ndm = sayiOku(ndmS), Nd = ndS ? sayiOku(ndS) : null;
+  const sinif = 'C' + (betonS || ayar.beton).toUpperCase().replace(/^C/, '');
+  const fck = BETON[sinif];
+  const hata = {};
+  if (!pozitif(b)) hata.b = 'b sayı ve > 0 mm olmalı';
+  if (!pozitif(h)) hata.h = 'h sayı ve > 0 mm olmalı';
+  if (!pozitif(H)) hata.H = 'Kat yüksekliği > 0 mm olmalı';
+  if (!fck) hata.beton = 'Beton C25 … C50 olmalı (TBDY 7.2.5.1)';
+  if (!Number.isFinite(Ndm)) hata.Ndm = 'N_dm gerekli, ≥ 0 kN';
+  if (Nd !== null && !Number.isFinite(Nd)) hata.Nd = 'N_d sayı ve ≥ 0 kN olmalı';
+  if (Nd === null && !hata.b && !hata.h && sinifla(b, h).tur === 'kolon') hata.Nd = 'Kolonda N_d gerekli (TS 500 Denk. 7.7)';
+  if (ayar.kirissiz !== null && !pozitif(ayar.kirissiz)) hata.kirissiz = 'Kirişsiz döşeme açıklığı > 0 mm olmalı';
+  if (Object.keys(hata).length) return { hata, sinif, H };
+  const r = kontrol({ b, h, fck, Ndm, Nd, katYuksekligi: H, ikiUcTutulu: ayar.tutulu, yuksekBina: ayar.yuksek,
+    yalnizPerde: ayar.yalniz, kirissizAciklik: ayar.kirissiz });
+  const oneri = r.tur === 'perde' || Nd === null ? null : kolonOner({ fck, Ndm, Nd, kirissizAciklik: ayar.kirissiz });
+  return { hata, r, oneri, sinif, H };
+}

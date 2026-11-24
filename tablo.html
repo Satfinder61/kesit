@@ -1,0 +1,557 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Kesit — Kolon tablosu</title>
+<link rel="preload" href="fonts/HankenGrotesk-400-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/HankenGrotesk-600-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/JetBrainsMono-latin.woff2" as="font" type="font/woff2" crossorigin>
+<style>
+@font-face { font-family: "Hanken Grotesk"; src: url("fonts/HankenGrotesk-400-latin.woff2") format("woff2"); font-weight: 400; font-display: swap; unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "Hanken Grotesk"; src: url("fonts/HankenGrotesk-400-latin-ext.woff2") format("woff2"); font-weight: 400; font-display: swap; unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: "Hanken Grotesk"; src: url("fonts/HankenGrotesk-600-latin.woff2") format("woff2"); font-weight: 600; font-display: swap; unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "Hanken Grotesk"; src: url("fonts/HankenGrotesk-600-latin-ext.woff2") format("woff2"); font-weight: 600; font-display: swap; unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: "JetBrains Mono"; src: url("fonts/JetBrainsMono-latin.woff2") format("woff2"); font-weight: 100 800; font-display: swap; unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "JetBrains Mono"; src: url("fonts/JetBrainsMono-latin-ext.woff2") format("woff2"); font-weight: 100 800; font-display: swap; unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+
+:root {
+  --zemin: #121110;
+  --panel: #191816;
+  --alan: #0d0c0b;
+  --levha: #151412;
+  --cizgi: rgb(236 230 218 / .10);
+  --cizgi-2: rgb(236 230 218 / .20);
+  --murekkep: #ece6da;
+  --soluk: #a39e94;
+  --turuncu: #ff6a2b;
+  --nane: #8fd9b0;
+  --kirmizi: #ff5c57;
+  --yazi: "Hanken Grotesk", system-ui, sans-serif;
+  --olcu: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  --hizli: 180ms cubic-bezier(.16, 1, .3, 1);
+  --r: 3px;
+  --ok: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' stroke='%23a39e94' stroke-width='1.6'%3E%3Cpath d='M3 4.5l3 3 3-3'/%3E%3C/svg%3E");
+}
+
+* { box-sizing: border-box; }
+html { scrollbar-color: #3a3733 var(--zemin); scroll-behavior: smooth; }
+body { margin: 0; background: var(--zemin); color: var(--murekkep); font: 400 1rem/1.5 var(--yazi); -webkit-font-smoothing: antialiased; caret-color: var(--turuncu); }
+::selection { background: var(--turuncu); color: var(--zemin); }
+:focus-visible { outline: 2px solid var(--turuncu); outline-offset: 2px; }
+a { color: inherit; text-underline-offset: .2em; }
+h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -.015em; text-wrap: balance; }
+.olcu { font-family: var(--olcu); font-variant-numeric: tabular-nums; font-size: .93em; }
+.gizli { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.yalniz-baski { display: none; }
+
+/* Üst çubuk */
+.ust { position: sticky; top: 0; z-index: 5; height: 64px; display: flex; align-items: center; gap: 2rem; padding: 0 clamp(1rem, 3vw, 2.5rem); background: rgb(18 17 16 / .88); backdrop-filter: blur(10px); border-bottom: 1px solid var(--cizgi); }
+.marka { display: flex; align-items: center; gap: .625rem; font-weight: 600; font-size: 1.1875rem; text-decoration: none; }
+.marka svg { width: 26px; height: 26px; color: var(--turuncu); }
+.marka small { font-weight: 400; font-size: .875rem; color: var(--soluk); }
+.ust nav { display: flex; gap: 1.5rem; margin-left: auto; font-size: .9375rem; }
+.ust nav a { text-decoration: none; color: var(--soluk); transition: color var(--hizli); }
+.ust nav a:hover { color: var(--murekkep); }
+
+.dugme { display: inline-flex; align-items: center; gap: .5rem; height: 40px; padding: 0 1.125rem; border-radius: 999px; border: 1px solid var(--cizgi-2); background: transparent; color: var(--murekkep); font: 600 .9375rem var(--yazi); cursor: pointer; white-space: nowrap; transition: background var(--hizli), border-color var(--hizli), transform var(--hizli); }
+.dugme:hover { border-color: var(--murekkep); }
+.dugme:active { transform: scale(.97); }
+.dugme.ana { background: var(--turuncu); border-color: var(--turuncu); color: #140c08; }
+.dugme.ana:hover { background: #ff7d45; }
+.dugme svg { width: 16px; height: 16px; }
+
+/* Koşullar */
+.cerceve { border: 1px solid var(--cizgi); border-radius: var(--r); background: var(--panel); overflow: hidden; }
+.tablo { width: 100%; border-collapse: collapse; font-size: .9375rem; }
+.tablo th { text-align: left; font-size: .8em; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--soluk); padding: .75rem 1rem; border-bottom: 1px solid var(--cizgi); }
+.tablo td { padding: .75rem 1rem; border-bottom: 1px solid var(--cizgi); vertical-align: middle; }
+.tablo tr:last-child td { border-bottom: 0; }
+.tablo tbody tr { transition: background var(--hizli); }
+.tablo tbody tr:hover { background: rgb(236 230 218 / .03); }
+.tablo .olcu { white-space: nowrap; }
+.tablo .kaynak { color: var(--soluk); font-size: .93em; white-space: nowrap; }
+.kul { display: grid; grid-template-columns: 72px auto; align-items: center; gap: .625rem; font: 400 .87em var(--olcu); color: var(--soluk); }
+.kul i { position: relative; height: 4px; border-radius: 2px; background: var(--cizgi-2); overflow: hidden; }
+.kul i b { position: absolute; inset: 0 auto 0 0; border-radius: 2px; background: var(--nane); transition: width 280ms cubic-bezier(.16, 1, .3, 1); }
+.kul i::after { content: ""; position: absolute; left: 83.33%; top: -2px; bottom: -2px; width: 1px; background: var(--murekkep); opacity: .5; }
+.kul.asim i b { background: var(--kirmizi); }
+.sonuc-hucre { display: inline-flex; align-items: center; gap: .375rem; font-weight: 600; font-size: .93em; white-space: nowrap; }
+.sonuc-hucre svg { width: 16px; height: 16px; }
+.sonuc-hucre.uygun { color: var(--nane); }
+.sonuc-hucre.degil { color: var(--kirmizi); }
+.alt { padding: 1.5rem clamp(1rem, 3vw, 2.5rem) 2.5rem; color: var(--soluk); font-size: .875rem; display: flex; flex-wrap: wrap; justify-content: space-between; gap: .5rem 2rem; border-top: 1px solid var(--cizgi); }
+.ust nav a[aria-current="page"] { color: var(--murekkep); }
+
+/* Başlık */
+.baslik { padding: 2rem clamp(1rem, 3vw, 2.5rem) 1.25rem; }
+.baslik h1 { font-size: 2.25rem; line-height: 1.05; letter-spacing: -.03em; }
+.baslik p { margin: .625rem 0 0; color: var(--soluk); max-width: 50rem; }
+kbd { font: 400 .8125rem var(--olcu); padding: 0 .375rem; border: 1px solid var(--cizgi-2); border-radius: var(--r); color: var(--murekkep); }
+
+/* Çalışma kitabı: şerit, formül çubuğu, hücreler, durum çubuğu */
+.kitap { margin: 0 clamp(1rem, 3vw, 2.5rem); border: 1px solid var(--cizgi-2); border-radius: var(--r); background: var(--panel); overflow: hidden; }
+.serit { display: flex; flex-wrap: wrap; align-items: end; gap: .75rem 1.25rem; padding: .75rem 1rem .875rem; border-bottom: 1px solid var(--cizgi); }
+.serit .alan { display: grid; gap: .25rem; font-size: .75rem; color: var(--soluk); }
+.serit select, .serit input[type=text] { height: 34px; border-radius: var(--r); border: 1px solid var(--cizgi-2); background: var(--alan); color: var(--murekkep); font: 400 .875rem var(--olcu); padding: 0 .625rem; transition: border-color var(--hizli), box-shadow var(--hizli); }
+.serit select { appearance: none; padding-right: 1.75rem; background: var(--alan) var(--ok) no-repeat right .5rem center; cursor: pointer; }
+.serit input[type=text] { width: 8.5rem; }
+.serit input::placeholder { color: rgb(163 158 148 / .7); font-family: var(--yazi); }
+.serit :is(select, input[type=text]):focus { border-color: var(--turuncu); outline: none; box-shadow: 0 0 0 3px rgb(255 106 43 / .22); }
+.serit input[aria-invalid="true"] { border-color: var(--kirmizi); }
+.secim { display: flex; align-items: center; gap: .5rem; height: 34px; font-size: .8125rem; cursor: pointer; }
+.secim input { width: 16px; height: 16px; accent-color: var(--turuncu); }
+.serit .sag { margin-left: auto; display: flex; flex-wrap: wrap; gap: .5rem; }
+.dugme.kucuk { height: 34px; padding: 0 .875rem; font-size: .8125rem; }
+
+.formul { display: grid; grid-template-columns: 76px auto minmax(0, 1fr); height: 36px; border-bottom: 1px solid var(--cizgi); font: 400 .8125rem/36px var(--olcu); }
+.formul > * { padding: 0 .75rem; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#ad-kutusu { border-right: 1px solid var(--cizgi); text-align: center; }
+.fx { border-right: 1px solid var(--cizgi); color: var(--soluk); font: italic 600 .9375rem/36px var(--yazi); }
+.formul .soluk { color: var(--soluk); }
+.formul .hata-yazi { color: var(--kirmizi); }
+
+.kap { overflow: auto; max-height: min(68vh, 760px); background: var(--levha); scroll-padding: 58px 0 0 44px; }
+.sayfa { border-collapse: separate; border-spacing: 0; table-layout: fixed; font-size: .875rem; }
+.sayfa th, .sayfa td { height: 32px; padding: 0; border-right: 1px solid var(--cizgi); border-bottom: 1px solid var(--cizgi); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sayfa thead th { position: sticky; z-index: 2; background: var(--panel); }
+.harfler th { top: 0; height: 24px; font: 400 .6875rem var(--olcu); color: var(--soluk); text-align: center; }
+.adlar th { top: 24px; height: 34px; padding: 0 .625rem; font: 600 .8125rem var(--yazi); text-align: left; background: #1c1b18; border-bottom-color: var(--cizgi-2); }
+.adlar th.sayi { text-align: right; }
+.adlar small { font-weight: 400; color: var(--soluk); }
+.sayfa .no { position: sticky; left: 0; z-index: 1; text-align: center; font: 400 .6875rem var(--olcu); color: var(--soluk); background: var(--panel); }
+.sayfa thead .no { z-index: 3; }
+.sayfa .aktif { background: #3a2116; color: var(--turuncu); }
+.sayfa .sinir-sol { border-left: 2px solid var(--cizgi-2); }
+
+.sayfa input { display: block; width: 100%; height: 31px; padding: 0 .625rem; border: 0; border-radius: 0; background: transparent; color: var(--murekkep); font: 400 .875rem var(--olcu); font-variant-numeric: tabular-nums; text-align: right; }
+.sayfa .metin input { font-family: var(--yazi); text-align: left; }
+.sayfa input::placeholder { color: rgb(163 158 148 / .45); }
+.sayfa tr.bos input::placeholder { color: transparent; }
+.sayfa input:focus, .sayfa td:focus { outline: 2px solid var(--turuncu); outline-offset: -2px; }
+.sayfa input:focus { background: var(--alan); }
+.sayfa input[aria-invalid="true"] { color: var(--kirmizi); background: rgb(255 92 87 / .08); text-decoration: underline wavy; text-underline-offset: 5px; text-decoration-thickness: 1px; }
+.sayfa tbody tr:hover td { background-color: rgb(236 230 218 / .02); }
+.sayfa .cikti { padding: 0 .625rem; background: rgb(236 230 218 / .035); }
+.sayfa .cikti.sayi { text-align: right; font-family: var(--olcu); font-variant-numeric: tabular-nums; }
+.sayfa .soluk { color: var(--soluk); }
+.sayfa .sonuc-hucre { font-size: .8125rem; }
+/* Excel'in veri çubuğu: kullanım oranı, ince çizgi %100 */
+.sayfa td.dolgu { position: relative; font-family: var(--olcu); font-size: .8125rem; }
+.sayfa td.dolgu i { position: absolute; left: 0; top: 6px; bottom: 6px; background: rgb(143 217 176 / .2); border-right: 2px solid var(--nane); }
+.sayfa td.dolgu.asim i { background: rgb(255 92 87 / .2); border-right-color: var(--kirmizi); }
+.sayfa td.dolgu::after { content: ""; position: absolute; left: 83.33%; top: 3px; bottom: 3px; width: 1px; background: var(--murekkep); opacity: .3; }
+.sayfa td.dolgu span { position: relative; }
+
+.durum-cubugu { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .25rem 1rem; padding: .4375rem .875rem; border-top: 1px solid var(--cizgi); font-size: .75rem; color: var(--soluk); }
+.durum-cubugu b { color: var(--murekkep); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+.ayrinti { margin: 1.5rem clamp(1rem, 3vw, 2.5rem) 3rem; }
+.ayrinti .bas { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .25rem 1rem; min-height: 52px; padding: .5rem 1.25rem; border-bottom: 1px solid var(--cizgi); }
+.ayrinti h2 { font-size: .9375rem; }
+.ayrinti .bas span { color: var(--soluk); font-size: .8125rem; }
+.ayrinti p { margin: 0; padding: 1.25rem; color: var(--soluk); }
+
+@media (max-width: 960px) {
+  .ust nav { display: none; }
+  .ust .dugme { margin-left: auto; }
+  .serit .sag { margin-left: 0; }
+}
+@media (max-width: 640px) {
+  .baslik h1 { font-size: 1.75rem; }
+  .baslik p { font-size: .9375rem; }
+  .ust { gap: 1rem; }
+  .marka small { display: none; }
+  .formul { grid-template-columns: 60px auto minmax(0, 1fr); }
+  .ayrinti .tablo thead { display: none; }
+  .ayrinti .tablo tr { display: grid; grid-template-columns: 1fr auto; gap: .25rem 1rem; padding: .875rem 1rem; border-bottom: 1px solid var(--cizgi); }
+  .ayrinti .tablo td { padding: 0; border: 0; }
+  .ayrinti .tablo td:nth-child(1) { font-weight: 600; }
+  .ayrinti .tablo td:nth-child(2), .ayrinti .tablo td:nth-child(3), .ayrinti .tablo td:nth-child(4) { grid-column: 1 / -1; }
+  .ayrinti .tablo td:nth-child(6) { grid-row: 1; grid-column: 2; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { transition-duration: 0ms !important; scroll-behavior: auto !important; }
+}
+
+@media print {
+  @page { size: A4 landscape; margin: 10mm 12mm; }
+  :root { color-scheme: light; --zemin: #fff; --panel: #fff; --alan: #fff; --levha: #fff; --murekkep: #111; --soluk: #555; --cizgi: #bbb; --cizgi-2: #777; --nane: #111; --kirmizi: #111; --turuncu: #111; }
+  body { font-size: 9pt; }
+  .ust, .baslik, .serit, .formul, .harfler, .sayfa .no, .ayrinti, .sayfa tr.bos { display: none !important; }
+  .yalniz-baski { display: block; }
+  .rapor-bas { display: flex; justify-content: space-between; align-items: baseline; gap: 6mm; padding-bottom: 2.5mm; border-bottom: 1.5pt solid #111; margin-bottom: 2.5mm; }
+  .rapor-bas h1 { font-size: 14pt; }
+  .rapor-bas span { font-size: 9pt; color: #333; }
+  .ayar-ozet { margin: 0 0 3mm; font-size: 8.5pt; color: #333; }
+  .kitap { margin: 0; border: .75pt solid #777; overflow: visible; }
+  .kap { overflow: visible; max-height: none; }
+  .sayfa { table-layout: auto; width: 100% !important; font-size: 8pt; }
+  .sayfa col { width: auto !important; }
+  .sayfa th, .sayfa td { height: auto; overflow: visible; white-space: normal; }
+  .sayfa thead th { position: static; }
+  .adlar th { height: auto; padding: 1.5mm; background: #fff; font-size: 7.5pt; }
+  .sayfa input { height: auto; padding: 1.2mm 1.5mm; font-size: 8pt; }
+  .sayfa input::placeholder { color: #555; }
+  .sayfa .cikti { padding: 1.2mm 1.5mm; background: none; }
+  .sayfa td.dolgu i, .sayfa td.dolgu::after { display: none; }
+  .sayfa .sonuc-hucre { font-size: 8pt; white-space: nowrap; }
+  .durum-cubugu { padding: 1.5mm 2mm; font-size: 8pt; }
+  #baski-ayrinti { break-before: page; }
+  #baski-ayrinti > h2 { font-size: 12pt; margin-bottom: 3mm; }
+  .eleman { break-inside: avoid; margin-bottom: 4mm; border: .75pt solid #777; }
+  .eleman h3 { font-size: 9.5pt; padding: 1.5mm 2.5mm; border-bottom: .5pt solid #bbb; }
+  .eleman p { margin: 0; padding: 2mm 2.5mm; }
+  .tablo { font-size: 8pt; }
+  .tablo td, .tablo th { padding: 1.2mm 2.5mm; }
+  .tablo .olcu, .tablo .kaynak, .sonuc-hucre { white-space: normal; }
+  .kul { grid-template-columns: 14mm auto; }
+  .kul i { border: .5pt solid #111; background: #fff; }
+  .kul i b { background: #111 !important; }
+  .alt { margin-top: 4mm; padding: 3mm 0 0; }
+}
+</style>
+</head>
+<body>
+<header class="ust">
+  <a class="marka" href="./">
+    <svg viewBox="0 0 26 26" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="4" y="8" width="18" height="10"/><path d="M4 13h18M13 4v18" stroke-dasharray="3 2 1 2"/><path d="M4 21.5h18M3 20.5l2 2M21 20.5l2 2" stroke-width="1.2"/></svg>
+    Kesit <small>Kolon / perde ön kontrolü</small>
+  </a>
+  <nav aria-label="Sayfa">
+    <a href="hesap.html">Tek kesit</a>
+    <a href="tablo.html" aria-current="page">Tablo</a>
+    <a href="sira.html">Döşemeden temele</a>
+    <a href="hesap.html#kurallar">Kurallar</a>
+  </nav>
+  <button class="dugme ana" type="button" id="yazdir">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 6V2h8v4M4 12H2.5V6.5h11V12H12M4 9.5h8V14H4z"/></svg>
+    Yazdır / PDF
+  </button>
+</header>
+
+<section class="baslik">
+  <h1>Kolon tablosu</h1>
+  <p>Her satır bir eleman. Excel'deki listeni kopyalayıp A2 hücresine yapıştır, sonuç sütunları kendiliğinden dolar. <kbd>Enter</kbd> aşağı, <kbd>Tab</kbd> sağa geçer, <kbd>F2</kbd> hücreyi düzenler, <kbd>Esc</kbd> geri alır. Tablo bu tarayıcıda saklanır.</p>
+</section>
+
+<div class="yalniz-baski">
+  <div class="rapor-bas"><h1>Kolon / perde ön kontrol tablosu</h1><span id="tarih"></span></div>
+  <p class="ayar-ozet" id="ayar-ozet"></p>
+</div>
+
+<main class="kitap">
+  <form class="serit" id="ayar" autocomplete="off" aria-label="Tablo varsayılanları">
+    <label class="alan">Varsayılan beton <select name="beton"></select></label>
+    <label class="alan">Varsayılan kat yüksekliği, mm <input name="H" type="text" inputmode="decimal" value="3000"></label>
+    <label class="alan">Kirişsiz döşeme açıklığı, mm <input name="kirissiz" type="text" inputmode="decimal" placeholder="kirişli ise boş"></label>
+    <label class="secim"><input name="tutulu" type="checkbox"> Perdeler iki ucundan tutulu</label>
+    <label class="secim"><input name="yuksek" type="checkbox"> Yüksek bina (BYS = 1)</label>
+    <label class="secim"><input name="yalniz" type="checkbox"> Yalnız perdeli sistem (Denk. 7.14)</label>
+    <div class="sag">
+      <button class="dugme kucuk" type="button" id="sil">Satırı sil</button>
+      <button class="dugme kucuk" type="button" id="temizle">Temizle</button>
+      <button class="dugme kucuk" type="button" id="aktar">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M8 2v8M4.5 6.5L8 10l3.5-3.5M3 13.5h10"/></svg>
+        Excel'e aktar</button>
+    </div>
+  </form>
+  <div class="formul"><output id="ad-kutusu" aria-label="Seçili hücre"></output><span class="fx" aria-hidden="true">fx</span><output id="formul" aria-label="Hücre içeriği"></output></div>
+  <div class="kap">
+    <table class="sayfa" id="sayfa" aria-label="Kolon tablosu">
+      <colgroup id="sutunlar"></colgroup>
+      <thead><tr class="harfler" id="harfler"></tr><tr class="adlar" id="adlar"></tr></thead>
+      <tbody id="govde"></tbody>
+    </table>
+  </div>
+  <div class="durum-cubugu"><span id="durum-sol">Hazır</span><span id="durum-sag"></span></div>
+</main>
+
+<section class="ayrinti cerceve" aria-labelledby="ayrinti-baslik">
+  <div class="bas"><h2 id="ayrinti-baslik">Koşullar</h2><span id="ayrinti-not"></span></div>
+  <div id="ayrinti"></div>
+</section>
+
+<div class="yalniz-baski" id="baski-ayrinti"></div>
+
+<footer class="alt">
+  <span>Ön boyutlandırma aracıdır; kesin statik hesabın yerine geçmez.</span>
+  <span>Kaynaklar: 1 Mart kararnamesi · TBDY 2018 · TS 500 (Şubat 2000) · TS 498 (Kasım 1997)</span>
+</footer>
+
+<script type="module">
+import { BETON, SUTUNLAR, tabloSatiri, sayiOku } from './kurallar.js';
+
+const $ = s => document.querySelector(s);
+const tr = (x, d = 2) => x.toLocaleString('tr-TR', { maximumFractionDigits: d });
+const kacis = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+const simge = s => s.replace(/N_dm/g, 'N<sub>dm</sub>').replace(/N_d\b/g, 'N<sub>d</sub>').replace(/fck/g, 'f<sub>ck</sub>').replace(/fcd/g, 'f<sub>cd</sub>');
+const birim = sinir => sinir.endsWith('mm²') ? ' mm²' : sinir.endsWith('mm') ? ' mm' : '';
+const deger = x => typeof x.deger === 'string' ? x.deger : tr(x.deger) + birim(x.sinir);
+const TUR = { kolon: 'Kolon', perde: 'Perde', gecersiz: 'Geçersiz' };
+const IKON = {
+  uygun: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7"/></svg>',
+  degil: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7"/></svg>',
+};
+const sonucYaz = (ok, yazi) => `<span class="sonuc-hucre ${ok ? 'uygun' : 'degil'}">${IKON[ok ? 'uygun' : 'degil']}${yazi}</span>`;
+const AZAMI = 1.2;
+const HARF = 'ABCDEFGHIJKLMN';
+// [başlık, ekran okuyucu adı, genişlik px, sayı mı]; ilk 7'si girdi (SUTUNLAR sırası), kalanı sonuç.
+const SUTUN = [
+  ['Eleman', 'Eleman adı', 120], ['b <small>mm</small>', 'b, mm', 72, 1], ['h <small>mm</small>', 'h, mm', 72, 1],
+  ['H <small>mm</small>', 'Kat yüksekliği H, mm', 72, 1], ['Beton', 'Beton sınıfı', 64],
+  ['N<sub>dm</sub> <small>kN</small>', 'N dm, kN', 84, 1], ['N<sub>d</sub> <small>kN</small>', 'N d, kN', 84, 1],
+  ['Tür', '', 84], ['Oran', '', 64, 1], ['A<sub>c</sub> <small>mm²</small>', '', 96, 1], ['Belirleyici koşul', '', 172],
+  ['Kullanım', '', 112], ['Sonuç', '', 124], ['En küçük kolon', '', 104, 1],
+];
+const GIRDI = SUTUNLAR.length;
+const ORNEK = [
+  ['S1', '400', '500', '', '', '876', '1262'],
+  ['S2', '300', '300', '', '', '1500', '2100'],
+  ['S3', '300', '600', '', '', '900', '1300'],
+  ['P1', '250', '1800', '', '', '2400', ''],
+  ['P2', '200', '1500', '', 'C35', '1200', ''],
+];
+const EN_AZ = 15;
+const ANAHTAR = 'kesit.tablo.v1';
+
+const f = $('#ayar'), govde = $('#govde');
+let veri = [], sonuc = [], secili = { i: 0, j: 0 }, duzenle = false, eski = '', ayar;
+
+f.beton.innerHTML = Object.keys(BETON).map(k => `<option${k === 'C30' ? ' selected' : ''}>${k}</option>`).join('');
+$('#sutunlar').innerHTML = '<col style="width:44px">' + SUTUN.map(s => `<col style="width:${s[2]}px">`).join('');
+$('#sayfa').style.width = `max(100%, ${44 + SUTUN.reduce((a, s) => a + s[2], 0)}px)`;
+$('#harfler').innerHTML = '<th class="no"></th>' + SUTUN.map((_, j) => `<th aria-hidden="true"${j === GIRDI ? ' class="sinir-sol"' : ''}>${HARF[j]}</th>`).join('');
+$('#adlar').innerHTML = '<th class="no" aria-hidden="true">1</th>' + SUTUN.map(([ad, , , sayi], j) =>
+  `<th scope="col" class="${[sayi && 'sayi', j === GIRDI && 'sinir-sol'].filter(Boolean).join(' ')}">${ad}</th>`).join('');
+
+function ayarOku() {
+  const H = sayiOku(f.H.value), k = f.kirissiz.value.trim() ? sayiOku(f.kirissiz.value) : null;
+  f.H.setAttribute('aria-invalid', !(H > 0));
+  f.kirissiz.setAttribute('aria-invalid', k !== null && !(k > 0));
+  return { beton: f.beton.value, H, kirissiz: k, tutulu: f.tutulu.checked, yuksek: f.yuksek.checked, yalniz: f.yalniz.checked };
+}
+const ayarYazi = () => [`Varsayılan beton ${ayar.beton}`, `varsayılan kat yüksekliği ${ayar.H > 0 ? tr(ayar.H) + ' mm' : '—'}`,
+  ayar.kirissiz > 0 ? `kirişsiz döşeme, l = ${tr(ayar.kirissiz)} mm` : 'kirişli döşeme',
+  `perdeler iki ucundan tutulu: ${ayar.tutulu ? 'evet' : 'hayır'}`, `yüksek bina (BYS = 1): ${ayar.yuksek ? 'evet' : 'hayır'}`,
+  `yalnız perdeli sistem (Denk. 7.14): ${ayar.yalniz ? 'evet' : 'hayır'}`].join(' · ');
+
+function satirEkle(s = Array(GIRDI).fill('')) {
+  const i = veri.push(s) - 1;
+  govde.insertRow().innerHTML = `<th scope="row" class="no">${i + 2}</th>` +
+    s.map((v, j) => `<td${j === 0 || j === 4 ? ' class="metin"' : ''}><input size="1" value="${kacis(v)}" aria-label="${SUTUN[j][1]}"` +
+      `${j === 0 ? ' maxlength="60"' : j === 4 ? ` placeholder="${ayar.beton}"` : ` inputmode="decimal"${j === 3 && ayar.H > 0 ? ` placeholder="${tr(ayar.H)}"` : ''}`} spellcheck="false" autocomplete="off"></td>`).join('') +
+    SUTUN.slice(GIRDI).map((s, k) => `<td class="cikti${s[3] ? ' sayi' : ''}${k === 0 ? ' sinir-sol' : ''}" tabindex="-1"></td>`).join('');
+  guncelle(i);
+}
+const enAz = () => { while (veri.length < EN_AZ) satirEkle(); };
+const sonaBos = () => { if (veri.at(-1).some(v => v.trim())) satirEkle(); };
+const belirleyen = r => r.belirleyici ?? r.maddeler.find(x => !x.gecti);
+
+function ciktilar(s, v) {
+  if (!s) return ['', '', '', '', '', '', ''];
+  if (!s.r) return ['<span class="soluk">—</span>', '', '', `<span class="soluk">${simge(Object.values(s.hata)[0])}</span>`, '', sonucYaz(false, 'Giriş hatası'), ''];
+  const { r, oneri } = s, k = r.belirleyici?.kullanim;
+  return [TUR[r.tur], tr(r.oran, 3), tr(r.Ac), belirleyen(r).ad,
+    k == null ? '' : `<i style="width:${Math.min(k, AZAMI) / AZAMI * 100}%"></i><span>%${Math.round(k * 100)}</span>`,
+    sonucYaz(r.gecti, r.gecti ? 'Uygun' : 'Uygun değil'),
+    oneri ? `${oneri.b} × ${oneri.h}` : `<span class="soluk">${r.tur === 'perde' ? '—' : !v[6].trim() ? 'N<sub>d</sub> girin' : 'perde düşünün'}</span>`];
+}
+
+function guncelle(i) {
+  const s = sonuc[i] = tabloSatiri(veri[i], ayar), satir = govde.rows[i];
+  satir.classList.toggle('bos', !s);
+  SUTUNLAR.forEach((k, j) => {
+    const el = satir.cells[j + 1].firstChild, h = s?.hata[k];
+    if (h) el.setAttribute('aria-invalid', 'true'); else el.removeAttribute('aria-invalid');
+    el.title = h ? h.replace(/_/g, ' ') : '';
+  });
+  ciktilar(s, veri[i]).forEach((html, k) => { satir.cells[GIRDI + 1 + k].innerHTML = html; });
+  const kul = satir.cells[GIRDI + 5], oran = s?.r?.belirleyici?.kullanim;
+  kul.classList.toggle('dolgu', oran != null);
+  kul.classList.toggle('asim', oran > 1 + 1e-9);
+}
+
+function formul(i, j) {
+  const s = sonuc[i], v = veri[i][j];
+  if (j < GIRDI) {
+    const k = SUTUNLAR[j], h = s?.hata[k];
+    const yer = !v.trim() && (k === 'H' && ayar.H > 0 ? `= ${tr(ayar.H)} <span class="soluk">(varsayılan)</span>` : k === 'beton' ? `= ${ayar.beton} <span class="soluk">(varsayılan)</span>` : '');
+    return (yer || kacis(v)) + (h ? ` <span class="hata-yazi">· ${simge(h)}</span>` : '');
+  }
+  if (!s) return '';
+  if (!s.r) return `<span class="hata-yazi">${Object.values(s.hata).map(simge).join(' · ')}</span>`;
+  const { r, oneri } = s, m = belirleyen(r);
+  const yaz = x => `${x.ad}: ${deger(x)}, ${simge(x.sinir)} · ${x.kaynak}${x.kullanim != null ? ` · kullanım %${Math.round(x.kullanim * 100)}` : ''}`;
+  switch (j - GIRDI) {
+    case 0: case 1: return `uzun / kısa = ${r.maddeler.find(x => typeof x.deger === 'string').deger} → kolon ≤ 1,5 · perde ≥ 6 <span class="soluk">(1 Mart kararnamesi, TBDY 7.6.1.2)</span>`;
+    case 2: return `A<sub>c</sub> = ${tr(r.kisa)} × ${tr(r.uzun)} = ${tr(r.Ac)} mm²`;
+    case 3: case 4: return yaz(m);
+    case 5: return r.gecti ? `${r.maddeler.length} koşulun tümü sağlanıyor` : 'Sağlamayan: ' + r.maddeler.filter(x => !x.gecti).map(yaz).join(' | ');
+    default: return oneri
+      ? `En küçük kolon ${oneri.b} × ${oneri.h} mm: A<sub>c</sub> ${tr(oneri.Ac)} ≥ ${tr(Math.ceil(oneri.Agerek))} mm² · kısa kenar ≥ 300 · oran ≤ 1,5 · 50 mm adım`
+      : r.tur === 'perde' ? 'Perdede kolon önerisi yapılmaz' : !veri[i][6].trim() ? 'Öneri için N<sub>d</sub> girin' : 'Oranı 1,5\'i aşmayan kolon bu yükü taşımıyor; perde düşünün';
+  }
+}
+
+function maddeTablosu(s) {
+  if (!s) return '<p>Satır boş. Eleman bilgilerini gir ya da Excel\'den yapıştır.</p>';
+  if (!s.r) return `<p>Giriş hatası: ${Object.values(s.hata).map(simge).join(' · ')}</p>`;
+  return `<table class="tablo"><thead><tr><th scope="col">Koşul</th><th scope="col">Değer</th><th scope="col">Sınır</th><th scope="col">Kaynak</th><th scope="col">Kullanım</th><th scope="col"><span class="gizli">Sonuç</span></th></tr></thead><tbody>` +
+    s.r.maddeler.map(x => `<tr><td>${x.ad}</td><td class="olcu">${deger(x)}</td><td class="olcu">${simge(x.sinir)}</td><td class="kaynak">${x.kaynak}</td>` +
+      `<td>${x.kullanim == null ? '' : `<span class="kul${x.kullanim > 1 + 1e-9 ? ' asim' : ''}"><i><b style="width:${Math.min(x.kullanim, AZAMI) / AZAMI * 100}%"></b></i>%${Math.round(x.kullanim * 100)}</span>`}</td>` +
+      `<td>${sonucYaz(x.gecti, x.gecti ? 'Sağlıyor' : 'Sağlamıyor')}</td></tr>`).join('') + '</tbody></table>';
+}
+
+function aktif(i, j) {
+  secili = { i, j };
+  document.querySelectorAll('.sayfa .aktif').forEach(x => x.classList.remove('aktif'));
+  $('#harfler').cells[j + 1].classList.add('aktif');
+  govde.rows[i].cells[0].classList.add('aktif');
+  $('#ad-kutusu').value = HARF[j] + (i + 2);
+  $('#formul').innerHTML = formul(i, j);
+  const s = sonuc[i], ad = veri[i][0].trim();
+  $('#ayrinti-baslik').textContent = `Satır ${i + 2}${ad ? ' · ' + ad : ''} · koşullar`;
+  $('#ayrinti-not').textContent = s?.r ? `${TUR[s.r.tur]} · ${s.sinif} · H ${tr(s.H)} mm` : '';
+  $('#ayrinti').innerHTML = maddeTablosu(s);
+}
+
+function hucreSec(i, j) {
+  i = Math.max(0, Math.min(i, veri.length - 1));
+  j = Math.max(0, Math.min(j, SUTUN.length - 1));
+  const td = govde.rows[i].cells[j + 1];
+  (j < GIRDI ? td.firstChild : td).focus();
+}
+
+function durum() {
+  const dolu = sonuc.filter(Boolean), say = t => dolu.filter(s => s.r?.tur === t).length;
+  const hatali = dolu.filter(s => !s.r).length, degil = dolu.filter(s => s.r && !s.r.gecti).length;
+  $('#durum-sol').innerHTML = hatali ? `<b>${hatali}</b> satırda giriş hatası` : 'Hazır';
+  $('#durum-sag').innerHTML = `Eleman <b>${dolu.length}</b> · Kolon <b>${say('kolon')}</b> · Perde <b>${say('perde')}</b> · Geçersiz <b>${say('gecersiz')}</b> · Uygun değil <b>${degil}</b>`;
+}
+
+const kaydet = () => {
+  try { localStorage.setItem(ANAHTAR, JSON.stringify({ veri, ayar: { beton: f.beton.value, H: f.H.value, kirissiz: f.kirissiz.value, tutulu: f.tutulu.checked, yuksek: f.yuksek.checked, yalniz: f.yalniz.checked } })); } catch {}
+};
+function yukle() {
+  try {
+    const k = JSON.parse(localStorage.getItem(ANAHTAR));
+    if (!Array.isArray(k?.veri)) return ORNEK.map(s => [...s]);
+    const a = k.ayar ?? {};
+    if (a.beton in BETON) f.beton.value = a.beton;
+    for (const x of ['H', 'kirissiz']) if (typeof a[x] === 'string') f[x].value = a[x].slice(0, 20);
+    for (const x of ['tutulu', 'yuksek', 'yalniz']) f[x].checked = a[x] === true;
+    return k.veri.filter(Array.isArray).slice(0, 2000).map(s => Array.from({ length: GIRDI }, (_, j) => String(s[j] ?? '').slice(0, 60)));
+  } catch { return ORNEK.map(s => [...s]); }
+}
+
+// Hücre düzeni Excel gibi: tek tık seçer (yazınca üzerine yazar), çift tık / F2 düzenler; düzenlemede oklar imleci gezdirir.
+const yer = e => { const td = e.target.closest('td'); return td && { td, i: td.parentElement.sectionRowIndex, j: td.cellIndex - 1, input: e.target.tagName === 'INPUT' }; };
+govde.addEventListener('focusin', e => {
+  const y = yer(e); if (!y) return;
+  duzenle = false;
+  if (y.input) { eski = e.target.value; e.target.select(); }
+  aktif(y.i, y.j);
+});
+govde.addEventListener('click', e => { if (e.target.tagName === 'INPUT' && !duzenle) e.target.select(); });
+const sonaGit = el => { duzenle = true; el.setSelectionRange(el.value.length, el.value.length); };
+govde.addEventListener('dblclick', e => { if (e.target.tagName === 'INPUT') sonaGit(e.target); });
+govde.addEventListener('input', e => {
+  const y = yer(e);
+  veri[y.i][y.j] = e.target.value;
+  guncelle(y.i); sonaBos(); durum(); aktif(y.i, y.j); kaydet();
+});
+govde.addEventListener('keydown', e => {
+  const y = yer(e); if (!y || e.isComposing) return;
+  const git = (di, dj) => { e.preventDefault(); hucreSec(y.i + di, y.j + dj); };
+  switch (e.key) {
+    case 'Enter': return git(e.shiftKey ? -1 : 1, 0);
+    case 'ArrowDown': return git(1, 0);
+    case 'ArrowUp': return git(-1, 0);
+    case 'ArrowLeft': if (!duzenle || !y.input) git(0, -1); return;
+    case 'ArrowRight': if (!duzenle || !y.input) git(0, 1); return;
+    case 'F2': if (y.input) { e.preventDefault(); sonaGit(e.target); } return;
+    case 'Escape': if (y.input && e.target.value !== eski) { e.target.value = eski; e.target.dispatchEvent(new Event('input', { bubbles: true })); e.target.select(); duzenle = false; } return;
+  }
+});
+// Excel'den çok hücreli yapıştırma (sekme ve satır sonuyla ayrılmış). Sonuç sütunlarına taşan değerler atılır.
+// ponytail: tırnaklı, içinde satır sonu olan Excel hücresi desteklenmez; eleman adlarında satır sonu olmaz.
+govde.addEventListener('paste', e => {
+  const y = yer(e); if (!y?.input) return;
+  const metin = e.clipboardData.getData('text/plain').replace(/\r/g, '').replace(/\n+$/, '');
+  if (!/[\t\n]/.test(metin)) return; // tek değer: tarayıcı yapıştırsın
+  e.preventDefault();
+  const bloklar = metin.split('\n').map(x => x.split('\t'));
+  const ilk = bloklar[0][1 - y.j]?.trim();
+  if (y.j <= 1 && bloklar.length > 1 && ilk && Number.isNaN(sayiOku(ilk))) bloklar.shift(); // başlık satırı
+  bloklar.forEach((s, d) => {
+    while (y.i + d >= veri.length) satirEkle();
+    s.slice(0, GIRDI - y.j).forEach((v, k) => {
+      veri[y.i + d][y.j + k] = v.trim();
+      govde.rows[y.i + d].cells[y.j + k + 1].firstChild.value = v.trim();
+    });
+    guncelle(y.i + d);
+  });
+  sonaBos(); durum(); kaydet(); aktif(y.i, y.j); e.target.select();
+});
+
+f.addEventListener('submit', e => e.preventDefault());
+f.addEventListener('input', () => {
+  ayar = ayarOku();
+  for (const r of govde.rows) {
+    r.cells[4].firstChild.placeholder = ayar.H > 0 ? tr(ayar.H) : '';
+    r.cells[5].firstChild.placeholder = ayar.beton;
+  }
+  veri.forEach((_, i) => guncelle(i)); durum(); aktif(secili.i, secili.j); kaydet();
+});
+
+$('#sil').addEventListener('click', () => {
+  const { i, j } = secili;
+  veri.splice(i, 1); sonuc.splice(i, 1); govde.deleteRow(i);
+  [...govde.rows].forEach((r, k) => { r.cells[0].textContent = k + 2; });
+  enAz(); sonaBos(); durum(); kaydet(); hucreSec(i, j);
+});
+$('#temizle').addEventListener('click', () => {
+  if (!confirm('Tablodaki tüm satırlar silinsin mi? Bu geri alınamaz.')) return;
+  veri = []; sonuc = []; govde.replaceChildren(); enAz(); durum(); kaydet(); hucreSec(0, 0);
+});
+
+// Excel'e aktar: Türkçe Excel'in doğrudan açtığı CSV (UTF-8 BOM, noktalı virgül, ondalık virgül).
+$('#aktar').addEventListener('click', () => {
+  const sayi = x => x.toLocaleString('tr-TR', { useGrouping: false, maximumFractionDigits: 3 });
+  const hucre = v => { v = String(v); if (/^[=+\-@]/.test(v)) v = "'" + v; return /[;"\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v; };
+  const bas = ['Eleman', 'b (mm)', 'h (mm)', 'H (mm)', 'Beton', 'N_dm (kN)', 'N_d (kN)', 'Tür', 'Oran', 'A_c (mm²)', 'Belirleyici koşul', 'Kaynak', 'Kullanım (%)', 'Sonuç', 'En küçük kolon (mm)'];
+  const satirlar = veri.flatMap((v, i) => {
+    const s = sonuc[i]; if (!s) return [];
+    const r = s.r, m = r && belirleyen(r);
+    const n = j => { const x = sayiOku(v[j]); return Number.isFinite(x) ? sayi(x) : v[j].trim(); };
+    return [[v[0].trim(), n(1), n(2), v[3].trim() ? n(3) : s.H > 0 ? sayi(s.H) : '', s.sinif, n(5), n(6),
+      r ? TUR[r.tur] : 'Giriş hatası', r ? sayi(r.oran) : '', r ? sayi(r.Ac) : '',
+      m ? m.ad : Object.values(s.hata).join(' / '), m ? m.kaynak : '', m?.kullanim != null ? Math.round(m.kullanim * 100) : '',
+      r ? (r.gecti ? 'Uygun' : 'Uygun değil') : 'Giriş hatası', s.oneri ? `${s.oneri.b} × ${s.oneri.h}` : '']];
+  });
+  const csv = [bas, ...satirlar, [], [ayarYazi()], ['Kaynaklar: 1 Mart kararnamesi, TBDY 2018, TS 500 (Şubat 2000), TS 498 (Kasım 1997). Ön boyutlandırmadır, kesin hesabın yerine geçmez.']]
+    .map(r => r.map(hucre).join(';')).join('\r\n');
+  const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' })), download: 'kolon-tablosu.csv' });
+  a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+});
+
+$('#yazdir').addEventListener('click', () => print());
+addEventListener('beforeprint', () => {
+  $('#tarih').textContent = new Date().toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
+  $('#ayar-ozet').textContent = ayarYazi() + '.';
+  $('#baski-ayrinti').innerHTML = '<h2>Koşul ayrıntıları</h2>' + veri.map((v, i) => {
+    const s = sonuc[i]; if (!s) return '';
+    const durum = s.r ? `${TUR[s.r.tur]} · ${s.r.gecti ? 'Uygun' : 'Uygun değil'}` : 'Giriş hatası';
+    return `<section class="eleman"><h3>Satır ${i + 2}${v[0].trim() ? ' · ' + kacis(v[0].trim()) : ''} · ${durum}</h3>${maddeTablosu(s)}</section>`;
+  }).join('');
+});
+
+const ilk = yukle();
+ayar = ayarOku();
+ilk.forEach(s => satirEkle(s));
+enAz(); sonaBos(); durum(); aktif(0, 0);
+</script>
+</body>
+</html>

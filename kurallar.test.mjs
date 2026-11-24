@@ -1,6 +1,6 @@
 // Çalıştır: node hesap/kurallar.test.mjs
 import assert from 'node:assert/strict';
-import { sinifla, kontrol, kolonOner, beta, yukHesap } from './kurallar.js';
+import { sinifla, kontrol, kolonOner, beta, yukHesap, sayiOku, tabloSatiri } from './kurallar.js';
 
 // Sınıflandırma: ≤1,5 kolon, ≥6 perde, arası geçersiz; kenar sırası önemsiz.
 assert.equal(sinifla(300, 450).tur, 'kolon');
@@ -91,5 +91,18 @@ assert.ok(Math.abs(yz.Ndm - (700 + 176 + 140)) < 1e-9 && Math.abs(yz.Nd - y.Nd) 
 assert.equal(yukHesap({ alan: 20, katSayisi: 5, g: 7, q: 2, kullanim: 'atolye' }).qAz, true);
 assert.equal(yukHesap({ alan: 20, katSayisi: 5, g: 7, q: 5, kullanim: 'atolye' }).qAz, false);
 assert.equal(yukHesap({ alan: 20, katSayisi: 5, g: 7, q: 1, kullanim: 'depo' }).qAz, false);
+
+
+// Tablo: Türkçe Excel sayıları, varsayılanlar, eksik girişte sonuç yok.
+assert.deepEqual(['1.262,5', '1262,5', '1,262.5', '1.262', '250.000', '0.4', '12', ' 3 000 ', '', '-5', 'abc', '1,2,3'].map(sayiOku),
+  [1262.5, 1262.5, 1262.5, 1262, 250000, 0.4, 12, 3000, NaN, NaN, NaN, NaN]);
+const AYAR = { beton: 'C30', H: 3000, kirissiz: null, tutulu: false, yuksek: false, yalniz: false };
+assert.equal(tabloSatiri(['', ' ', '', '', '', '', ''], AYAR), null);
+assert.equal(tabloSatiri(['S1', '400', '500', '', '', '876', ''], AYAR).hata.Nd, 'Kolonda N_d gerekli (TS 500 Denk. 7.7)');
+assert.equal(tabloSatiri(['S1', '400', '500', '', 'C20', '876', '1262'], AYAR).hata.beton !== undefined, true);
+const t1 = tabloSatiri(['S1', '400', '500', '', '30', '876', '1.262'], AYAR);      // "30" = C30, boş H = 3000
+assert.deepEqual([t1.sinif, t1.H, t1.r.gecti, t1.r.tur], ['C30', 3000, true, 'kolon']);
+assert.equal(tabloSatiri(['P1', '250', '1500', '4100', '', '100', ''], AYAR).r.gecti, false);   // N_d perdede gerekmez; 4100/16 > 250
+assert.equal(tabloSatiri(['X', '300', '900', '', '', '10', ''], AYAR).oneri, null);             // geçersiz, N_d yok: öneri yok
 
 console.log('kurallar: tüm kontroller geçti');

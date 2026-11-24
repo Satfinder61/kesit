@@ -1,0 +1,445 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Kesit — Kolon / perde ön kontrolü</title>
+<link rel="preload" href="fonts/HankenGrotesk-400-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/HankenGrotesk-600-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/JetBrainsMono-latin.woff2" as="font" type="font/woff2" crossorigin>
+<style>
+@font-face { font-family: "Hanken Grotesk"; src: url("fonts/HankenGrotesk-400-latin.woff2") format("woff2"); font-weight: 400; font-display: swap; unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "Hanken Grotesk"; src: url("fonts/HankenGrotesk-400-latin-ext.woff2") format("woff2"); font-weight: 400; font-display: swap; unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: "Hanken Grotesk"; src: url("fonts/HankenGrotesk-600-latin.woff2") format("woff2"); font-weight: 600; font-display: swap; unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "Hanken Grotesk"; src: url("fonts/HankenGrotesk-600-latin-ext.woff2") format("woff2"); font-weight: 600; font-display: swap; unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: "JetBrains Mono"; src: url("fonts/JetBrainsMono-latin.woff2") format("woff2"); font-weight: 100 800; font-display: swap; unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "JetBrains Mono"; src: url("fonts/JetBrainsMono-latin-ext.woff2") format("woff2"); font-weight: 100 800; font-display: swap; unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+
+:root {
+  --zemin: #121110;
+  --panel: #191816;
+  --alan: #0d0c0b;
+  --levha: #151412;
+  --cizgi: rgb(236 230 218 / .10);
+  --cizgi-2: rgb(236 230 218 / .20);
+  --murekkep: #ece6da;
+  --soluk: #a39e94;
+  --turuncu: #ff6a2b;
+  --nane: #8fd9b0;
+  --kirmizi: #ff5c57;
+  --yazi: "Hanken Grotesk", system-ui, sans-serif;
+  --olcu: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  --hizli: 180ms cubic-bezier(.16, 1, .3, 1);
+  --r: 3px;
+  --ok: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' stroke='%23a39e94' stroke-width='1.6'%3E%3Cpath d='M3 4.5l3 3 3-3'/%3E%3C/svg%3E");
+}
+
+* { box-sizing: border-box; }
+html { scrollbar-color: #3a3733 var(--zemin); scroll-behavior: smooth; }
+body { margin: 0; background: var(--zemin); color: var(--murekkep); font: 400 1rem/1.5 var(--yazi); -webkit-font-smoothing: antialiased; caret-color: var(--turuncu); }
+::selection { background: var(--turuncu); color: var(--zemin); }
+:focus-visible { outline: 2px solid var(--turuncu); outline-offset: 2px; }
+a { color: inherit; text-underline-offset: .2em; }
+h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -.015em; text-wrap: balance; }
+.olcu { font-family: var(--olcu); font-variant-numeric: tabular-nums; font-size: .93em; }
+.gizli { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.yalniz-baski { display: none; }
+
+/* Üst çubuk */
+.ust { position: sticky; top: 0; z-index: 5; height: 64px; display: flex; align-items: center; gap: 2rem; padding: 0 clamp(1rem, 3vw, 2.5rem); background: rgb(18 17 16 / .88); backdrop-filter: blur(10px); border-bottom: 1px solid var(--cizgi); }
+.marka { display: flex; align-items: center; gap: .625rem; font-weight: 600; font-size: 1.1875rem; text-decoration: none; }
+.marka svg { width: 26px; height: 26px; color: var(--turuncu); }
+.marka small { font-weight: 400; font-size: .875rem; color: var(--soluk); }
+.ust nav { display: flex; gap: 1.5rem; margin-left: auto; font-size: .9375rem; }
+.ust nav a { text-decoration: none; color: var(--soluk); transition: color var(--hizli); }
+.ust nav a:hover { color: var(--murekkep); }
+
+.dugme { display: inline-flex; align-items: center; gap: .5rem; height: 40px; padding: 0 1.125rem; border-radius: 999px; border: 1px solid var(--cizgi-2); background: transparent; color: var(--murekkep); font: 600 .9375rem var(--yazi); cursor: pointer; white-space: nowrap; transition: background var(--hizli), border-color var(--hizli), transform var(--hizli); }
+.dugme:hover { border-color: var(--murekkep); }
+.dugme:active { transform: scale(.97); }
+.dugme.ana { background: var(--turuncu); border-color: var(--turuncu); color: #140c08; }
+.dugme.ana:hover { background: #ff7d45; }
+.dugme svg { width: 16px; height: 16px; }
+
+/* Kontur bandı */
+.bant { position: relative; height: 200px; overflow: hidden; border-bottom: 1px solid var(--cizgi); background: var(--zemin); }
+.bant canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.bant div { position: relative; height: 100%; display: flex; flex-direction: column; justify-content: center; gap: .5rem; padding: 0 clamp(1rem, 3vw, 2.5rem); max-width: 52rem; }
+.bant h1 { font-size: 2.75rem; line-height: 1.05; letter-spacing: -.03em; }
+.bant p { margin: 0; color: var(--soluk); font-size: 1.0625rem; max-width: 40rem; }
+
+/* Çalışma alanı */
+.is { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 1.5rem; padding: 1.5rem clamp(1rem, 3vw, 2.5rem) 3rem; align-items: start; }
+
+.giris { position: sticky; top: 80px; display: grid; gap: 1rem; }
+.grup { border: 1px solid var(--cizgi); border-radius: var(--r); background: var(--panel); padding: 1rem 1rem 1.125rem; margin: 0; min-width: 0; }
+.grup legend { float: left; width: 100%; padding: 0; margin: 0 0 .875rem; font-size: .8125rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--soluk); }
+.satir { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; clear: both; }
+.alan { display: grid; gap: .3125rem; font-size: .8125rem; color: var(--soluk); clear: both; }
+.satir .alan { clear: none; }
+.alan.tam { grid-column: 1 / -1; }
+.kutu { position: relative; }
+.kutu input, .alan select, .alan > input { width: 100%; height: 42px; padding: 0 3rem 0 .75rem; border-radius: var(--r); border: 1px solid var(--cizgi-2); background: var(--alan); color: var(--murekkep); font: 400 .9375rem var(--olcu); font-variant-numeric: tabular-nums; transition: border-color var(--hizli), box-shadow var(--hizli); }
+.alan > input { padding-right: .75rem; font-family: var(--yazi); font-size: 1rem; }
+.alan select { appearance: none; padding: 0 2rem 0 .75rem; font: 400 1rem var(--yazi); background: var(--alan) var(--ok) no-repeat right .75rem center; cursor: pointer; }
+.kutu input::-webkit-inner-spin-button, .kutu input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.kutu input[type=number] { -moz-appearance: textfield; appearance: textfield; }
+.kutu input::placeholder, .alan > input::placeholder { color: rgb(163 158 148 / .7); }
+.kutu input:hover, .alan select:hover, .alan > input:hover { border-color: rgb(236 230 218 / .34); }
+.kutu input:focus, .alan select:focus, .alan > input:focus { border-color: var(--turuncu); outline: none; box-shadow: 0 0 0 3px rgb(255 106 43 / .22); }
+.kutu input:user-invalid { border-color: var(--kirmizi); }
+.kutu span { position: absolute; right: .75rem; top: 50%; translate: 0 -50%; font-size: .8125rem; color: var(--soluk); pointer-events: none; }
+.secim { display: flex; align-items: center; gap: .625rem; margin-top: .875rem; font-size: .875rem; color: var(--murekkep); cursor: pointer; clear: both; }
+.secim input { width: 18px; height: 18px; accent-color: var(--turuncu); }
+.ipucu { margin: .5rem 0 0; font-size: .8125rem; color: var(--soluk); }
+.grup > .alan + .satir { margin-top: .75rem; }
+.grup > .ipucu + .alan { margin-top: .875rem; }
+
+details.yardim { border-top: 1px solid var(--cizgi); margin-top: 1rem; padding-top: .875rem; clear: both; }
+details.yardim summary { cursor: pointer; font-size: .875rem; font-weight: 600; list-style: none; display: flex; align-items: center; gap: .5rem; }
+details.yardim summary::-webkit-details-marker { display: none; }
+details.yardim summary svg { width: 14px; height: 14px; transition: rotate var(--hizli); }
+details.yardim[open] summary svg { rotate: 90deg; }
+details.yardim .satir { margin-top: .875rem; }
+.yukozet { display: block; margin: .875rem 0 .75rem; padding: .625rem .75rem; border-radius: var(--r); background: var(--alan); font-size: .8125rem; color: var(--soluk); }
+.yukozet b { color: var(--murekkep); font-weight: 600; }
+
+/* Pafta: çizim + antet tek levha */
+.pafta { display: grid; gap: 1.5rem; min-width: 0; }
+.sayfa { display: grid; grid-template-columns: minmax(0, 1fr) 272px; border: 1px solid var(--cizgi-2); border-radius: var(--r); background: var(--panel); overflow: hidden; }
+.sayfa-cizim { min-width: 0; display: flex; flex-direction: column; }
+.sayfa-cizim .levha { flex: 1 0 auto; }
+.bas { display: flex; align-items: center; justify-content: space-between; gap: 1rem; height: 52px; padding: 0 .75rem 0 1.25rem; border-bottom: 1px solid var(--cizgi); }
+.bas h3 { font-size: .9375rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sekmeler { display: inline-flex; padding: 3px; border-radius: 999px; background: var(--alan); border: 1px solid var(--cizgi); }
+.sekmeler button { height: 30px; padding: 0 .875rem; border: 0; border-radius: 999px; background: transparent; color: var(--soluk); font: 600 .8125rem var(--yazi); cursor: pointer; transition: background var(--hizli), color var(--hizli); }
+.sekmeler button:hover { color: var(--murekkep); }
+.sekmeler button[aria-selected="true"] { background: var(--murekkep); color: var(--zemin); }
+.levha { position: relative; aspect-ratio: 760 / 300; background:
+  linear-gradient(var(--cizgi) 1px, transparent 1px) 0 0 / 100% 24px,
+  linear-gradient(90deg, var(--cizgi) 1px, transparent 1px) 0 0 / 24px 100%; background-color: var(--levha); }
+.levha > svg, .levha > div { position: absolute; inset: 0; width: 100%; height: 100%; }
+.levha > div canvas { display: block; width: 100% !important; height: 100% !important; cursor: grab; touch-action: none; }
+.levha > div canvas:active { cursor: grabbing; }
+#kesit { color: var(--murekkep); }
+#kesit[data-durum="degil"] .kesit-cizgi { stroke: var(--kirmizi); }
+#kesit text { font: 400 calc(12px * var(--yk, 1)) var(--olcu); fill: currentColor; }
+#kesit .sinir text { fill: var(--turuncu); }
+.uc-not { position: absolute; left: 1rem; bottom: .75rem; font-size: .8125rem; color: var(--soluk); pointer-events: none; }
+
+.cetvel { padding: .25rem 1.25rem .75rem; border-top: 1px solid var(--cizgi); }
+.cetvel svg { width: 100%; height: auto; display: block; color: var(--murekkep); }
+.cetvel text { font: 400 calc(11px * var(--yk, 1)) var(--olcu); fill: var(--soluk); }
+.cetvel .bolge { font: 600 calc(11px * var(--yk, 1)) var(--yazi); letter-spacing: .08em; fill: var(--murekkep); }
+
+/* Antet: paftanın künye sütunu, sonuç burada okunur */
+.antet { border-left: 1px solid var(--cizgi-2); display: grid; grid-template-rows: auto auto 1fr; min-width: 0; }
+.karar { padding: 1rem 1.25rem .875rem; border-bottom: 1px solid var(--cizgi); }
+.karar h2 { font-size: 2rem; line-height: 1.05; letter-spacing: -.03em; margin-bottom: .5rem; }
+.durum { display: inline-flex; align-items: center; gap: .4375rem; height: 30px; padding: 0 .75rem 0 .5625rem; border-radius: 999px; font-size: .875rem; font-weight: 600; }
+.durum svg { width: 16px; height: 16px; }
+.durum.uygun { background: rgb(143 217 176 / .14); color: var(--nane); }
+.durum.degil { background: rgb(255 92 87 / .14); color: var(--kirmizi); }
+.gosterge { text-align: center; padding: .75rem 1.25rem .625rem; border-bottom: 1px solid var(--cizgi); }
+.gosterge svg { width: 100%; max-width: 184px; height: auto; display: block; margin: 0 auto; overflow: visible; }
+.gosterge .deger { font: 600 1.5rem/1 var(--yazi); font-variant-numeric: tabular-nums; margin-top: -.125rem; }
+.gosterge .etiket { font-size: .8125rem; color: var(--soluk); margin-top: .25rem; min-height: 2.4em; text-wrap: balance; }
+.kunye { display: grid; grid-template-columns: 1fr 1fr; margin: 0; align-content: start; }
+.kunye div { padding: .375rem .75rem .4375rem 1.25rem; border-bottom: 1px solid var(--cizgi); min-width: 0; }
+.kunye div:nth-child(odd) { border-right: 1px solid var(--cizgi); }
+.kunye div:nth-child(even) { padding-left: .875rem; }
+.kunye div.tam { grid-column: 1 / -1; border-right: 0; }
+.kunye dt { font-size: .75rem; color: var(--soluk); }
+.kunye dd { margin: 0; font-size: .875rem; overflow-wrap: anywhere; }
+
+/* Koşullar */
+.cerceve { border: 1px solid var(--cizgi); border-radius: var(--r); background: var(--panel); overflow: hidden; }
+.tablo { width: 100%; border-collapse: collapse; font-size: .9375rem; }
+.tablo th { text-align: left; font-size: .8em; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--soluk); padding: .75rem 1rem; border-bottom: 1px solid var(--cizgi); }
+.tablo td { padding: .75rem 1rem; border-bottom: 1px solid var(--cizgi); vertical-align: middle; }
+.tablo tr:last-child td { border-bottom: 0; }
+.tablo tbody tr { transition: background var(--hizli); }
+.tablo tbody tr:hover { background: rgb(236 230 218 / .03); }
+.tablo .olcu { white-space: nowrap; }
+.tablo .kaynak { color: var(--soluk); font-size: .93em; white-space: nowrap; }
+.kul { display: grid; grid-template-columns: 72px auto; align-items: center; gap: .625rem; font: 400 .87em var(--olcu); color: var(--soluk); }
+.kul i { position: relative; height: 4px; border-radius: 2px; background: var(--cizgi-2); overflow: hidden; }
+.kul i b { position: absolute; inset: 0 auto 0 0; border-radius: 2px; background: var(--nane); transition: width 280ms cubic-bezier(.16, 1, .3, 1); }
+.kul i::after { content: ""; position: absolute; left: 83.33%; top: -2px; bottom: -2px; width: 1px; background: var(--murekkep); opacity: .5; }
+.kul.asim i b { background: var(--kirmizi); }
+.sonuc-hucre { display: inline-flex; align-items: center; gap: .375rem; font-weight: 600; font-size: .93em; white-space: nowrap; }
+.sonuc-hucre svg { width: 16px; height: 16px; }
+.sonuc-hucre.uygun { color: var(--nane); }
+.sonuc-hucre.degil { color: var(--kirmizi); }
+.cerceve .bas h3 { font-size: .9375rem; }
+.oneri { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; padding: 1rem 1.25rem; border-top: 1px solid var(--cizgi); }
+.oneri p { margin: 0; color: var(--soluk); }
+.oneri p b { color: var(--murekkep); font-weight: 600; }
+.hata { padding: 2rem 1.25rem; color: var(--soluk); margin: 0; }
+
+/* Kurallar */
+.kurallar { padding: 3rem clamp(1rem, 3vw, 2.5rem) 2.5rem; border-top: 1px solid var(--cizgi); display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 1.5rem; }
+.kurallar h2 { font-size: 1.75rem; }
+.kurallar aside p { color: var(--soluk); margin: .75rem 0 0; max-width: 34ch; }
+.oncelik { display: flex; flex-wrap: wrap; align-items: center; gap: .375rem; margin-top: 1rem; font-size: .8125rem; }
+.oncelik span { padding: .25rem .5rem; border: 1px solid var(--cizgi-2); border-radius: 999px; }
+.oncelik svg { width: 14px; height: 14px; color: var(--soluk); }
+
+.alt { padding: 1.5rem clamp(1rem, 3vw, 2.5rem) 2.5rem; color: var(--soluk); font-size: .875rem; display: flex; flex-wrap: wrap; justify-content: space-between; gap: .5rem 2rem; border-top: 1px solid var(--cizgi); }
+
+@media (max-width: 1180px) {
+  .sayfa { grid-template-columns: minmax(0, 1fr) 236px; }
+  .karar h2 { font-size: 1.875rem; }
+}
+@media (max-width: 960px) {
+  .is, .kurallar { grid-template-columns: 1fr; }
+  .giris { position: static; }
+  .ust nav { display: none; }
+  .ust .dugme { margin-left: auto; }
+}
+@media (max-width: 720px) {
+  .sayfa { grid-template-columns: 1fr; }
+  .antet { border-left: 0; border-top: 1px solid var(--cizgi-2); grid-template-columns: 1fr 1fr; grid-template-rows: auto; }
+  .karar { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+  .karar h2 { margin: 0; }
+  .gosterge { grid-column: 1 / -1; }
+  .kunye { grid-column: 1 / -1; }
+}
+@media (max-width: 640px) {
+  .bant { height: auto; min-height: 168px; }
+  .bant div { padding-block: 1.5rem; }
+  .bant h1 { font-size: 2rem; }
+  .bant p { font-size: .9375rem; }
+  .levha { aspect-ratio: 760 / 400; }
+  #maddeler thead { display: none; }
+  #maddeler tr { display: grid; grid-template-columns: 1fr auto; gap: .25rem 1rem; padding: .875rem 1rem; border-bottom: 1px solid var(--cizgi); }
+  #maddeler tr:last-child { border-bottom: 0; }
+  #maddeler td { padding: 0; border: 0; }
+  #maddeler td:nth-child(1) { font-weight: 600; }
+  #maddeler td:nth-child(2), #maddeler td:nth-child(3) { grid-column: 1 / -1; }
+  #maddeler td:nth-child(2)::before { content: "Değer  "; color: var(--soluk); font-family: var(--yazi); }
+  #maddeler td:nth-child(3)::before { content: "Sınır  "; color: var(--soluk); font-family: var(--yazi); }
+  #maddeler td:nth-child(6) { grid-row: 1; grid-column: 2; }
+  .kurallar .tablo thead { display: none; }
+  .kurallar .tablo tr { display: grid; gap: .125rem; padding: .75rem 1rem; border-bottom: 1px solid var(--cizgi); }
+  .kurallar .tablo td { padding: 0; border: 0; }
+  .kurallar .tablo td:first-child { font-weight: 600; }
+  .ust { gap: 1rem; }
+  .marka small { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { transition-duration: 0ms !important; scroll-behavior: auto !important; }
+}
+
+@media print {
+  @page { size: A4; margin: 12mm 14mm; }
+  :root { color-scheme: light; --zemin: #fff; --panel: #fff; --alan: #fff; --levha: #fff; --murekkep: #111; --soluk: #555; --cizgi: #ccc; --cizgi-2: #888; --nane: #111; --kirmizi: #111; --turuncu: #111; }
+  body { font-size: 9.5pt; }
+  .ust, .bant, .giris, .sekmeler, #uc, .uc-not, .oneri .dugme, .kurallar aside p:last-child { display: none !important; }
+  .yalniz-baski { display: block; }
+  .rapor-bas { display: flex; justify-content: space-between; align-items: baseline; gap: 6mm; padding-bottom: 3mm; border-bottom: 1.5pt solid #111; margin-bottom: 3mm; }
+  .rapor-bas h1 { font-size: 14pt; }
+  .rapor-bas span { font-size: 9pt; color: #333; }
+  .girdi-ozet { display: grid; grid-template-columns: repeat(4, 1fr); margin: 0 0 3mm; border: .75pt solid #888; }
+  .girdi-ozet div { padding: 1.5mm 2.5mm; border-right: .5pt solid #ccc; border-bottom: .5pt solid #ccc; }
+  .girdi-ozet dt { font-size: 7.5pt; color: #555; }
+  .girdi-ozet dd { margin: 0; font: 400 9pt var(--yazi); }
+  .yuk-izi { margin: -1mm 0 3mm; font-size: 8.5pt; color: #333; }
+  .is { display: block; padding: 0; }
+  .pafta { gap: 3mm; }
+  .sayfa { grid-template-columns: 1fr 58mm; break-inside: avoid; border-color: #888; }
+  .bas { height: auto; padding: 1.5mm 3mm; }
+  .levha { background: #fff; aspect-ratio: auto; height: 56mm; }
+  .cetvel { padding: 0 3mm 1.5mm; }
+  .karar { padding: 2.5mm 3mm; }
+  .karar h2 { font-size: 16pt; margin-bottom: 1.5mm; }
+  .durum { height: auto; padding: .5mm 2mm .5mm 1.5mm; border: .75pt solid #111; background: none !important; }
+  .gosterge { padding: 2mm 3mm; }
+  .gosterge svg { max-width: 40mm; }
+  .gosterge .deger { font-size: 14pt; }
+  .gosterge .etiket { min-height: 0; font-size: 7.5pt; }
+  .kunye div { padding: 1.2mm 2.5mm; }
+  .kunye dt { font-size: 7pt; }
+  .kunye dd { font-size: 8.5pt; }
+  .cerceve { overflow: visible; border-color: #888; break-inside: avoid; }
+  .tablo { font-size: 8.5pt; }
+  .tablo td, .tablo th { padding: 1.6mm 2.5mm; }
+  .tablo .olcu, .tablo .kaynak, .sonuc-hucre { white-space: normal; }
+  .kul { grid-template-columns: 14mm auto; }
+  .kul i { border: .5pt solid #111; background: #fff; }
+  .kul i b { background: #111 !important; }
+  .oneri { padding: 2mm 3mm; }
+  .kurallar { display: block; padding: 0; border: 0; break-before: page; }
+  .kurallar aside { margin-bottom: 4mm; }
+  .kurallar h2 { font-size: 13pt; }
+  .oncelik { margin: 2mm 0 0; }
+  .alt { margin-top: 4mm; padding: 3mm 0 0; }
+}
+</style>
+</head>
+<body>
+<header class="ust">
+  <a class="marka" href="./">
+    <svg viewBox="0 0 26 26" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="4" y="8" width="18" height="10"/><path d="M4 13h18M13 4v18" stroke-dasharray="3 2 1 2"/><path d="M4 21.5h18M3 20.5l2 2M21 20.5l2 2" stroke-width="1.2"/></svg>
+    Kesit <small>Kolon / perde ön kontrolü</small>
+  </a>
+  <nav aria-label="Sayfa">
+    <a href="#hesap">Hesap</a>
+    <a href="#kurallar">Kurallar</a>
+  </nav>
+  <button class="dugme ana" type="button" id="yazdir">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 6V2h8v4M4 12H2.5V6.5h11V12H12M4 9.5h8V14H4z"/></svg>
+    Yazdır / PDF
+  </button>
+</header>
+
+<section class="bant" aria-labelledby="baslik">
+  <canvas id="kontur" aria-hidden="true"></canvas>
+  <div>
+    <h1 id="baslik">Kolon mu, perde mi?</h1>
+    <p>Kesiti gir; oran, en küçük boyut ve eksenel yük koşulları madde madde, kaynağıyla birlikte denetlensin.</p>
+  </div>
+</section>
+
+<div class="yalniz-baski">
+  <div class="rapor-bas"><h1>Kolon / perde ön kontrol raporu</h1><span id="rapor-eleman"></span><span id="tarih"></span></div>
+  <dl class="girdi-ozet" id="girdi-ozet"></dl>
+  <p class="yuk-izi" id="yuk-izi"></p>
+</div>
+
+<main class="is" id="hesap">
+  <form id="f" class="giris" novalidate autocomplete="off">
+    <fieldset class="grup">
+      <legend>Kesit</legend>
+      <label class="alan">Eleman adı <input name="eleman" type="text" maxlength="60" placeholder="isteğe bağlı, ör. S12 · A blok zemin"></label>
+      <div class="satir">
+        <label class="alan">Kısa kenar <span class="kutu"><input name="b" type="number" inputmode="decimal" min="10" step="10" value="400" required><span>mm</span></span></label>
+        <label class="alan">Uzun kenar <span class="kutu"><input name="h" type="number" inputmode="decimal" min="10" step="10" value="500" required><span>mm</span></span></label>
+        <label class="alan tam">Kat yüksekliği <span class="kutu"><input name="H" type="number" inputmode="decimal" min="10" step="10" value="3000" required><span>mm</span></span></label>
+      </div>
+      <label class="secim"><input name="tutulu" type="checkbox"> Perde iki ucundan perdeyle tutulu</label>
+      <label class="secim"><input name="yuksek" type="checkbox"> Yüksek bina (BYS = 1)</label>
+      <p class="ipucu">H<sub>N</sub> &gt; 70 m (DTS 1–2), &gt; 91 m (DTS 3), &gt; 105 m (DTS 4); perde ≥ 300 mm (TBDY 13.1.6).</p>
+      <label class="secim"><input name="yalniz" type="checkbox"> Yalnız perdeli sistem, Denk. 7.14 sağlanıyor</label>
+      <p class="ipucu">ΣA<sub>g</sub>/ΣA<sub>p</sub> ≥ 0,002 ve V<sub>t</sub>/ΣA<sub>g</sub> ≤ 0,5·f<sub>ctd</sub>; perde ≥ 200 mm (TBDY 7.6.1.3). Kat yüksekliğine binanın en yüksek katını girin.</p>
+      <label class="alan">Kirişsiz döşeme açıklığı <span class="kutu"><input name="kirissiz" type="number" inputmode="decimal" min="0" step="100" placeholder="kirişli ise boş"><span>mm</span></span></label>
+    </fieldset>
+
+    <fieldset class="grup">
+      <legend>Malzeme</legend>
+      <label class="alan">Beton sınıfı <select name="beton"></select></label>
+      <p class="ipucu">TBDY 7.2.5.1 gereği C25'ten düşük sınıf listelenmez.</p>
+    </fieldset>
+
+    <fieldset class="grup">
+      <legend>Eksenel kuvvet</legend>
+      <div class="satir">
+        <label class="alan"><span>N<sub>dm</sub> · G+Q+E</span><span class="kutu"><input name="Ndm" type="number" inputmode="decimal" min="0" step="1" value="876" required><span>kN</span></span></label>
+        <label class="alan"><span>N<sub>d</sub> · 1,4G+1,6Q</span><span class="kutu"><input name="Nd" type="number" inputmode="decimal" min="0" step="1" value="1262" required><span>kN</span></span></label>
+      </div>
+      <p class="ipucu">N<sub>dm</sub> düşey depremi (0,2·S<sub>DS</sub>·G) ve kenar/köşe kolonda yatay depremi içermeli. N<sub>d</sub> TS 500 Denk. 7.7 için zorunlu.</p>
+      <details class="yardim">
+        <summary><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M5 3l4 4-4 4"/></svg>Yükten hesapla (TS 498)</summary>
+        <div class="satir">
+          <label class="alan">Etki alanı <span class="kutu"><input name="alan" type="number" inputmode="decimal" min="0" step="0.1" value="20" required><span>m²</span></span></label>
+          <label class="alan">Taşıdığı kat <span class="kutu"><input name="kat" type="number" inputmode="numeric" min="1" step="1" value="5" required><span>kat</span></span></label>
+          <label class="alan">g <span class="kutu"><input name="g" type="number" inputmode="decimal" min="0" step="0.1" value="7" required><span>kN/m²</span></span></label>
+          <label class="alan">q <span class="kutu"><input name="q" type="number" inputmode="decimal" min="0" step="0.1" value="2" required><span>kN/m²</span></span></label>
+          <label class="alan">Kullanım
+            <select name="kullanim">
+              <option value="konut">Konut, büro, işhanı (β ≥ 0,60)</option>
+              <option value="atolye">Hafif işyeri, atölye, mağaza (β ≥ 0,80)</option>
+              <option value="depo">Azaltma yok (depo, ağır sanayi, okul, hastane, toplanma, garaj)</option>
+            </select>
+          </label>
+          <label class="alan">S<sub>DS</sub> (düşey deprem) <span class="kutu"><input name="sds" type="number" inputmode="decimal" min="0" step="0.01" value="0" required><span>–</span></span></label>
+          <label class="alan">Yatay deprem katsayısı <span class="kutu"><input name="kDeprem" type="number" inputmode="decimal" min="1" step="0.05" value="1" required><span>×</span></span></label>
+        </div>
+        <output class="yukozet" id="yuk" aria-live="polite"></output>
+        <p class="ipucu">g: döşeme, kiriş, kaplama, dolgu duvar ve elemanın kendi ağırlığı (TS 500 0.2.18.2). q: hafif bölme duvarlar dahil (TS 498 0.2.1). Kat sayısına yalnız aynı q'lu tam katları sayın; katlarda q farklıysa "azaltma yok" seçin. Çatı/kar yükünü (0,2·S) ayrıca ekleyin. Yatay deprem hesaplanmaz; kenar ve köşe kolonlarda katsayıyı artırın.</p>
+        <button class="dugme" type="button" id="aktar">N<sub>dm</sub> ve N<sub>d</sub> alanlarına aktar</button>
+      </details>
+    </fieldset>
+  </form>
+
+  <section class="pafta" aria-label="Sonuç">
+    <div class="sayfa">
+      <div class="sayfa-cizim">
+        <div class="bas">
+          <h3 id="levha-baslik">Kesit A–A</h3>
+          <div class="sekmeler" role="tablist" aria-label="Görünüm">
+            <button type="button" role="tab" id="sekme-cizim" aria-controls="kesit" aria-selected="true">Çizim</button>
+            <button type="button" role="tab" id="sekme-uc" aria-controls="uc" aria-selected="false" tabindex="-1">3B</button>
+          </div>
+        </div>
+        <div class="levha">
+          <svg id="kesit" viewBox="0 0 760 300" role="img" aria-labelledby="levha-baslik kesit-aciklama"><desc id="kesit-aciklama"></desc></svg>
+          <div id="uc" role="tabpanel" aria-labelledby="sekme-uc" hidden><span class="uc-not">Sürükleyerek döndürün</span></div>
+        </div>
+        <div class="cetvel">
+          <svg id="cetvel" viewBox="0 0 760 74" role="img" aria-label="Oran cetveli: 1 ile 1,5 arası kolon, 1,5 ile 6 arası geçersiz, 6 ve üstü perde"></svg>
+        </div>
+      </div>
+
+      <aside class="antet" aria-label="Antet ve sonuç">
+        <div class="karar" aria-live="polite">
+          <h2><span class="gizli">Eleman türü: </span><span id="tur">—</span></h2>
+          <span class="durum" id="durum"></span>
+        </div>
+        <div class="gosterge">
+          <svg id="saat" viewBox="0 0 220 128" role="img" aria-labelledby="saat-deger saat-etiket"></svg>
+          <div class="deger" id="saat-deger">—</div>
+          <div class="etiket" id="saat-etiket">Belirleyici koşulun kullanım oranı</div>
+        </div>
+        <dl class="kunye" id="kunye"></dl>
+      </aside>
+    </div>
+
+    <div class="cerceve">
+      <div class="bas"><h3>Koşullar</h3></div>
+      <div id="maddeler"></div>
+      <div class="oneri" id="oneri"></div>
+    </div>
+  </section>
+</main>
+
+<section class="kurallar" id="kurallar" aria-labelledby="kurallar-baslik">
+  <aside>
+    <h2 id="kurallar-baslik">Kurallar ve öncelik</h2>
+    <p>Yönetmelikler çakıştığında soldaki geçerlidir. Çakışmayan TS 500 koşulları ayrıca uygulanır.</p>
+    <div class="oncelik"><span>1 Mart kararnamesi</span><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M5 3l4 4-4 4"/></svg><span>TBDY 2018</span><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M5 3l4 4-4 4"/></svg><span>TS 500</span></div>
+    <p>Kapsam dışı, kesin hesapta denetlenmeli: dairesel, L, T, U kesitler; bodrum perdeleri; donatı; yatay deprem etkisinin hesabı; kesme üst sınırı V<sub>e</sub> ≤ 0,85·A·√f<sub>ck</sub> (TBDY Denk. 7.7, 7.18); narinlik (TS 500 7.6); TBDY Bölüm 17 basitleştirilmiş kuralları (Denk. 17.1–17.8, 17.4.1.3–4, 17.7.2).</p>
+  </aside>
+  <div class="cerceve">
+    <table class="tablo">
+      <thead><tr><th scope="col">Koşul</th><th scope="col">Sınır</th><th scope="col">Kaynak</th></tr></thead>
+      <tbody>
+        <tr><td>Kolon uzun / kısa kenar</td><td class="olcu">≤ 1,5</td><td class="kaynak">1 Mart kararnamesi (TBDY Bölüm 7'de üst sınır yok; 17.4.1.1'deki ≤ 2 yalnız Bölüm 17 tasarımında)</td></tr>
+        <tr><td>Perde tanımı, uzun kenar / kalınlık</td><td class="olcu">≥ 6</td><td class="kaynak">TBDY 4.5.3.2, 7.6.1.2 (TS 500 12.2'deki 7 yerine)</td></tr>
+        <tr><td>Kolon kısa kenarı</td><td class="olcu">≥ 300 mm</td><td class="kaynak">TBDY 7.3.1.1, 7.7.1 (TS 500'deki 250 yerine)</td></tr>
+        <tr><td>Kirişsiz döşemede kolon genişliği</td><td class="olcu">≥ max(300, l/20)</td><td class="kaynak">TS 500 11.4.2 · l: eksen açıklığı</td></tr>
+        <tr><td>Kolon brüt kesit alanı</td><td class="olcu">A<sub>c</sub> ≥ N<sub>dm</sub> / (0,40 · f<sub>ck</sub>)</td><td class="kaynak">TBDY 7.3.1.2, 7.7.1 (sınırlı süneklikte de)</td></tr>
+        <tr><td>Kolon eksenel sınırı</td><td class="olcu">A<sub>c</sub> ≥ N<sub>d</sub> / (0,9 · f<sub>cd</sub>)</td><td class="kaynak">TS 500 7.4.1, Denk. 7.7 · f<sub>cd</sub> = f<sub>ck</sub> / 1,5 (γ<sub>mc</sub> = 1,7 TBDY 7.2.5.2 gereği uygulanmaz)</td></tr>
+        <tr><td>Perde kalınlığı</td><td class="olcu">≥ max(250, H/16, l/30)</td><td class="kaynak">TBDY 7.6.1.2 (a), (b); 7.10</td></tr>
+        <tr><td>Perde kalınlığı, iki ucu tutulu</td><td class="olcu">≥ max(250, H/20, l/30)</td><td class="kaynak">TBDY 7.6.1.2 (b), (c)</td></tr>
+        <tr><td>Perde kalınlığı, yalnız perdeli sistem</td><td class="olcu">≥ max(200, H<sub>max</sub>/20, l/30)</td><td class="kaynak">TBDY 7.6.1.3, Denk. 7.14 sağlanırsa</td></tr>
+        <tr><td>Perde kalınlığı, yüksek bina (BYS = 1)</td><td class="olcu">≥ max(300, H/16, l/30)</td><td class="kaynak">TBDY 13.1.6 (7.6.1.3 uygulanmaz)</td></tr>
+        <tr><td>Perde net kesit alanı</td><td class="olcu">A<sub>c</sub> ≥ N<sub>dm</sub> / (0,35 · f<sub>ck</sub>)</td><td class="kaynak">TBDY 7.6.1.1, 7.10</td></tr>
+        <tr><td>N<sub>dm</sub> içinde düşey deprem</td><td class="olcu">+ 0,2 · S<sub>DS</sub> · G</td><td class="kaynak">TBDY 4.4.3.2 Denk. 4.10, 4.4.4.1 Denk. 4.11</td></tr>
+        <tr><td>Beton sınıfı</td><td class="olcu">≥ C25</td><td class="kaynak">TBDY 7.2.5.1</td></tr>
+        <tr><td>Hareketli yük azaltması β</td><td class="olcu">1 … 0,60</td><td class="kaynak">TS 498 Bölüm 13, Çizelge 8 (her tam katta aynı q)</td></tr>
+        <tr><td>En küçük hareketli yük q</td><td class="olcu">2 / 5 kN/m²</td><td class="kaynak">TS 498 Çizelge 7: konut, büro / mağaza, atölye</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<footer class="alt">
+  <span>Ön boyutlandırma aracıdır; kesin statik hesabın yerine geçmez.</span>
+  <span>Kaynaklar: TBDY 2018 · TS 500 (Şubat 2000) · TS 498 (Kasım 1997)</span>
+</footer>
+
+<script type="module" src="arayuz.js"></script>
+</body>
+</html>

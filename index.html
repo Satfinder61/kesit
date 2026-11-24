@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Kesit — Kolon mu, perde mi?</title>
+<meta name="description" content="Kolon ve perde ön kontrolü: TBDY 2018, TS 500 ve 1 Mart kararnamesine göre, her sonuç maddesiyle.">
+<link rel="preload" href="fonts/HankenGrotesk-600-latin.woff2" as="font" type="font/woff2" crossorigin>
+<style>
+/* ponytail: belirteçler hesap.html ile aynı (DESIGN.md); ortak css dosyası üçüncü sayfa gelince */
+@font-face { font-family: "Hanken Grotesk"; src: url("fonts/HankenGrotesk-400-latin.woff2") format("woff2"); font-weight: 400; font-display: swap; unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "Hanken Grotesk"; src: url("fonts/HankenGrotesk-400-latin-ext.woff2") format("woff2"); font-weight: 400; font-display: swap; unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: "Hanken Grotesk"; src: url("fonts/HankenGrotesk-600-latin.woff2") format("woff2"); font-weight: 600; font-display: swap; unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "Hanken Grotesk"; src: url("fonts/HankenGrotesk-600-latin-ext.woff2") format("woff2"); font-weight: 600; font-display: swap; unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: "JetBrains Mono"; src: url("fonts/JetBrainsMono-latin.woff2") format("woff2"); font-weight: 100 800; font-display: swap; unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+
+:root {
+  --zemin: #121110; --panel: #191816; --levha: #151412;
+  --cizgi: rgb(236 230 218 / .10); --cizgi-2: rgb(236 230 218 / .20);
+  --murekkep: #ece6da; --soluk: #a39e94;
+  --turuncu: #ff6a2b; --nane: #8fd9b0; --kirmizi: #ff5c57;
+  --yazi: "Hanken Grotesk", system-ui, sans-serif;
+  --olcu: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  --hizli: 180ms cubic-bezier(.16, 1, .3, 1);
+  --kenar: clamp(1rem, 4vw, 3.5rem);
+}
+* { box-sizing: border-box; }
+html { scrollbar-color: #3a3733 var(--zemin); scroll-behavior: smooth; }
+body { margin: 0; background: var(--zemin); color: var(--murekkep); font: 400 1rem/1.5 var(--yazi); -webkit-font-smoothing: antialiased; }
+::selection { background: var(--turuncu); color: var(--zemin); }
+:focus-visible { outline: 2px solid var(--turuncu); outline-offset: 3px; }
+h1, h2, h3, p { margin: 0; }
+h1, h2 { font-weight: 600; letter-spacing: -.035em; text-wrap: balance; }
+
+.ust { position: sticky; top: 0; z-index: 5; height: 64px; display: flex; align-items: center; gap: 2rem; padding: 0 var(--kenar); background: rgb(18 17 16 / .8); backdrop-filter: blur(10px); border-bottom: 1px solid var(--cizgi); }
+.marka { display: flex; align-items: center; gap: .625rem; font-weight: 600; font-size: 1.1875rem; text-decoration: none; color: inherit; }
+.marka svg { width: 26px; height: 26px; color: var(--turuncu); }
+.ust nav { display: flex; gap: 1.5rem; margin-left: auto; font-size: .9375rem; }
+.ust nav a { color: var(--soluk); text-decoration: none; transition: color var(--hizli); }
+.ust nav a:hover { color: var(--murekkep); }
+.dugme { display: inline-flex; align-items: center; gap: .5rem; height: 44px; padding: 0 1.25rem; border-radius: 999px; border: 1px solid var(--cizgi-2); color: var(--murekkep); font: 600 .9375rem var(--yazi); text-decoration: none; white-space: nowrap; transition: background var(--hizli), border-color var(--hizli), transform var(--hizli); }
+.dugme:hover { border-color: var(--murekkep); }
+.dugme:active { transform: scale(.97); }
+.dugme.ana { background: var(--turuncu); border-color: var(--turuncu); color: #140c08; }
+.dugme.ana:hover { background: #ff7d45; }
+.dugme svg { width: 16px; height: 16px; }
+.ust .dugme { height: 40px; }
+
+/* Hero: tam genişlik kontur alanı, solda söz, sağda canlı örnek pafta */
+.hero { position: relative; min-height: min(calc(100svh - 64px), 820px); display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr); align-items: center; gap: clamp(2rem, 5vw, 5rem); padding: 4rem var(--kenar); overflow: hidden; border-bottom: 1px solid var(--cizgi); }
+.hero canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.hero > :not(canvas) { position: relative; }
+.hero h1 { font-size: clamp(3rem, 7.2vw, 6rem); line-height: .95; }
+.hero h1 span { color: var(--turuncu); }
+.hero p { margin-top: 1.5rem; max-width: 34rem; font-size: 1.1875rem; line-height: 1.55; color: var(--soluk); }
+.eylem { display: flex; flex-wrap: wrap; gap: .75rem; margin-top: 2rem; }
+.kaynaklar { margin-top: 2.25rem; display: flex; flex-wrap: wrap; gap: .5rem; font-size: .8125rem; color: var(--soluk); }
+.kaynaklar span { padding: .25rem .625rem; border: 1px solid var(--cizgi-2); border-radius: 999px; background: rgb(18 17 16 / .6); }
+
+.ornek { border: 1px solid var(--cizgi-2); border-radius: 3px; background: rgb(21 20 18 / .92); box-shadow: 0 30px 80px -20px rgb(0 0 0 / .7); }
+.ornek-bas { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: .75rem 1rem; border-bottom: 1px solid var(--cizgi); font-size: .875rem; }
+.ornek-bas small { color: var(--soluk); font-size: .8125rem; }
+.ornek svg { display: block; width: 100%; height: auto; color: var(--murekkep); }
+.ornek svg text { font: 400 11px var(--olcu); fill: currentColor; }
+.ornek svg .bolge { font: 600 10px var(--yazi); letter-spacing: .08em; }
+.ornek-alt { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1rem; padding: .875rem 1rem; border-top: 1px solid var(--cizgi); }
+.ornek-alt b { font-size: 1.75rem; letter-spacing: -.03em; font-weight: 600; }
+.ornek-alt #ornek-oran { margin-right: auto; font: 400 .875rem var(--olcu); color: var(--soluk); white-space: nowrap; }
+.etiket { display: inline-flex; align-items: center; height: 28px; padding: 0 .75rem; border-radius: 999px; font: 600 .8125rem var(--yazi); white-space: nowrap; }
+.etiket[data-tur="kolon"] { background: rgb(143 217 176 / .14); color: var(--nane); }
+.etiket[data-tur="gecersiz"] { background: rgb(255 92 87 / .14); color: var(--kirmizi); }
+.etiket[data-tur="perde"] { background: rgb(255 106 43 / .16); color: var(--turuncu); }
+
+/* Nasıl çalışır */
+.adimlar { padding: 6rem var(--kenar) 4rem; }
+.adimlar h2 { font-size: clamp(2rem, 4vw, 3rem); max-width: 18ch; }
+.adimlar ol { list-style: none; margin: 3rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid var(--cizgi-2); }
+.adimlar li { padding: 1.5rem 2rem 0 0; }
+.adimlar li + li { padding-left: 2rem; border-left: 1px solid var(--cizgi); }
+.adimlar li i { font: 400 .8125rem var(--olcu); font-style: normal; color: var(--turuncu); }
+.adimlar h3 { font-size: 1.25rem; font-weight: 600; margin: .5rem 0 .5rem; letter-spacing: -.01em; }
+.adimlar li p { color: var(--soluk); max-width: 32ch; }
+.ekran { margin: 4rem 0 0; border: 1px solid var(--cizgi-2); border-radius: 3px; overflow: hidden; }
+.ekran img { display: block; width: 100%; height: auto; }
+.ekran figcaption { padding: .75rem 1rem; border-top: 1px solid var(--cizgi); font-size: .8125rem; color: var(--soluk); }
+
+.kapanis { padding: 5rem var(--kenar) 6rem; border-top: 1px solid var(--cizgi); display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 2rem; }
+.kapanis h2 { font-size: clamp(2.25rem, 5vw, 4rem); line-height: 1; max-width: 14ch; }
+.alt { padding: 1.5rem var(--kenar) 2.5rem; border-top: 1px solid var(--cizgi); display: flex; flex-wrap: wrap; justify-content: space-between; gap: .5rem 2rem; font-size: .875rem; color: var(--soluk); }
+
+@media (max-width: 960px) {
+  .hero { grid-template-columns: 1fr; padding-block: 3rem; }
+  .ust nav { display: none; }
+  .ust .dugme { margin-left: auto; }
+  .adimlar ol { grid-template-columns: 1fr; }
+  .adimlar li, .adimlar li + li { padding: 1.25rem 0; border-left: 0; border-bottom: 1px solid var(--cizgi); }
+}
+@media (prefers-reduced-motion: reduce) { * { transition-duration: 0ms !important; scroll-behavior: auto !important; } }
+</style>
+</head>
+<body>
+<header class="ust">
+  <a class="marka" href="./">
+    <svg viewBox="0 0 26 26" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="4" y="8" width="18" height="10"/><path d="M4 13h18M13 4v18" stroke-dasharray="3 2 1 2"/><path d="M4 21.5h18M3 20.5l2 2M21 20.5l2 2" stroke-width="1.2"/></svg>
+    Kesit
+  </a>
+  <nav aria-label="Sayfa">
+    <a href="#nasil">Nasıl çalışır</a>
+    <a href="hesap.html#kurallar">Kurallar</a>
+  </nav>
+  <a class="dugme ana" href="hesap.html">Hesabı aç</a>
+</header>
+
+<main>
+  <section class="hero" aria-labelledby="baslik">
+    <canvas id="kontur" aria-hidden="true"></canvas>
+    <div>
+      <h1 id="baslik">Kolon mu, perde mi? <span>Kesit söylesin.</span></h1>
+      <p>Boyutları girin; oran, en küçük kenar ve eksenel yük sınırları yönetmeliğe göre madde madde denetlensin. Her sonuç maddesiyle, çiziminde ve raporunda.</p>
+      <div class="eylem">
+        <a class="dugme ana" href="hesap.html">Hesaba başla
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4"/></svg></a>
+        <a class="dugme" href="hesap.html#kurallar">Kuralları gör</a>
+      </div>
+      <div class="kaynaklar" aria-label="Dayandığı kaynaklar"><span>1 Mart kararnamesi</span><span>TBDY 2018</span><span>TS 500</span><span>TS 498</span></div>
+    </div>
+
+    <figure class="ornek" aria-label="Örnek: kesit uzadıkça kolon, geçersiz ve perde arasında değişen sınıflandırma" style="margin:0">
+      <div class="ornek-bas"><span>Örnek pafta · Kesit A–A</span><small>canlı gösterim</small></div>
+      <svg id="ornek" viewBox="0 0 480 290" aria-hidden="true"></svg>
+      <figcaption class="ornek-alt"><b id="ornek-tur">Kolon</b><span id="ornek-oran"></span><span class="etiket" id="ornek-etiket" data-tur="kolon">≤ 1,5</span></figcaption>
+    </figure>
+  </section>
+
+  <section class="adimlar" id="nasil" aria-labelledby="nasil-baslik">
+    <h2 id="nasil-baslik">Üç adımda ön kontrol, sıfır tahmin.</h2>
+    <ol>
+      <li><i>01</i><h3>Kesiti girin</h3><p>Kısa ve uzun kenar, kat yüksekliği, beton sınıfı ve eksenel kuvvet. Yükü TS 498'e göre alandan da hesaplayabilirsiniz.</p></li>
+      <li><i>02</i><h3>Paftayı okuyun</h3><p>Kesit ölçülü çizilir; oran cetveli kolon, geçersiz ve perde bölgesini gösterir, gösterge en zorlayıcı koşulu söyler.</p></li>
+      <li><i>03</i><h3>Raporu yazdırın</h3><p>Girdiler, yük türetimi, çizim ve her koşulun kaynağı A4 rapora tek tıkla dökülür.</p></li>
+    </ol>
+    <figure class="ekran">
+      <img src="img/arac.webp" width="1440" height="900" loading="lazy" alt="Hesap ekranı: solda kesit, malzeme ve yük girdileri; ortada ölçülü kesit çizimi ve oran cetveli; sağda Kolon, Uygun sonucu ve yüzde 83 kullanım göstergesi; altta koşullar tablosu.">
+      <figcaption>Hesap ekranı: 400 × 500 mm kolon, C30, N<sub>dm</sub> 876 kN.</figcaption>
+    </figure>
+  </section>
+
+  <section class="kapanis" aria-labelledby="kapanis-baslik">
+    <h2 id="kapanis-baslik">Bir sonraki kesiti burada deneyin.</h2>
+    <a class="dugme ana" href="hesap.html">Hesabı aç
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4"/></svg></a>
+  </section>
+</main>
+
+<footer class="alt">
+  <span>Ön boyutlandırma aracıdır; kesin statik hesabın yerine geçmez.</span>
+  <span>Kaynaklar: TBDY 2018 · TS 500 (Şubat 2000) · TS 498 (Kasım 1997)</span>
+</footer>
+
+<script type="module">
+import { kontur } from './kontur.js';
+import { sinifla, KOLON_ORAN_MAX, PERDE_ORAN_MIN } from './kurallar.js';
+kontur(document.getElementById('kontur'));
+
+// Örnek pafta: aynı kısa kenarla uzayan kesit; sınıf kurallar.js'den gelir (gösterim, gerçek hesap değil).
+const ORNEKLER = [[400, 500], [250, 1100], [250, 1800]];
+const ETIKET = { kolon: ['Kolon', '≤ 1,5'], gecersiz: ['Geçersiz', '1,5 – 6 arası'], perde: ['Perde', '≥ 6'] };
+const S = 400 / 2400, X0 = 64, Y = 92, C0 = 40, C1 = 456;
+const tr = (x, d = 0) => x.toLocaleString('tr-TR', { maximumFractionDigits: d });
+const cx = r => C0 + Math.log(Math.min(Math.max(r, 1), 8)) / Math.log(8) * (C1 - C0);
+const $ = id => document.getElementById(id);
+
+function ciz(k, u) {
+  const { tur, oran } = sinifla(k, u), w = u * S, h = k * S;
+  const hayalet = (o, op) => `<rect x="${X0}" y="${Y}" width="${k * o * S}" height="${h}" fill="none" stroke="var(--turuncu)" stroke-dasharray="5 4" opacity="${op}"/>`;
+  $('ornek').innerHTML = `
+    <defs><pattern id="b" width="18" height="18" patternUnits="userSpaceOnUse"><g fill="currentColor" opacity=".45"><circle cx="3" cy="4" r=".8"/><circle cx="12" cy="8" r=".6"/><circle cx="7" cy="14" r=".7"/><circle cx="15" cy="15" r=".5"/></g><path d="M10 2l3 .8-1.2 2.6z" fill="none" stroke="currentColor" stroke-width=".7" opacity=".4"/></pattern>
+    <pattern id="y" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><path d="M0 0V6" stroke="var(--kirmizi)" stroke-width="1.3" opacity=".55"/></pattern></defs>
+    ${hayalet(KOLON_ORAN_MAX, tur === 'perde' ? .25 : 1)}${hayalet(PERDE_ORAN_MIN, tur === 'kolon' ? .25 : 1)}
+    <rect x="${X0}" y="${Y}" width="${w}" height="${h}" fill="url(#b)" stroke="${tur === 'gecersiz' ? 'var(--kirmizi)' : 'currentColor'}" stroke-width="1.5"/>
+    <g stroke="currentColor" fill="none"><path d="M${X0} ${Y + h + 6}V${Y + h + 26}M${X0 + w} ${Y + h + 6}V${Y + h + 26}M${X0 - 5} ${Y + h + 20}H${X0 + w + 5}" opacity=".5"/><path d="M${X0 - 4} ${Y + h + 24}l8 -8M${X0 + w - 4} ${Y + h + 24}l8 -8" stroke-width="1.3"/></g>
+    <text x="${X0 + w / 2}" y="${Y + h + 40}" text-anchor="middle">${tr(u)}</text>
+    <text transform="translate(${X0 - 14} ${Y + h / 2}) rotate(-90)" text-anchor="middle">${tr(k)}</text>
+    <text x="${X0 + k * KOLON_ORAN_MAX * S}" y="${Y - 10}" text-anchor="middle" fill="var(--turuncu)">1,5</text>
+    <text x="${X0 + k * PERDE_ORAN_MIN * S}" y="${Y - 10}" text-anchor="middle" fill="var(--turuncu)">6</text>
+    <g transform="translate(0 222)">
+      <text class="bolge" x="${(cx(1) + cx(1.5)) / 2}" y="0" text-anchor="middle">KOLON</text>
+      <text class="bolge" x="${(cx(1.5) + cx(6)) / 2}" y="0" text-anchor="middle">GEÇERSİZ</text>
+      <text class="bolge" x="${(cx(6) + cx(8)) / 2}" y="0" text-anchor="middle">PERDE</text>
+      <rect x="${cx(1)}" y="12" width="${cx(1.5) - cx(1)}" height="9" fill="var(--nane)" opacity=".75"/>
+      <rect x="${cx(1.5)}" y="12" width="${cx(6) - cx(1.5)}" height="9" fill="url(#y)"/>
+      <rect x="${cx(6)}" y="12" width="${cx(8) - cx(6)}" height="9" fill="var(--turuncu)" opacity=".85"/>
+      <path d="M${cx(oran)} 6V28" stroke="currentColor" stroke-width="2"/><path d="M${cx(oran) - 5} 0h10l-5 7z" fill="currentColor"/>
+    </g>`;
+  const [ad, sinir] = ETIKET[tur];
+  $('ornek-tur').textContent = ad;
+  $('ornek-oran').textContent = `${tr(u)}/${tr(k)} = ${tr(oran, 2)}`;
+  $('ornek-etiket').textContent = sinir; $('ornek-etiket').dataset.tur = tur;
+}
+
+// 60fps ölçümüyle aynı yavaşlama; azaltılmış harekette tek kare.
+const yavasla = t => 1 - (1 - t) ** 4;
+let i = 0, [k, u] = ORNEKLER[0];
+ciz(k, u);
+if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
+  // ponytail: ekran dışındayken de döner; pil derdi olursa IntersectionObserver ile durdur
+  setInterval(() => {
+    const [k0, u0] = [k, u], [k1, u1] = ORNEKLER[i = (i + 1) % ORNEKLER.length], t0 = performance.now();
+    const adim = now => {
+      const e = yavasla(Math.min(1, (now - t0) / 700));
+      ciz(k = k0 + (k1 - k0) * e, u = u0 + (u1 - u0) * e);
+      if (e < 1) requestAnimationFrame(adim);
+    };
+    requestAnimationFrame(adim);
+  }, 2800);
+}
+</script>
+</body>
+</html>

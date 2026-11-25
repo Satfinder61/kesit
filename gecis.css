@@ -1,0 +1,60 @@
+/* Sayfa geçişleri (View Transitions). Desteklemeyen tarayıcı eskisi gibi düz geçer.
+   Eğriler: ekranda cubic-bezier(.2,0,0,1) · giriş (.05,.7,.1,1) · çıkış (.3,0,1,1) */
+/* İzin her sayfanın satır içi <style>'ında da var: yalnız burada kalınca önbelleksiz açılışta Chrome geçişi iptal ediyor */
+@media (prefers-reduced-motion: no-preference) { @view-transition { navigation: auto; } }
+
+@keyframes vt-cik { to { opacity: 0; transform: translateY(-6px); } }
+@keyframes vt-gir { from { opacity: 0; transform: translateY(10px); } }
+
+/* Sayfalar arası: eski içerik yukarı süzülerek söner, yenisi alttan gelir */
+::view-transition-old(root) { animation: vt-cik 160ms cubic-bezier(.3, 0, 1, 1) both; }
+::view-transition-new(root) { animation: vt-gir 280ms cubic-bezier(.05, .7, .1, 1) 60ms both; }
+
+/* Üst çubuk yerinde kalır; yalnız içerik değişir. Ana sayfanın çubuğu farklı, adlandırılmaz. */
+html:not([data-vt]) .ust:has(#yazdir) { view-transition-name: ust; }
+::view-transition-group(ust), ::view-transition-new(ust) { animation: none; }
+::view-transition-old(ust) { animation: none; opacity: 0; }
+/* Ana sayfaya ya da ana sayfadan: çubuk tek tarafta, kökle birlikte geçer */
+::view-transition-old(ust):only-child { opacity: 1; animation: vt-cik 160ms cubic-bezier(.3, 0, 1, 1) both; }
+::view-transition-new(ust):only-child { animation: vt-gir 280ms cubic-bezier(.05, .7, .1, 1) 60ms both; }
+
+/* Etkin menü bağlantısı eski bağlantıdan yenisine kayar; yazı ölçeklenmez */
+html:not([data-vt]) .ust nav a[aria-current="page"] { view-transition-name: nav-aktif; }
+::view-transition-group(nav-aktif) { animation-duration: 280ms; animation-timing-function: cubic-bezier(.2, 0, 0, 1); }
+::view-transition-old(nav-aktif), ::view-transition-new(nav-aktif) { inline-size: auto; block-size: 100%; }
+
+/* Döşemeden temele: adım ve sekme değişimi (sira.js html'e data-vt, data-vt-yon koyar).
+   Kök yakalanmaz: üst çubuk, form, düğmeler canlı ve kıpırtısız kalır, tıklamalar geçiş sürerken de işler.
+   Yalnız plan ve sayfa geçer. */
+html[data-vt] { view-transition-name: none; }
+html[data-vt]::view-transition { pointer-events: none; }
+html[data-vt] .kap { view-transition-name: sayfa; }
+html[data-vt="adim"] .plan-alan { view-transition-name: plan; }
+
+/* Plan: eski katman 2 px yukarı söner, yenisi 2 px alttan gelir; ortak akslar çift görünmesin diye kayma küçük */
+@keyframes vt-plan-cik { to { opacity: 0; transform: translateY(-2px); } }
+@keyframes vt-plan-gir { from { opacity: 0; transform: translateY(2px); } }
+html[data-vt]::view-transition-group(plan) { animation-duration: 220ms; animation-timing-function: cubic-bezier(.2, 0, 0, 1); }
+html[data-vt]::view-transition-old(plan) { animation: vt-plan-cik 150ms cubic-bezier(.3, 0, 1, 1) both; }
+html[data-vt]::view-transition-new(plan) { animation: vt-plan-gir 220ms cubic-bezier(.2, 0, 0, 1) both; }
+
+/* Sayfa yana kayar: ileri adım/sekme sağdan, geri soldan gelir */
+html[data-vt] { --vt-dx: 12px; }
+html[data-vt="sekme"] { --vt-dx: 8px; }
+html[data-vt-yon="geri"] { --vt-dx: -12px; }
+html[data-vt="sekme"][data-vt-yon="geri"] { --vt-dx: -8px; }
+@keyframes vt-yan-cik { to { opacity: 0; transform: translateX(calc(-1 * var(--vt-dx))); } }
+@keyframes vt-yan-gir { from { opacity: 0; transform: translateX(var(--vt-dx)); } }
+/* Kutu hemen yeni boyunda: alttaki sekme ve durum çubuğu da hemen yerine geçer; eski sayfa bu kutuya kırpılır, üstlerine taşmaz */
+html[data-vt]::view-transition-group(sayfa) { overflow: clip; animation: none; }
+html[data-vt]::view-transition-old(sayfa) { animation: vt-yan-cik 150ms cubic-bezier(.3, 0, 1, 1) both; }
+html[data-vt]::view-transition-new(sayfa) { animation: vt-yan-gir 260ms cubic-bezier(.05, .7, .1, 1) 50ms both; }
+html[data-vt="sekme"]::view-transition-old(sayfa) { animation-duration: 110ms; }
+html[data-vt="sekme"]::view-transition-new(sayfa) { animation-duration: 200ms; animation-delay: 30ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
+}
+/* Görünüm panelindeki "Hareketi azalt" (html[data-hareket="az"]) da aynısını yapar: sayfalar arası geçişi tema.js
+   pageswap'te atlar, sira.js sayfa içi geçiş başlatmaz; bu kural o an sürmekte olan geçişi durdurur. */
+html[data-hareket="az"]::view-transition-group(*), html[data-hareket="az"]::view-transition-old(*), html[data-hareket="az"]::view-transition-new(*) { animation: none !important; }

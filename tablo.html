@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="dark">
+<script>(function(d){var t={},m;try{t=JSON.parse(localStorage.getItem("kesit.tema.v1"))||{}}catch(e){}m=t.mod||"koyu";if(m=="sistem")m=matchMedia("(prefers-color-scheme: light)").matches?"acik":"koyu";if(m!="acik"&&m!="krem")m="koyu";d.dataset.tema=m;if(m!="koyu")document.querySelector('meta[name="color-scheme"]').content="light";if(t.olcek==90||t.olcek==110||t.olcek==120)d.dataset.olcek=t.olcek;if(t.hareket=="az")d.dataset.hareket="az";if(t.css&&t.css[m]){var s=document.createElement("style");s.id="tema-renk";s.textContent="@media screen{:root{"+t.css[m]+"}}";document.head.appendChild(s)}})(document.documentElement)</script>
 <title>Kesit — Kolon tablosu</title>
 <link rel="preload" href="fonts/HankenGrotesk-400-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/HankenGrotesk-600-latin.woff2" as="font" type="font/woff2" crossorigin>
@@ -152,6 +153,8 @@ kbd { font: 400 .8125rem var(--olcu); padding: 0 .375rem; border: 1px solid var(
 .ayrinti h2 { font-size: .9375rem; }
 .ayrinti .bas span { color: var(--soluk); font-size: .8125rem; }
 .ayrinti p { margin: 0; padding: 1.25rem; color: var(--soluk); }
+#ayrinti { overflow-x: auto; position: relative; }
+#ayrinti td.olcu + td.olcu { white-space: normal; min-width: 11.5em; }
 
 @media (max-width: 960px) {
   .ust nav { display: none; }
@@ -211,7 +214,12 @@ kbd { font: 400 .8125rem var(--olcu); padding: 0 .375rem; border: 1px solid var(
   .kul i b { background: #111 !important; }
   .alt { margin-top: 4mm; padding: 3mm 0 0; }
 }
+/* Sayfa geçişi izni satır içinde de olmalı: yalnız gecis.css'te kalınca önbelleksiz açılışta Chrome geçişi iptal ediyor */
+@media (prefers-reduced-motion: no-preference) { @view-transition { navigation: auto; } }
 </style>
+<link rel="stylesheet" href="gecis.css">
+<link rel="stylesheet" href="tema.css">
+<script type="module" src="tema.js"></script>
 </head>
 <body>
 <header class="ust">
@@ -303,7 +311,7 @@ const SUTUN = [
   ['H <small>mm</small>', 'Kat yüksekliği H, mm', 72, 1], ['Beton', 'Beton sınıfı', 64],
   ['N<sub>dm</sub> <small>kN</small>', 'N dm, kN', 84, 1], ['N<sub>d</sub> <small>kN</small>', 'N d, kN', 84, 1],
   ['Tür', '', 84], ['Oran', '', 64, 1], ['A<sub>c</sub> <small>mm²</small>', '', 96, 1], ['Belirleyici koşul', '', 172],
-  ['Kullanım', '', 112], ['Sonuç', '', 124], ['En küçük kolon', '', 104, 1],
+  ['Kullanım', '', 112], ['Sonuç', '', 124], ['En küçük kolon', '', 116, 1],
 ];
 const GIRDI = SUTUNLAR.length;
 const ORNEK = [
@@ -320,8 +328,8 @@ const f = $('#ayar'), govde = $('#govde');
 let veri = [], sonuc = [], secili = { i: 0, j: 0 }, duzenle = false, eski = '', ayar;
 
 f.beton.innerHTML = Object.keys(BETON).map(k => `<option${k === 'C30' ? ' selected' : ''}>${k}</option>`).join('');
-$('#sutunlar').innerHTML = '<col style="width:44px">' + SUTUN.map(s => `<col style="width:${s[2]}px">`).join('');
-$('#sayfa').style.width = `max(100%, ${44 + SUTUN.reduce((a, s) => a + s[2], 0)}px)`;
+$('#sutunlar').innerHTML = '<col style="width:2.75rem">' + SUTUN.map(s => `<col style="width:${s[2] / 16}rem">`).join(''); // rem: tema yazı boyutuyla büyür
+$('#sayfa').style.width = `max(100%, ${(44 + SUTUN.reduce((a, s) => a + s[2], 0)) / 16}rem)`;
 $('#harfler').innerHTML = '<th class="no"></th>' + SUTUN.map((_, j) => `<th aria-hidden="true"${j === GIRDI ? ' class="sinir-sol"' : ''}>${HARF[j]}</th>`).join('');
 $('#adlar').innerHTML = '<th class="no" aria-hidden="true">1</th>' + SUTUN.map(([ad, , , sayi], j) =>
   `<th scope="col" class="${[sayi && 'sayi', j === GIRDI && 'sinir-sol'].filter(Boolean).join(' ')}">${ad}</th>`).join('');

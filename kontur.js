@@ -6,7 +6,7 @@ void main() { uv = p * .5 + .5; gl_Position = vec4(p, 0., 1.); }`;
 const FS = `#version 300 es
 precision highp float;
 in vec2 uv; out vec4 o;
-uniform float t; uniform vec2 r;
+uniform float t; uniform vec2 r; uniform vec3 zr, vr; // zr: --zemin, vr: --turuncu
 float h(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float nz(vec2 p) {
   vec2 i = floor(p), f = fract(p), u = f * f * (3. - 2. * f);
@@ -25,7 +25,7 @@ void main() {
   float cizgi = 1. - smoothstep(0., fwidth(k) * 1.15, d);
   float ana = mod(floor(k + .5), 5.) < .5 ? 1. : .42;          // her 5. eğri kalın: topoğrafik ana eğri
   float maske = smoothstep(.12, .62, uv.x) * (.55 + .45 * uv.y); // başlığın arkası sakin
-  vec3 zemin = vec3(.071, .067, .063), turuncu = vec3(1., .416, .169);
+  vec3 zemin = zr, turuncu = vr;
   float tane = (h(gl_FragCoord.xy + fract(t) * 91.) - .5) * .03;
   o = vec4(mix(zemin, turuncu, cizgi * ana * maske * .7) + tane, 1.);
 }`;
@@ -46,13 +46,17 @@ export function kontur(canvas) {
   gl.enableVertexAttribArray(p);
   gl.vertexAttribPointer(p, 2, gl.FLOAT, false, 0, 0);
   const ut = gl.getUniformLocation(pr, 't'), ur = gl.getUniformLocation(pr, 'r');
+  // Renkler CSS belirteçlerinden (#rrggbb); tema değişince (tema.js 'tema' olayı) yeniden okunur.
+  const css = ad => { const h = getComputedStyle(document.documentElement).getPropertyValue(ad).trim(); return [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16) / 255); };
+  const renkler = () => { gl.uniform3fv(gl.getUniformLocation(pr, 'zr'), css('--zemin')); gl.uniform3fv(gl.getUniformLocation(pr, 'vr'), css('--turuncu')); };
+  renkler();
 
-  const sabit = matchMedia('(prefers-reduced-motion: reduce)');
+  const sabit = matchMedia('(prefers-reduced-motion: reduce)'), az = () => sabit.matches || document.documentElement.dataset.hareket === 'az';
   let gorunur = true, id = 0;
   const kareCiz = ms => {
-    gl.uniform1f(ut, sabit.matches ? 40 : 40 + ms / 1000);
+    gl.uniform1f(ut, az() ? 40 : 40 + ms / 1000);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
-    if (!sabit.matches && gorunur) id = requestAnimationFrame(kareCiz);
+    if (!az() && gorunur) id = requestAnimationFrame(kareCiz);
   };
   const boyut = () => {
     const dpr = Math.min(devicePixelRatio, 1.5);
@@ -69,4 +73,5 @@ export function kontur(canvas) {
     if (gorunur) kareCiz(performance.now());
   }).observe(canvas);
   sabit.addEventListener('change', boyut);
+  addEventListener('tema', () => { renkler(); cancelAnimationFrame(id); kareCiz(performance.now()); });
 }

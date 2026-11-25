@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="dark">
+<script>(function(d){var t={},m;try{t=JSON.parse(localStorage.getItem("kesit.tema.v1"))||{}}catch(e){}m=t.mod||"koyu";if(m=="sistem")m=matchMedia("(prefers-color-scheme: light)").matches?"acik":"koyu";if(m!="acik"&&m!="krem")m="koyu";d.dataset.tema=m;if(m!="koyu")document.querySelector('meta[name="color-scheme"]').content="light";if(t.olcek==90||t.olcek==110||t.olcek==120)d.dataset.olcek=t.olcek;if(t.hareket=="az")d.dataset.hareket="az";if(t.css&&t.css[m]){var s=document.createElement("style");s.id="tema-renk";s.textContent="@media screen{:root{"+t.css[m]+"}}";document.head.appendChild(s)}})(document.documentElement)</script>
 <title>Kesit — Kolon / perde ön kontrolü</title>
 <link rel="preload" href="fonts/HankenGrotesk-400-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/HankenGrotesk-600-latin.woff2" as="font" type="font/woff2" crossorigin>
@@ -75,10 +76,11 @@ h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -.015em; text-wrap: ba
 .giris { position: sticky; top: 80px; display: grid; gap: 1rem; }
 .grup { border: 1px solid var(--cizgi); border-radius: var(--r); background: var(--panel); padding: 1rem 1rem 1.125rem; margin: 0; min-width: 0; }
 .grup legend { float: left; width: 100%; padding: 0; margin: 0 0 .875rem; font-size: .8125rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--soluk); }
-.satir { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; clear: both; }
+.satir { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; align-items: end; clear: both; }
 .alan { display: grid; gap: .3125rem; font-size: .8125rem; color: var(--soluk); clear: both; }
 .satir .alan { clear: none; }
 .alan.tam { grid-column: 1 / -1; }
+.alan sub { line-height: 0; }
 .kutu { position: relative; }
 .kutu input, .alan select, .alan > input { width: 100%; height: 42px; padding: 0 3rem 0 .75rem; border-radius: var(--r); border: 1px solid var(--cizgi-2); background: var(--alan); color: var(--murekkep); font: 400 .9375rem var(--olcu); font-variant-numeric: tabular-nums; transition: border-color var(--hizli), box-shadow var(--hizli); }
 .alan > input { padding-right: .75rem; font-family: var(--yazi); font-size: 1rem; }
@@ -163,6 +165,8 @@ details.yardim .satir { margin-top: .875rem; }
 .tablo tbody tr:hover { background: rgb(236 230 218 / .03); }
 .tablo .olcu { white-space: nowrap; }
 .tablo .kaynak { color: var(--soluk); font-size: .93em; white-space: nowrap; }
+#maddeler { overflow-x: auto; position: relative; }
+#maddeler td.olcu + td.olcu { white-space: normal; min-width: 11.5em; }
 .kul { display: grid; grid-template-columns: 72px auto; align-items: center; gap: .625rem; font: 400 .87em var(--olcu); color: var(--soluk); }
 .kul i { position: relative; height: 4px; border-radius: 2px; background: var(--cizgi-2); overflow: hidden; }
 .kul i b { position: absolute; inset: 0 auto 0 0; border-radius: 2px; background: var(--nane); transition: width 280ms cubic-bezier(.16, 1, .3, 1); }
@@ -182,6 +186,7 @@ details.yardim .satir { margin-top: .875rem; }
 .kurallar { padding: 3rem clamp(1rem, 3vw, 2.5rem) 2.5rem; border-top: 1px solid var(--cizgi); display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 1.5rem; }
 .kurallar h2 { font-size: 1.75rem; }
 .kurallar aside p { color: var(--soluk); margin: .75rem 0 0; max-width: 34ch; }
+.kurallar .tablo .kaynak { white-space: normal; }
 .oncelik { display: flex; flex-wrap: wrap; align-items: center; gap: .375rem; margin-top: 1rem; font-size: .8125rem; }
 .oncelik span { padding: .25rem .5rem; border: 1px solid var(--cizgi-2); border-radius: 999px; }
 .oncelik svg { width: 14px; height: 14px; color: var(--soluk); }
@@ -276,7 +281,12 @@ details.yardim .satir { margin-top: .875rem; }
   .oncelik { margin: 2mm 0 0; }
   .alt { margin-top: 4mm; padding: 3mm 0 0; }
 }
+/* Sayfa geçişi izni satır içinde de olmalı: yalnız gecis.css'te kalınca önbelleksiz açılışta Chrome geçişi iptal ediyor */
+@media (prefers-reduced-motion: no-preference) { @view-transition { navigation: auto; } }
 </style>
+<link rel="stylesheet" href="gecis.css">
+<link rel="stylesheet" href="tema.css">
+<script type="module" src="tema.js"></script>
 </head>
 <body>
 <header class="ust">
@@ -355,12 +365,12 @@ details.yardim .satir { margin-top: .875rem; }
               <option value="depo">Azaltma yok (depo, ağır sanayi, okul, hastane, toplanma, garaj)</option>
             </select>
           </label>
-          <label class="alan">S<sub>DS</sub> (düşey deprem) <span class="kutu"><input name="sds" type="number" inputmode="decimal" min="0" step="0.01" value="0" required><span>–</span></span></label>
+          <label class="alan"><span>S<sub>DS</sub> (düşey deprem)</span> <span class="kutu"><input name="sds" type="number" inputmode="decimal" min="0" step="0.01" value="0" required><span>–</span></span></label>
           <label class="alan">Yatay deprem katsayısı <span class="kutu"><input name="kDeprem" type="number" inputmode="decimal" min="1" step="0.05" value="1" required><span>×</span></span></label>
         </div>
         <output class="yukozet" id="yuk" aria-live="polite"></output>
         <p class="ipucu">g: döşeme, kiriş, kaplama, dolgu duvar ve elemanın kendi ağırlığı (TS 500 0.2.18.2). q: hafif bölme duvarlar dahil (TS 498 0.2.1). Kat sayısına yalnız aynı q'lu tam katları sayın; katlarda q farklıysa "azaltma yok" seçin. Çatı/kar yükünü (0,2·S) ayrıca ekleyin. Yatay deprem hesaplanmaz; kenar ve köşe kolonlarda katsayıyı artırın.</p>
-        <button class="dugme" type="button" id="aktar">N<sub>dm</sub> ve N<sub>d</sub> alanlarına aktar</button>
+        <button class="dugme" type="button" id="aktar"><span>N<sub>dm</sub> ve N<sub>d</sub> alanlarına aktar</span></button>
       </details>
     </fieldset>
   </form>

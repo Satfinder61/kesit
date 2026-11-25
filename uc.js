@@ -10,15 +10,26 @@ export function kur(kap) {
 
   const sahne = new THREE.Scene();
   const kamera = new THREE.PerspectiveCamera(32, 1, 0.01, 500);
-  const izgara = new THREE.GridHelper(1, 20, 0x5a554e, 0x2a2825);
-  sahne.add(izgara);
+  // Renkler CSS belirteçlerinden; tema değişince (tema.js 'tema' olayı) yeniden okunur, döngü sonraki karede çizer.
+  const css = ad => getComputedStyle(document.documentElement).getPropertyValue(ad).trim();
+  let izgara = null, izgaraOlcek = 1, gecti = true;
   const govde = new THREE.MeshBasicMaterial({ transparent: true, opacity: .2, depthWrite: false, side: THREE.DoubleSide });
-  const kenar = new THREE.LineBasicMaterial({ color: 0xece6da });
+  const kenar = new THREE.LineBasicMaterial();
+  function renkler() {
+    if (izgara) { sahne.remove(izgara); izgara.geometry.dispose(); izgara.material.dispose(); }
+    izgara = new THREE.GridHelper(1, 20, css('--uc-eksen'), css('--uc-izgara'));
+    izgara.scale.setScalar(izgaraOlcek);
+    sahne.add(izgara);
+    kenar.color.set(css('--murekkep'));
+    govde.color.set(css(gecti ? '--nane' : '--kirmizi'));
+  }
+  renkler();
+  addEventListener('tema', renkler);
   let kutu = null, cerceve = null, merkezY = 1, mesafe = 8;
   let az = -.75, yuk = .42, surukle = null;
   const sabit = matchMedia('(prefers-reduced-motion: reduce)');
 
-  function guncelle({ kisa, uzun, H, gecti }) {
+  function guncelle({ kisa, uzun, H, gecti: g }) {
     const w = uzun / 1000, d = kisa / 1000, h = H / 1000;
     if (kutu) { sahne.remove(kutu, cerceve); kutu.geometry.dispose(); cerceve.geometry.dispose(); }
     const geo = new THREE.BoxGeometry(w, h, d);
@@ -26,9 +37,10 @@ export function kur(kap) {
     cerceve = new THREE.LineSegments(new THREE.EdgesGeometry(geo), kenar);
     kutu.position.y = cerceve.position.y = h / 2;
     sahne.add(kutu, cerceve);
-    govde.color.set(gecti ? 0x8fd9b0 : 0xff5c57);
+    gecti = g;
+    govde.color.set(css(gecti ? '--nane' : '--kirmizi'));
     const olcek = Math.max(w, h, d);
-    izgara.scale.setScalar(olcek * 2.2);
+    izgara.scale.setScalar(izgaraOlcek = olcek * 2.2);
     merkezY = h / 2;
     mesafe = olcek * 2.6;
   }
@@ -49,7 +61,7 @@ export function kur(kap) {
 
   let id = 0;
   const dongu = () => {
-    if (!surukle && !sabit.matches) az += .0025;
+    if (!surukle && !sabit.matches && document.documentElement.dataset.hareket !== 'az') az += .0025;
     kameraKur();
     cizici.render(sahne, kamera);
     id = requestAnimationFrame(dongu);

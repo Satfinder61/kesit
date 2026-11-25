@@ -27,7 +27,7 @@ let yazdiriliyor = false; // yazdırırken ara kare değil son değer çizilsin
 const kare = {};
 function canlandir(ad, from, to, ms, ciz) {
   cancelAnimationFrame(kare[ad]);
-  if (azHareket.matches || yazdiriliyor) return ciz(to);
+  if (azHareket.matches || document.documentElement.dataset.hareket === 'az' || yazdiriliyor) return ciz(to);
   const t0 = performance.now();
   const adim = now => {
     const p = Math.min(1, (now - t0) / ms), e = yavasla(p);
@@ -39,10 +39,9 @@ function canlandir(ad, from, to, ms, ciz) {
 }
 
 // Dar ekranda SVG yazıları okunur kalsın: viewBox ölçeğini telafi et (en çok 2,4 kat).
-new ResizeObserver(([g]) => {
-  const k = Math.min(2.4, Math.max(1, 760 / g.contentRect.width));
-  document.documentElement.style.setProperty('--yk', k.toFixed(3));
-}).observe($('.levha'));
+// Baskıya da geçer; yazdırma öncesi ve sonrası yeniden ölçülür (tema.js o arada yazı boyutunu %100'e çeker).
+const ykAyarla = () => document.documentElement.style.setProperty('--yk', Math.min(2.4, Math.max(1, 760 / $('.levha').getBoundingClientRect().width)).toFixed(3));
+new ResizeObserver(ykAyarla).observe($('.levha'));
 
 // ── Kesit paftası (SVG): beton taraması (TS/ISO 128 nokta-çakıl), eksenler, ölçü zincirleri,
 //    1,5 ve 6 sınırları kesikli hayalet + üstte kendi ölçü zincirleriyle.
@@ -300,8 +299,8 @@ f.addEventListener('input', tepki);
 f.addEventListener('change', tepki);
 f.addEventListener('submit', e => e.preventDefault());
 $('#yazdir').addEventListener('click', () => window.print());
-addEventListener('beforeprint', () => { yazdiriliyor = true; ciz(); });
-addEventListener('afterprint', () => { yazdiriliyor = false; });
+addEventListener('beforeprint', () => { yazdiriliyor = true; ykAyarla(); ciz(); });
+addEventListener('afterprint', () => { yazdiriliyor = false; ykAyarla(); });
 
 cetvelCiz(1);
 yukten();

@@ -1,0 +1,157 @@
+/* Görünüm katmanı: açık ve krem temalar, vurgu rengi, yazı boyutu, hareketi azalt, görünüm paneli.
+   Sayfaların kendi <style>'ından SONRA yüklenir; aynı seçicilerle sabit renkleri belirtece bağlar.
+   Hepsi @media screen içinde: baskı, sayfaların @media print kurallarıyla temadan bağımsız
+   (siyah mürekkep, beyaz kâğıt) kalır. Koyu değerler bugünkü renklerin aynısı (DESIGN.md).
+   ponytail: ortak css dosyası gelince 2. bölüm sayfa kurallarının içine katlanır. */
+@media screen {
+
+/* 1. Belirteçler. Koyu = sayfadaki :root + aşağıdaki yeniler. */
+:root {
+  --turuncu-ustu: #140c08;                                              /* vurgu üstündeki yazı */
+  --turuncu-acik: color-mix(in srgb, var(--turuncu), #fff 12%);         /* ana düğme üzerine gelince; eskiden #ff7d45 */
+  --vurgu-halka: color-mix(in srgb, var(--turuncu) 22%, transparent);   /* giriş odak halkası */
+  --vurgu-zemin: color-mix(in srgb, var(--turuncu) 17%, var(--zemin));  /* etkin satır/sütun başlığı; eskiden #3a2116 */
+  --kaydirac: #3a3733;
+  --cizgi-3: rgb(236 230 218 / .34);
+  --yer-tutucu: rgb(163 158 148 / .7);
+  --yer-tutucu-hucre: rgb(163 158 148 / .45);
+  --kiris: #2c2a26;
+  --kiris-cizgi: #4a4640;
+  --uc-izgara: #2a2825;
+  --uc-eksen: #5a554e;
+  --ornek-golge: 0 30px 80px -20px rgb(0 0 0 / .7);
+  --acilir-golge: 0 16px 40px -12px rgb(0 0 0 / .6);
+}
+/* Açık: arduvaz aydınlık (210–215°). Hücre ve çizim alanı beyaz kâğıt, paneller bir ton gri. */
+:root[data-tema="acik"] {
+  color-scheme: light;
+  --zemin: #f1f5f9; --panel: #f8fafc; --levha: #ffffff; --alan: #ffffff;
+  --murekkep: #1d2939; --soluk: #566881;
+  --cizgi: rgb(29 41 57 / .14); --cizgi-2: rgb(29 41 57 / .28); --cizgi-3: rgb(29 41 57 / .48);
+  --turuncu: #aa3300; --turuncu-ustu: #ffffff; --turuncu-acik: color-mix(in srgb, var(--turuncu), #000 12%);
+  --nane: #157540; --kirmizi: #c31b16;
+  --kaydirac: #bcc2c9;
+  --yer-tutucu: var(--soluk); --yer-tutucu-hucre: rgb(86 104 129 / .6);
+  --kiris: #d2d4d7; --kiris-cizgi: #999fa6; --uc-izgara: #e4e5e7; --uc-eksen: #b0b4ba;
+  --ornek-golge: 0 30px 80px -20px rgb(15 23 42 / .18); --acilir-golge: 0 16px 40px -12px rgb(15 23 42 / .2);
+  --ok: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' stroke='%23566881' stroke-width='1.6'%3E%3Cpath d='M3 4.5l3 3 3-3'/%3E%3C/svg%3E");
+}
+/* Krem: sıcak kâğıt (40°). */
+:root[data-tema="krem"] {
+  color-scheme: light;
+  --zemin: #efece7; --panel: #f8f6f2; --levha: #fcfcfa; --alan: #fcfcfa;
+  --murekkep: #2a2522; --soluk: #6b635b;
+  --cizgi: rgb(42 37 34 / .14); --cizgi-2: rgb(42 37 34 / .28); --cizgi-3: rgb(42 37 34 / .48);
+  --turuncu: #a03000; --turuncu-ustu: #ffffff; --turuncu-acik: color-mix(in srgb, var(--turuncu), #000 12%);
+  --nane: #14733f; --kirmizi: #be1b15;
+  --kaydirac: #bebab6;
+  --yer-tutucu: var(--soluk); --yer-tutucu-hucre: rgb(107 99 91 / .6);
+  --kiris: #d2d1cf; --kiris-cizgi: #9e9b99; --uc-izgara: #e3e2e0; --uc-eksen: #b3b1ae;
+  --ornek-golge: 0 30px 80px -20px rgb(42 37 34 / .16); --acilir-golge: 0 16px 40px -12px rgb(42 37 34 / .2);
+  --ok: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' stroke='%236b635b' stroke-width='1.6'%3E%3Cpath d='M3 4.5l3 3 3-3'/%3E%3C/svg%3E");
+}
+
+/* 2. Sayfalardaki sabit renkler → belirteç. Seçiciler ve sıraları sayfalardakiyle aynı (özgüllük eşit, sonra gelen kazanır). */
+/* Tüm sayfalar */
+html { scrollbar-color: var(--kaydirac) var(--zemin); }
+.ust { background: color-mix(in srgb, var(--zemin) 88%, transparent); }
+.ust:not(:has(#yazdir)) { background: color-mix(in srgb, var(--zemin) 80%, transparent); } /* ana sayfa: .8 */
+.dugme.ana { color: var(--turuncu-ustu); }
+.dugme.ana:hover { background: var(--turuncu-acik); }
+/* Girişler (hesap, sıra). Odak ve geçersiz, üzerine gelme kuralından sonra yeniden yazılır ki sıra bozulmasın. */
+.kutu input::placeholder, .alan > input::placeholder { color: var(--yer-tutucu); }
+.kutu input:hover, .alan select:hover, .alan > input:hover { border-color: var(--cizgi-3); }
+.kutu input:focus, .alan select:focus, .alan > input:focus { border-color: var(--turuncu); box-shadow: 0 0 0 3px var(--vurgu-halka); }
+.kutu input:user-invalid { border-color: var(--kirmizi); }
+.kutu input[aria-invalid="true"] { border-color: var(--kirmizi); }
+.alan select:focus { box-shadow: 0 0 0 3px var(--vurgu-halka); }
+/* Koşul tabloları (hesap, tablo, sıra) */
+.tablo tbody tr:hover { background: color-mix(in srgb, var(--murekkep) 3%, transparent); }
+/* hesap: sonuç çipi */
+.durum.uygun { background: color-mix(in srgb, var(--nane) 14%, transparent); }
+.durum.degil { background: color-mix(in srgb, var(--kirmizi) 14%, transparent); }
+/* tablo: şerit */
+.serit input::placeholder { color: var(--yer-tutucu); }
+.serit :is(select, input[type=text]):focus { box-shadow: 0 0 0 3px var(--vurgu-halka); }
+/* tablo + sıra: Excel tarzı sayfa */
+.sayfa .aktif { background: var(--vurgu-zemin); }
+.sayfa input::placeholder { color: var(--yer-tutucu-hucre); }
+.sayfa input[aria-invalid="true"] { background: color-mix(in srgb, var(--kirmizi) 8%, transparent); }
+.sayfa tbody tr:hover td { background-color: color-mix(in srgb, var(--murekkep) 2.5%, transparent); } /* tablo .02, sıra .025 idi */
+.sayfa tbody tr[aria-selected="true"] td { background-color: color-mix(in srgb, var(--turuncu) 7%, transparent); }
+.sayfa .cikti { background: color-mix(in srgb, var(--murekkep) 3.5%, transparent); }
+.sayfa td.dolgu i { background: color-mix(in srgb, var(--nane) 20%, transparent); }
+.sayfa td.dolgu.asim i { background: color-mix(in srgb, var(--kirmizi) 20%, transparent); }
+/* sıra: adımlar, lejant, kat planı, hata kutusu */
+.adimlar button:hover { background: color-mix(in srgb, var(--murekkep) 3%, transparent); }
+.adimlar button[aria-selected="true"] { background: color-mix(in srgb, var(--turuncu) 8%, transparent); }
+.adimlar [aria-selected="true"] i { color: var(--turuncu-ustu); }
+.lejant .l-degil { background: color-mix(in srgb, var(--kirmizi) 50%, transparent); }
+#plan .pano:hover { fill: color-mix(in srgb, var(--murekkep) 3%, transparent); }
+#plan .pano.degil { fill: color-mix(in srgb, var(--kirmizi) 10%, transparent); }
+#plan .kiris { fill: var(--kiris); stroke: var(--kiris-cizgi); }
+#plan .temel { fill: color-mix(in srgb, var(--murekkep) 5%, transparent); }
+#plan .temel.degil { fill: color-mix(in srgb, var(--kirmizi) 12%, transparent); }
+.hata-kutu { background: color-mix(in srgb, var(--kirmizi) 8%, transparent); }
+/* ana sayfa */
+.kaynaklar span { background: color-mix(in srgb, var(--zemin) 60%, transparent); }
+.ornek { background: color-mix(in srgb, var(--levha) 92%, transparent); box-shadow: var(--ornek-golge); }
+.etiket[data-tur="kolon"] { background: color-mix(in srgb, var(--nane) 14%, transparent); }
+.etiket[data-tur="gecersiz"] { background: color-mix(in srgb, var(--kirmizi) 14%, transparent); }
+.etiket[data-tur="perde"] { background: color-mix(in srgb, var(--turuncu) 16%, transparent); }
+
+/* 3. Yazı boyutu: rem tabanlı her şey büyür; çizim içi px yazılar ve tablo sütunları sabit. */
+:root[data-olcek="90"] { font-size: 90%; }
+:root[data-olcek="110"] { font-size: 110%; }
+:root[data-olcek="120"] { font-size: 120%; }
+
+/* 4. Hareketi azalt: sayfaların prefers-reduced-motion kuralının aynısı, elle açılınca.
+   Sayfa geçişleri için gecis.css'teki html[data-hareket="az"] kuralı; tuval ve JS ara değerleri ilgili dosyalarda. */
+[data-hareket="az"], [data-hareket="az"] * { transition-duration: 0ms !important; scroll-behavior: auto !important; }
+.tema-aninda, .tema-aninda * { transition: none !important; }
+
+/* 5. Görünüm paneli: üst çubukta ana düğmenin solunda 40 px yuvarlak düğme + açılır pencere (popover). */
+.tema { display: flex; margin-right: -1.25rem; } /* .ust aralığı 2rem → ana düğmeye .75rem */
+.tema-dugme { display: grid; place-items: center; width: 40px; height: 40px; padding: 0; border-radius: 999px; border: 1px solid var(--cizgi-2); background: transparent; color: var(--murekkep); cursor: pointer; transition: border-color var(--hizli), transform var(--hizli); }
+.tema-dugme:hover, .tema:has(:popover-open) .tema-dugme { border-color: var(--murekkep); }
+.tema-dugme:active { transform: scale(.97); }
+.tema-dugme svg { width: 18px; height: 18px; }
+.tema-dugme .yari { fill: var(--turuncu); }
+
+.tema-panel { position: fixed; inset: auto; margin: 0; width: min(18rem, calc(100vw - 16px)); max-height: calc(100dvh - 88px); overflow: auto; padding: 1rem; border: 1px solid var(--cizgi-2); border-radius: var(--r, 3px); background: var(--panel); color: var(--murekkep); box-shadow: var(--acilir-golge); font: 400 .875rem/1.45 var(--yazi); }
+.tema-panel h2 { margin: 0 0 .875rem; font-size: .9375rem; font-weight: 600; letter-spacing: -.015em; }
+.tema-panel fieldset { min-width: 0; margin: 0 0 1rem; padding: 0; border: 0; }
+.tema-panel legend { padding: 0; margin: 0 0 .5rem; font-size: .75rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--soluk); }
+.tema-panel label { position: relative; cursor: pointer; }
+.tema-panel :is(input[type=radio], input[type=color]) { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+/* Bölümlü seçim: .sekmeler ile aynı dil */
+.tema-bolum { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; padding: 3px; border-radius: 999px; border: 1px solid var(--cizgi); background: var(--alan); }
+.tema-bolum span { display: grid; place-items: center; height: 30px; border-radius: 999px; color: var(--soluk); font: 600 .8125rem var(--yazi); transition: background var(--hizli), color var(--hizli); }
+.tema-bolum label:hover span { color: var(--murekkep); }
+.tema-bolum input:checked + span { background: var(--murekkep); color: var(--zemin); }
+.tema-bolum input:focus-visible + span { outline: 2px solid var(--turuncu); outline-offset: 2px; }
+/* Renk örnekleri */
+.tema-renkler { display: flex; flex-wrap: wrap; gap: .5rem; }
+.tema-renk { width: 28px; height: 28px; }
+.tema-renk span { display: block; width: 100%; height: 100%; border-radius: 999px; box-shadow: inset 0 0 0 1px var(--cizgi-2); }
+.tema-renk input:checked + span, .tema-ozel.secili span { box-shadow: 0 0 0 2px var(--panel), 0 0 0 4px var(--murekkep); }
+.tema-renk input:focus-visible + span { outline: 2px solid var(--turuncu); outline-offset: 5px; }
+.tema-ozel span { background: conic-gradient(#ff5c57, #e7b008, #8fd9b0, #2463eb, #6b26d9, #ff5c57); }
+.tema-not { margin: .5rem 0 0; font-size: .75rem; color: var(--soluk); }
+.tema-secim { display: flex; align-items: center; gap: .5rem; }
+.tema-secim input { width: 16px; height: 16px; margin: 0; accent-color: var(--turuncu); }
+.tema-alt { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin-top: 1rem; padding-top: .75rem; border-top: 1px solid var(--cizgi); }
+.tema-durum { margin: 0; font-size: .75rem; color: var(--soluk); }
+.tema-sifirla { flex: none; height: 30px; padding: 0 .875rem; border-radius: 999px; border: 1px solid var(--cizgi-2); background: transparent; color: var(--murekkep); font: 600 .8125rem var(--yazi); cursor: pointer; transition: border-color var(--hizli); }
+.tema-sifirla:hover { border-color: var(--murekkep); }
+
+@media (max-width: 960px) {
+  .ust .tema { margin-left: auto; }
+  .ust .tema + .dugme { margin-left: 0; }
+}
+@media (max-width: 640px) {
+  .ust:has(#yazdir) .tema { margin-right: -.25rem; } /* bu sayfalarda .ust aralığı 1rem */
+}
+}
+
+@media print { .tema, .tema-panel { display: none !important; } }

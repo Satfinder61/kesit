@@ -51,7 +51,8 @@ export function yukHesap({ alan, katSayisi, g, q, kullanim = 'konut', kDeprem = 
 
 // k yüzde olarak tam sayı tutulur (40, 35, 60): 0.35*45 gibi kayan nokta hatası sınırda yanlış sonuç veriyordu.
 const gerekliAlan = (N, fck, kYuzde) => (N * 1000 * 100) / (kYuzde * fck); // mm²
-const tr = (x, d = 2) => x.toLocaleString('tr-TR', { maximumFractionDigits: d });
+const NF = {}; // Intl biçimleyici her çağrıda kurulursa hesap süresinin çoğunu yer: ondalık sayısına göre önbellek
+const tr = (x, d = 2) => (NF[d] ??= new Intl.NumberFormat('tr-TR', { maximumFractionDigits: d })).format(x);
 
 export function sinifla(b, h) {
   const oran = Math.max(b, h) / Math.min(b, h);

@@ -189,6 +189,8 @@ addEventListener('storage', e => { if (e.key === ANAHTAR) disaridan(); });
 addEventListener('pageshow', e => { if (e.persisted) disaridan(); });
 // "Hareketi azalt": sayfalar arası geçiş hiç başlamasın (gecis.css'teki izin yalnız sistem ayarına bakar).
 addEventListener('pageswap', ({ viewTransition: v }) => { if (v && d.dataset.hareket === 'az') { v.ready.catch(() => {}); v.skipTransition(); } });
+// Tarayıcı sayfa geçişini kendi iptal ederse (ör. arka plandaki sekme: 'Page already revealed') konsola yakalanmamış hata düşmesin
+addEventListener('pageswap', ({ viewTransition: v }) => { v?.ready.catch(() => {}); v?.finished.catch(() => {}); }); // yeni sayfanın pagereveal karşılığı <head> içindeki satır betikte
 // Baskı yazı boyutundan bağımsız: sıra planı ve kesit yazıları ekrandaki genişlikle çizilir. Yazdırırken %100
 // düzene dönülür; sayfaların beforeprint/afterprint'i bu dosyadan sonra kaydolur, iki düzende de yeniden ölçer.
 addEventListener('beforeprint', () => delete d.dataset.olcek);

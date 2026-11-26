@@ -22,7 +22,7 @@ let adim = 'doseme', perdeMod = false;
 const sayfa = $('#sayfa');
 const K = kitapKur({ sayfa, kap: $('.kap'), sekmeler: [$('.sekmeler-alt')], ad: $('#ad-kutusu'), formul: $('#formul'), durumSol: $('#durum-sol'), durumSag: $('#durum-sag'),
   ayrinti: $('#ayrinti'), ayrintiBaslik: $('#ayrinti-baslik'), ayrintiNot: $('#ayrinti-not'), iz: $('#iz') },
-  { yenile: () => hesapla(), secildi: () => planSecim(), girdiYazildi: (k, ek) => formaYaz([k, ...ek]) });
+  { yenile: () => hesapla(), secildi: () => planSecim(), katDegisti: () => { ozetCiz(); ciz(); }, girdiYazildi: (k, ek) => formaYaz([k, ...ek]) });
 K.sayfaAd = 'doseme';
 
 const perdeListe = () => perdeOku(K.d.form.perdeler).liste;
@@ -57,14 +57,14 @@ function adimCiz() {
   if (pd.hidden) perdeMod = false;
   pd.setAttribute('aria-pressed', perdeMod); $('#perde-mod-ipucu').hidden = !perdeMod;
 }
-const ciz = () => { K.sekmeCiz(); planCiz(); K.sayfaCiz(); K.durumCiz(); K.secimCiz(); };
+const ciz = () => { $('#plan-baslik').textContent = `${K.sonuc?.aktifKat && adim !== 'temel' ? `${K.sonuc.aktifKat}. kat · ` : ''}${PLAN_BASLIK[adim]}`; K.sekmeCiz(); planCiz(); K.sayfaCiz(); K.durumCiz(); K.secimCiz(); };
 
 function ozetCiz() {
   const sonuc = K.sonuc;
   for (const a of ['doseme', 'kiris', 'kolon', 'temel']) {
     const el = $('#ozet-' + a);
     if (!sonuc) { el.textContent = '—'; el.classList.remove('degil'); continue; }
-    const bad = K.gorunur().filter(s => s.adim === a).flatMap(s => s.dizi(sonuc)).filter(e => !e.gecti).length;
+    const bad = K.gorunur().filter(s => s.adim === a && !s.yuk).flatMap(s => s.dizi(sonuc)).filter(e => !e.gecti).length;
     const yok = a === 'kiris' && sonuc.tur === 'kirissiz';
     const elle = x => x ? ' (elle)' : ''; // hücreye yazılan değer
     el.textContent = (a === 'doseme' ? `${TUR_AD[sonuc.tur]} h = ${sonuc.h} mm${elle(sonuc.dosemeler[0]?.ozel?.h)}` : yok ? 'kirişsiz döşeme: kiriş yok'
@@ -265,14 +265,14 @@ addEventListener('storage', e => { if (e.key === ANAHTAR) { K.d = durumYukle(und
 
 $('#yazdir').addEventListener('click', () => print());
 // Excel'e aktar: düzenlenen hücre ve bekleyen hesap önce işlenir
-$('#excel').addEventListener('click', () => { if (sayfa.contains(document.activeElement) || f.contains(document.activeElement)) document.activeElement.blur(); K.simdi(); excelIndir(K.d, K.sonuc); });
+$('#excel').addEventListener('click', () => { if (sayfa.contains(document.activeElement) || f.contains(document.activeElement)) document.activeElement.blur(); K.simdi(); excelIndir(K.d, K.tumSonuc); });
 addEventListener('beforeprint', () => {
   if (sayfa.contains(document.activeElement)) { document.activeElement.blur(); hesapla(); } // düzenlenen hücre çıktıya girsin
   K.bekleyeni(); planOlc(); // tema.js yazı boyutunu baskı için %100'e çekti: plan o genişlikle
   document.querySelectorAll('#plan .secili').forEach(x => x.classList.remove('secili')); // raporda seçim vurgusu olmasın (afterprint → planOlc geri koyar)
   $('#tarih').textContent = new Date().toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
   $('#girdi-ozet').innerHTML = girdiOzet(K.d, K.sonuc);
-  $('#baski').innerHTML = K.sonuc ? K.gorunur().filter(s => !s.girdi).map((s, i) => `<section class="baski-sayfa"><h2>${i + 1}. ${s.baslik}</h2>${tabloHtml(s, K.sonuc, K.d, true)}</section>`).join('') : '';
+  $('#baski').innerHTML = K.sonuc ? K.gorunur().filter(s => !s.girdi).map((s, i) => `<section class="baski-sayfa"><h2>${i + 1}. ${s.baslik}${K.sonuc.aktifKat && s.adim !== 'temel' ? ` · ${K.sonuc.aktifKat}. kat` : ''}</h2>${tabloHtml(s, K.sonuc, K.d, true)}</section>`).join('') : '';
 });
 
 const planOlc = () => { planCiz(); K.secimCiz(); }; // plan ekrandaki genişliğe göre çizilir

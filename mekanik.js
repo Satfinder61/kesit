@@ -75,13 +75,17 @@ export function desenler(n) {
     d.push([...Array(n)].map((_, i) => i === k - 1 || i === k || (i < k - 1 && (k - 1 - i) % 2 === 0) || (i > k && (i - k) % 2 === 0)));
   return d;
 }
-// 1,4G (her açıklıkta) + 1,6Q (desene göre) zarfı: açıklık başına en büyük mesnet ve açıklık momenti, uç kesmesi.
+// 1,4G (her açıklıkta) + 1,6Q (desene göre) zarfı: uçlarda üst/alt çekme momentleri, açıklık momenti ve uç kesmesi.
 export function zarf(L, G, Q, uc = UC0) {
-  const z = L.map(() => ({ MdMesnet: 0, MdAcik: 0, Vd: 0 }));
+  const z = L.map(() => ({ MdMesnet: 0, MdSolUst: 0, MdSagUst: 0, MdSolAlt: 0, MdSagAlt: 0, MdAcik: 0, Vd: 0 }));
   for (const d of desenler(L.length)) {
     const r = surekliKiris(L, G.map((p, k) => [...p.map(y => ({ w: 1.4 * y.w, a: y.a })), ...(d[k] ? Q[k].map(y => ({ w: 1.6 * y.w, a: y.a })) : [])]), uc);
     r.acikliklar.forEach((s, k) => {
       z[k].MdMesnet = Math.max(z[k].MdMesnet, -Math.min(s.Msol, s.Msag, 0));
+      z[k].MdSolUst = Math.max(z[k].MdSolUst, -s.Msol);
+      z[k].MdSagUst = Math.max(z[k].MdSagUst, -s.Msag);
+      z[k].MdSolAlt = Math.max(z[k].MdSolAlt, s.Msol);
+      z[k].MdSagAlt = Math.max(z[k].MdSagAlt, s.Msag);
       z[k].MdAcik = Math.max(z[k].MdAcik, s.Macik);
       z[k].Vd = Math.max(z[k].Vd, Math.abs(s.VL), Math.abs(s.VR));
     });

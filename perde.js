@@ -87,11 +87,14 @@ export function perdeAg(ag, liste) {
 // bt: TS 498 β; iz: yük açıklaması; bwGirdi: kullanıcının kalınlığı (büyütme notu için; bw önceki turdan büyümüş olabilir). Kalınlık koşulu ya da eksenel sınır sağlanmazsa bw 50 mm adımla büyür (en çok 20 adım, ℓw/bw ≥ 6
 // kaldıkça). N_dm = (G + βQ + 0,2·S_DS·G)·k (kolondaki gibi, TBDY 7.6.1.1), N_d = 1,4G + 1,6βQ.
 // sabit: kalınlık elle verildi, büyütülmez; koşullar bu kalınlıkla denetlenir.
-export function perdeTasarla({ p, bw, bwGirdi = bw, n, H, G1, Q1, bt, mz, sds, kDeprem, iz = [], sabit = false }) {
+export function perdeTasarla({ p, bw, bwGirdi = bw, n, H, G1, Q1, bt, mz, sds, kDeprem, iz = [], sabit = false, katYuk = null }) {
+  // Gdiger: bu katın perde öz ağırlığı dışındaki birikmiş G; Qham: birikmiş azaltılmamış Q.
+  if (katYuk && (![katYuk.Gdiger, katYuk.Qham].every(x => Number.isFinite(x) && x >= 0) || !(Number.isFinite(katYuk.Hw) && katYuk.Hw >= H)))
+    throw new RangeError('Katlı perde yükleri ve bina yüksekliği geçerli olmalı');
   const bw0 = Math.min(bw, bwGirdi);
   let e;
   for (let adim = 0; ; adim++) {
-    e = perdeKesit({ p, bw, n, H, G1, Q1, bt, mz, sds, kDeprem, iz });
+    e = perdeKesit({ p, bw, n, H, G1, Q1, bt, mz, sds, kDeprem, iz, katYuk });
     if (sabit) { e.ozel = { bw: true }; e.iz.splice(iz.length, 0, `b_w = ${bw} mm elle verildi: araç kalınlığı büyütmedi, koşullar bu kalınlıkla denetlendi`); return e; }
     if (!e.maddeler.some(m => !m.gecti && (m.ad === 'Perde kalınlığı' || m.ad === 'Net kesit alanı'))) break;
     if (adim >= 20 || (p.L * 1000 + bw + 50) / (bw + 50) < 6 - TOL) {
@@ -104,16 +107,17 @@ export function perdeTasarla({ p, bw, bwGirdi = bw, n, H, G1, Q1, bt, mz, sds, k
   return e;
 }
 
-function perdeKesit({ p, bw, n, H, G1, Q1, bt, mz, sds, kDeprem, iz }) {
-  const fck = mz.fck, lw = p.L * 1000 + bw, Hw = n * H, Ac = bw * lw;
+function perdeKesit({ p, bw, n, H, G1, Q1, bt, mz, sds, kDeprem, iz, katYuk }) {
+  const fck = mz.fck, lw = p.L * 1000 + bw, Hw = katYuk?.Hw ?? n * H, Ac = bw * lw;
   const oz = bw / 1000 * lw / 1000 * H / 1000 * GAMMA_BA;
-  const G = n * (G1 + oz), Q = n * Q1 * bt, Ndm = (G + Q + 0.2 * sds * G) * kDeprem, Nd = 1.4 * G + 1.6 * Q;
+  const G = katYuk ? katYuk.Gdiger + oz : n * (G1 + oz), Q = katYuk ? katYuk.Qham * bt : n * Q1 * bt;
+  const Ndm = (G + Q + 0.2 * sds * G) * kDeprem, Nd = 1.4 * G + 1.6 * Q;
   const yuksek = Hw > 70000; // TBDY Tablo 3.3: H_N > 70 m → BYS = 1 (DTS 1–2 varsayımı) → 13.1.6 perde ≥ 300 mm
   const ara = p.dugumler.slice(1, -1);
   const e = { ad: p.ad, aks: p.aks, yon: p.yon, no: p.no, hi: p.hi, k0: p.k0, k1: p.k1, L: p.L, bw, lw, Hw, NG: G, NQ: Q, Ndm, Nd, Nk: G + Q,
     uclar: p.uclar, dugumler: p.dugumler, maddeler: [], iz: [...iz,
       `Kat başına öz ağırlık b_w·ℓw·H·γ = ${tr(bw / 1000, 3)}·${tr(lw / 1000, 3)}·${tr(H / 1000)}·${GAMMA_BA} = ${tr(oz)} kN`,
-      `${n} kat: G = ${tr(G, 0)} kN, βQ = ${tr(bt)}·${n}·${tr(Q1)} = ${tr(Q, 0)} kN; N_dm = (G + βQ + 0,2·S_DS·G)·k = ${tr(Ndm, 0)} kN; N_d = 1,4G + 1,6βQ = ${tr(Nd, 0)} kN`] };
+      `${n} kat: G = ${tr(G, 0)} kN, βQ = ${tr(bt)}·${katYuk ? tr(katYuk.Qham) : `${n}·${tr(Q1)}`} = ${tr(Q, 0)} kN; N_dm = (G + βQ + 0,2·S_DS·G)·k = ${tr(Ndm, 0)} kN; N_d = 1,4G + 1,6βQ = ${tr(Nd, 0)} kN`] };
   const r = kontrol({ b: bw, h: lw, fck, Ndm, katYuksekligi: H, ikiUcTutulu: p.ikiUcTutulu, yuksekBina: yuksek });
   e.tur = r.tur;
   if (r.tur !== 'perde') {
@@ -127,7 +131,7 @@ function perdeKesit({ p, bw, n, H, G1, Q1, bt, mz, sds, kDeprem, iz }) {
   const luMin = Math.max(0.2 * lw, 2 * bw), lu = yukari(luMin, 50), luUst = Math.max(0.1 * lw, bw);
   madde(e, 'Uç bölgesi boyu', `${tr(lu, 0)} mm`, `H_cr boyunca ≥ max(0,2·ℓw; 2·b_w) = ${tr(luMin, 0)} mm, üstünde ≥ max(0,1·ℓw; b_w) = ${tr(luUst, 0)} mm`,
     lu >= luMin - TOL && 2 * lu <= lw + TOL, 'TBDY 7.6.2.1–7.6.2.3', luMin / lu);
-  e.iz.push(`Geometri: ℓw = eksen ${tr(p.L)} m + b_w = ${tr(lw, 0)} mm (uçlar aks dışına b_w/2); H_w = n·H = ${tr(Hw, 0)} mm, H_w/ℓw = ${tr(Hw / lw)} ` +
+  e.iz.push(`Geometri: ℓw = eksen ${tr(p.L)} m + b_w = ${tr(lw, 0)} mm (uçlar aks dışına b_w/2); H_w = ${katYuk ? 'ΣH' : 'n·H'} = ${tr(Hw, 0)} mm, H_w/ℓw = ${tr(Hw / lw)} ` +
     (ucGerek ? '> 2: uç bölgeleri zorunlu (7.6.2.1)' : '≤ 2: uç bölgesi zorunlu değil, güvenli yanda yine oluşturuldu; gövde donatısı tüm kesitte (7.6.3.1)') +
     `; H_cr = min(max(ℓw; H_w/6); 2ℓw) = ${tr(Hcr, 0)} mm (Denk. 7.15); uç bölgesi ℓu = ${tr(lu, 0)} mm`,
     `Uç bölgeleri ${p.uclar.join(' ve ')} kolonlarının yerinde: bu kolonlar kolon olarak ayrıca tasarlanmadı${ara.length ? `; ${ara.join(', ')} perde gövdesine katıldı` : ''}`);
@@ -214,6 +218,42 @@ export function duraylilik({ perdeler, n, H, W, Ec }) {
   let en = { phi: 0, kat: 1 };
   for (let i = 1; i <= n; i++) {
     const V = F.slice(i - 1).reduce((a, b) => a + b, 0), phi = 1.5 * (n - i + 1) * W * (d[i] - d[i - 1]) / (V * h);
+    if (phi > en.phi) en = { phi, kat: i };
+  }
+  return { ...en, EI, GA };
+}
+
+// Değişken katlar için aynı konsol yaklaşımı: H (mm), W (kN) ve o kattaki perde kesitleri tabandan yukarı.
+// ponytail: her katta perdeler eşdeğer tek konsol kabul edilir; burulma ve çerçeve katkısı için uzaysal çözüm gerekir.
+export function duraylilikKatli({ katlar, Ec }) {
+  if (!Array.isArray(katlar) || !katlar.length || !(Number.isFinite(Ec) && Ec > 0) ||
+    katlar.some(k => !(Number.isFinite(k.H) && k.H > 0 && Number.isFinite(k.W) && k.W >= 0 && Array.isArray(k.perdeler))))
+    throw new RangeError('Kat yüksekliği, ağırlığı ve perde kesitleri geçerli olmalı');
+  const n = katlar.length, z = [0], EI = [], GA = [];
+  for (const k of katlar) {
+    if (k.perdeler.some(p => !(Number.isFinite(p.bw) && p.bw > 0 && Number.isFinite(p.lw) && p.lw > 0)))
+      throw new RangeError('Perde boyutları pozitif olmalı');
+    z.push(z.at(-1) + k.H / 1000);
+    EI.push(k.perdeler.reduce((t, p) => t + Ec * 1000 * (p.bw / 1000) * (p.lw / 1000) ** 3 / 12, 0));
+    GA.push(k.perdeler.reduce((t, p) => t + Ec * 1000 / 2.4 * 5 / 6 * (p.bw / 1000) * (p.lw / 1000), 0));
+  }
+  const wz = katlar.map((k, i) => k.W * z[i + 1]), toplam = wz.reduce((a, b) => a + b, 0);
+  if (!(toplam > 0) || EI.some(x => !(x > 0)) || GA.some(x => !(x > 0)))
+    return { phi: Infinity, kat: 1, EI, GA };
+  const dF = Math.min(0.0075 * n, 1), F = wz.map(x => (1 - dF) * x / toplam); F[n - 1] += dF;
+  const d = [0];
+  for (let i = 1; i <= n; i++) d.push(F.reduce((total, f, j) => {
+    const zi = z[i], zj = z[j + 1], limit = Math.min(zi, zj);
+    return total + f * EI.reduce((sum, ei, s) => {
+      const a = z[s], b = Math.min(z[s + 1], limit);
+      if (b <= a) return sum;
+      return sum + (zi * zj * (b - a) - (zi + zj) * (b * b - a * a) / 2 + (b ** 3 - a ** 3) / 3) / ei + (b - a) / GA[s];
+    }, 0);
+  }, 0));
+  let en = { phi: 0, kat: 1 };
+  for (let i = 1; i <= n; i++) {
+    const V = F.slice(i - 1).reduce((a, b) => a + b, 0), N = katlar.slice(i - 1).reduce((a, k) => a + k.W, 0);
+    const phi = V > 0 ? 1.5 * N * (d[i] - d[i - 1]) / (V * (z[i] - z[i - 1])) : Infinity;
     if (phi > en.phi) en = { phi, kat: i };
   }
   return { ...en, EI, GA };

@@ -6,7 +6,7 @@ const $ = s => document.querySelector(s);
 const LISTE = { ad: 'liste', baslik: 'Kolon listesi', kontrol: 'sayfa' }, SEKME = 'kesit.tablo.sekme';
 const bar = [...document.querySelectorAll('.sekmeler-alt')], zs = $('#z-sayfa');
 const K = kitapKur({ sayfa: zs, kap: $('#zincir-kitap .kap'), sekmeler: bar, ad: $('#z-ad'), formul: $('#z-formul'), durumSol: $('#z-durum-sol'), durumSag: $('#z-durum-sag'),
-  ayrinti: $('#z-ayrinti'), ayrintiBaslik: $('#z-ayrinti-baslik'), ayrintiNot: $('#z-ayrinti-not'), iz: $('#z-iz') }, { yenile: () => hesapla() });
+  ayrinti: $('#z-ayrinti'), ayrintiBaslik: $('#z-ayrinti-baslik'), ayrintiNot: $('#z-ayrinti-not'), iz: $('#z-iz') }, { yenile: () => hesapla(), katDegisti: () => ciz() });
 let gorunum = 'zincir';
 
 function hesapla() {
@@ -49,7 +49,7 @@ $('#excel').addEventListener('click', () => {
   K.simdi();
   let liste;
   try { const k = JSON.parse(localStorage.getItem('kesit.tablo.v1')); if (Array.isArray(k?.veri)) liste = { veri: k.veri, ayar: k.ayar ?? {} }; } catch {}
-  excelIndir(K.d, K.sonuc, { liste });
+  excelIndir(K.d, K.tumSonuc, { liste });
 });
 // Yazdır: zincir görünümündeyse bütün sayfalar (Girdiler özeti paragrafta), kolon listesinde satır içi betiğin raporu
 addEventListener('beforeprint', () => {
@@ -58,7 +58,7 @@ addEventListener('beforeprint', () => {
   K.bekleyeni();
   $('#z-tarih').textContent = new Date().toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
   $('#z-girdi-ozet').innerHTML = girdiOzet(K.d, K.sonuc);
-  $('#baski-zincir').innerHTML = K.sonuc ? K.gorunur().filter(s => !s.girdi).map((s, i) => `<section class="baski-sayfa"><h2>${i + 1}. ${s.baslik}</h2>${tabloHtml(s, K.sonuc, K.d, true)}</section>`).join('') : '';
+  $('#baski-zincir').innerHTML = K.sonuc ? K.gorunur().filter(s => !s.girdi).map((s, i) => `<section class="baski-sayfa"><h2>${i + 1}. ${s.baslik}${K.sonuc.aktifKat && s.adim !== 'temel' ? ` · ${K.sonuc.aktifKat}. kat` : ''}</h2>${tabloHtml(s, K.sonuc, K.d, true)}</section>`).join('') : '';
   $('#z-baski-notlar').innerHTML = (K.sonuc?.notlar ?? Object.values(K.hata)).map(n => `<li>${simge(n)}</li>`).join('');
 });
 // Döşemeden temele sayfası başka sekmede aynı projeyi değiştirince

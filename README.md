@@ -4,7 +4,9 @@ Statik site, derleme adımı yok. `index.html` giriş sayfası, `hesap.html` tek
 
 Yerelde: `python3 -m http.server 8000` → http://localhost:8000
 
-Testler: `node kurallar.test.mjs`, `node donati.test.mjs`, `node zincir.test.mjs`, `node calisma.test.mjs` ve `node xlsx.test.mjs`
+Katlı ön hesap için kat yüksekliklerini tabandan yukarı mm cinsinden girin (ör. `3000 3200 3000`); sonuç ve Excel her katı ayrı gösterir. Alan boşsa ortak kesit hesabı yapılır. Kirişsiz ve perdeli sistemlerde deprem etkileri kesin hesapta denetlenmelidir.
+
+Testler: `node kurallar.test.mjs`, `node donati.test.mjs`, `node zincir.test.mjs`, `node calisma.test.mjs`, `node katli.test.mjs`, `node katli-kirissiz.test.mjs`, `node perde-katli.test.mjs` ve `node xlsx.test.mjs`
 
 Kaynaklar: TBDY 2018, TS 500 (2000), TS 498 (1997), 1 Mart kararnamesi (kolon uzun/kısa ≤ 1,5). Ön boyutlandırma aracıdır; kesin statik hesabın yerine geçmez.
 

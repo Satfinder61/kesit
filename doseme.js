@@ -6,6 +6,7 @@ import { zarf, ortaMomentler } from './mekanik.js';
 
 export const GAMMA_BA = 25; // betonarme birim hacim ağırlığı, kN/m³ (genel kabul; TS 498 1.3 TS ISO 9194'e gönderir)
 const TOL = 1e-9;
+const PLAK_MIN = 120; // Kirişli plak için proje alt sınırı (mm); yönetmelik sınırından ayrı.
 const NF = {}; // Intl biçimleyici her çağrıda kurulursa hesap süresinin çoğunu yer: ondalık sayısına göre önbellek
 const tr = (x, d = 2) => (NF[d] ??= new Intl.NumberFormat('tr-TR', { maximumFractionDigits: d })).format(x);
 const yukari = (x, adim) => Math.ceil(x / adim - TOL) * adim;
@@ -164,9 +165,9 @@ function plakTasarla(ag, g, h, mz, bwK) {
       const ku = plakAs(kNeg, h, dk, mz, 0.0015, sMaxK), uu = plakAs(uNeg, h, dk, mz, 0.0015, sMaxU);
       Object.assign(e, { durum: DURUM_ADI[hs.dr], kisaAlt: cy(ka.c), uzunAlt: cy(ua.c), kisaUst: cy(ku.c), uzunUst: cy(uu.c) });
       aralik(e, [ka.c, ua.c, ku.c, uu.c]);
-      const hMin = Math.ceil(Math.max(80, hs.lsn * 1000 / (15 + 20 / p.geo.m) * (1 - p.geo.alfaS / 4)) - TOL);
+      const hMin = Math.ceil(Math.max(PLAK_MIN, hs.lsn * 1000 / (15 + 20 / p.geo.m) * (1 - p.geo.alfaS / 4)) - TOL);
       e.hMin = hMin;
-      madde(e, 'Döşeme kalınlığı', h, `≥ max(80; ℓsn/(15 + 20/m)·(1 − αs/4)) = ${tr(hMin)} mm`, h >= hMin, 'TS 500 11.4.2, Denk. 11.1', hMin / h);
+      madde(e, 'Döşeme kalınlığı', h, `≥ max(${PLAK_MIN}; ℓsn/(15 + 20/m)·(1 − αs/4)) = ${tr(hMin)} mm`, h >= hMin, 'TS 500 11.4.2, Denk. 11.1; proje alt sınırı 120 mm', hMin / h);
       const Mmax = Math.max(hs.M.kisaPoz, kNeg), Mk = mMax(1000, dk, mz);
       madde(e, 'Eğilme kapasitesi', Mmax, `≤ ${tr(Mk, 1)} kNm/m (ρ ≤ ρmax)`, Mmax <= Mk, 'TS 500 7.1', Mmax / Mk);
       // Sehim: kısa doğrultu 1 m şerit, kullanım momentleri α·p·ℓsn²
@@ -195,9 +196,9 @@ function plakTasarla(ag, g, h, mz, bwK) {
       const kk = dosemeCubuk(Math.max(0.6 * ka.c.As, 167.6), 300);                               // kısa kenar mesnet ≥ %60, ≥ φ8/300
       Object.assign(e, { durum: 'bir doğrultu', kisaAlt: cy(ka.c), kisaUst: cy(ku.c), uzunAlt: cy(dag) + ' (dağıtma)', uzunUst: cy(kk) });
       aralik(e, [ka.c, ku.c, dag, kk]);
-      const surekli = dis.filter(x => !x).length, oran = surekli ? 30 : 25, hMin = Math.ceil(Math.max(80, hs.ln * 1000 / oran) - TOL);
+      const surekli = dis.filter(x => !x).length, oran = surekli ? 30 : 25, hMin = Math.ceil(Math.max(PLAK_MIN, hs.ln * 1000 / oran) - TOL);
       e.hMin = hMin;
-      madde(e, 'Döşeme kalınlığı', h, `≥ max(80; ℓn/${oran}) = ${tr(hMin)} mm`, h >= hMin, 'TS 500 11.2.2', hMin / h);
+      madde(e, 'Döşeme kalınlığı', h, `≥ max(${PLAK_MIN}; ℓn/${oran}) = ${tr(hMin)} mm`, h >= hMin, 'TS 500 11.2.2; proje alt sınırı 120 mm', hMin / h);
       const Mmax = Math.max(hs.Mpoz, Mu), Mk = mMax(1000, dk, mz);
       madde(e, 'Eğilme kapasitesi', Mmax, `≤ ${tr(Mk, 1)} kNm/m (ρ ≤ ρmax)`, Mmax <= Mk, 'TS 500 7.1', Mmax / Mk);
       const kes = { m: kesit({ bw: 1000, h, As: ka.c.As, d: dk }, mz.fck, mz.fctd), s1: kesit({ bw: 1000, h, As: ku.c.As, d: dk, cekme: 'ust' }, mz.fck, mz.fctd) };
@@ -398,11 +399,11 @@ export function zimbalama({ V, p, b, hk, d, kx = Infinity, ky = Infinity, Mx = 0
 // g.dosemeOzel = { h?, t? } (mm): elle verilen kalınlık boyutlandırılmaz, yalnız denetlenir (t yalnız dişli/kasette).
 export function dosemeBul(ag, g, mz, bwK) {
   const tasarla = g.dosemeTuru === 'plak' ? plakTasarla : disTasarla, hElle = g.dosemeOzel?.h;
-  let h = hElle ?? (g.dosemeTuru === 'plak' ? 80 : (g.dosemeOzel?.t ?? yukari(Math.max(70, g.disAralik / 10), 10)) + 50), panolar;
+  let h = hElle ?? (g.dosemeTuru === 'plak' ? PLAK_MIN : (g.dosemeOzel?.t ?? yukari(Math.max(70, g.disAralik / 10), 10)) + 50), panolar;
   for (let adim = 0; adim < 80; adim++) {
     panolar = tasarla(ag, g, h, mz, bwK);
     if (hElle != null) { for (const e of panolar) e.iz.push(`h = ${h} mm elle verildi: araç kalınlığı boyutlandırmadı, koşullar bu kalınlıkla denetlendi`); break; }
-    const enAz = Math.max(...panolar.map(e => e.hMin));                    // yönetmelik en küçük kalınlığından başla
+    const enAz = Math.max(...panolar.map(e => e.hMin));                    // geçerli en küçük kalınlıktan başla
     if (adim === 0 && enAz > h) { h = yukari(enAz, 10); continue; }
     // elle verilen tabla kalınlığı kalınlaştırmakla düzelmez: o madde sağlanmasa da h büyümez
     if (panolar.every(e => e.maddeler.every(m => m.gecti || m.uyari || (m.ad === 'Tabla kalınlığı' && g.dosemeOzel?.t != null)))) break;
@@ -410,4 +411,76 @@ export function dosemeBul(ag, g, mz, bwK) {
     h += 10;
   }
   return { h, panolar };
+}
+
+// Kirişsiz döşeme: şerit donatısı (TS 500 11.4.4.2), zımbalama (8.3.1, dengelenmemiş moment γ), pano sehimi.
+// perdeDugum: perdeye katılan düğümler (zımbalama yok: döşeme perde boyunca çizgisel mesnetli)
+export function kirissizDoseme(ag, g, h, mz, yk, olcuF, katKx, katKy, perdeDugum = new Map()) {
+  const wD = 1.4 * g.duvarDis;  // dış duvar (G, TS 498; 1,4 TS 500 6.2.6): kenar kirişi yok, döşeme kenarına oturur → zımbalama ve kenar şeridi
+  const cer = ddmCerceveler(ag, yk.pd, h, mz, olcuF, { wKenar: wD });
+  const seritler = cer.map(c => {
+    const sd = seritDonati(c, h, mz);
+    const e = { ad: `Ş${c.yon.toUpperCase()}${c.hatNo + 1}-${c.k + 1}`, aks: c.yon === 'x' ? `${String.fromCharCode(65 + c.hatNo)} / ${c.k + 1}–${c.k + 2}` : `${c.hatNo + 1} / ${String.fromCharCode(65 + c.k)}–${String.fromCharCode(66 + c.k)}`,
+      yon: c.yon, l1: c.l1, l2: c.l2, Mo: c.Mo, cs: c.cs, ms: c.ms, c, sd, maddeler: [],
+      csUst: `φ${sd.cCsN.phi}/${sd.cCsN.s}`, csAlt: `φ${sd.cCsP.phi}/${sd.cCsP.s}`, msUst: `φ${sd.cMsN.phi}/${sd.cMsN.s}`, msAlt: `φ${sd.cMsP.phi}/${sd.cMsP.s}` };
+    madde(e, 'Eğilme', sd.yetmez ? 'yetmez' : 'yeter', 'kesit momenti karşılamalı', !sd.yetmez, 'TS 500 7.1', sd.kul);
+    madde(e, 'Donatı aralığı', `${e.csUst} / ${e.csAlt} / ${e.msUst} / ${e.msAlt}`, 'net aralık ≥ max(φ; 4/3·Dmax; 25 mm), Dmax 22 mm', sd.kod, 'TS 500 9.5.2', sd.kod ? null : 2);
+    madde(e, 'Pratik aralık', `${e.csUst} / ${e.csAlt}`, `φ${CAP.doseme.join('/φ')} ile aralık ≥ 100 mm önerilir; değilse daha büyük çap`, [sd.cCsN, sd.cCsP, sd.cMsN, sd.cMsP].every(x => x.yeter), 'uygulama', null, true);
+    e.iz = [`M_o = p_d·ℓ2·ℓn²/8 = ${tr(yk.pd)}·${tr(c.l2)}·${tr(c.ln)}²/8 = ${tr(c.Mo, 1)} kNm (TS 500 Denk. 11.4)` +
+      (c.MoW ? `; dış duvar 1,4·${tr(g.duvarDis)}·${tr(c.ln)}²/8 = ${tr(c.MoW, 1)} kNm, tamamı kolon şeridinde (statik denge)` : ''),
+      `Katsayılar: mesnet ${tr(c.cA)}/${tr(c.cB)}, açıklık ${tr(c.cP)}; kolon şeridi ${tr(c.cs)} m (mesnette %75, dış mesnette %100, açıklıkta %60), orta şerit ${tr(c.ms)} m`,
+      `Kolon şeridi üst ${e.csUst}, alt ${e.csAlt} (≥ üstün 1/3'ü, TBDY 7.11.14); orta şerit üst ${e.msUst}, alt ${e.msAlt}`];
+    return sonla(e);
+  });
+  // Pano sehimi: kolon şeridi (bir doğrultu) + orta şerit (öbür doğrultu) (yorum: çapraz şerit yaklaşımı)
+  const sehimSerit = (s, tip) => {
+    const w = (tip === 'cs' ? s.cs : s.ms) * 1000; if (w <= 0) return 0;
+    const pay = tip === 'cs' ? [s.c.cA === 0.30 ? 1 : 0.75, s.c.cB === 0.30 ? 1 : 0.75, 0.6] : [s.c.cA === 0.30 ? 0 : 0.25, s.c.cB === 0.30 ? 0 : 0.25, 0.4];
+    const AsN = (tip === 'cs' ? s.sd.cCsN : s.sd.cMsN).As * w / 1000, AsP = (tip === 'cs' ? s.sd.cCsP : s.sd.cMsP).As * w / 1000;
+    const mw = tip === 'cs' ? s.c.MoW / 1.4 : 0;  // dış duvar: kullanımda yalnız G, kolon şeridinde
+    const m = sc => ({ Mm: s.c.Mpoz * pay[2] * sc + s.c.cP * mw, M1: s.c.MnegA * pay[0] * sc + s.c.cA * mw, M2: s.c.MnegB * pay[1] * sc + s.c.cB * mw });
+    const kes = { m: kesit({ bw: w, h, As: AsP, d: s.sd.d }, mz.fck, mz.fctd), s1: kesit({ bw: w, h, As: AsN, d: s.sd.d, cekme: 'ust' }, mz.fck, mz.fctd) };
+    kes.s2 = kes.s1;
+    return aciklikSehim({ l: s.c.l1 * 1000, ln: s.c.ln * 1000, kesitler: kes, G: m(yk.g / yk.pd), GQ: m((yk.g + yk.q) / yk.pd), duvar: g.dosemeDuvar, fck: mz.fck }).deger;
+  };
+  const sx = (j, i) => seritler.find(s => s.yon === 'x' && s.c.hatNo === j && s.c.k === i), sy = (i, j) => seritler.find(s => s.yon === 'y' && s.c.hatNo === i && s.c.k === j);
+  const panolar = ag.dosemeler.map(d => {
+    const csx = Math.max(sehimSerit(sx(d.j, d.i), 'cs'), sehimSerit(sx(d.j + 1, d.i), 'cs')), msx = Math.max(sehimSerit(sx(d.j, d.i), 'ms'), sehimSerit(sx(d.j + 1, d.i), 'ms'));
+    const csy = Math.max(sehimSerit(sy(d.i, d.j), 'cs'), sehimSerit(sy(d.i + 1, d.j), 'cs')), msy = Math.max(sehimSerit(sy(d.i, d.j), 'ms'), sehimSerit(sy(d.i + 1, d.j), 'ms'));
+    const deger = Math.max(csx + msy, csy + msx), ln = Math.max(sx(d.j, d.i).c.ln, sy(d.i, d.j).c.ln) * 1000, sinir = ln / (g.dosemeDuvar ? 480 : 360);
+    const e = { ad: d.ad, aks: d.aks, i: d.i, j: d.j, tur: 'kirissiz', lx: d.lx, ly: d.ly, m: Math.max(d.lx, d.ly) / Math.min(d.lx, d.ly), h, gAlan: yk.g, qAlan: yk.q, pd: yk.pd,
+      durum: 'kirişsiz', sehim: { deger, sinir }, maddeler: [] };
+    const hMin = Math.ceil(Math.max(200, Math.max(d.lx, d.ly) * 1000 / 30) - TOL);
+    e.hMin = hMin;
+    madde(e, 'Döşeme kalınlığı', h, `≥ max(200; ℓℓ/30) = ${hMin} mm`, h >= hMin, 'TS 500 11.4.2, Denk. 11.2', hMin / h);
+    madde(e, 'Sehim', deger, `kolon şeridi + orta şerit ≤ ℓn/${g.dosemeDuvar ? 480 : 360} = ${tr(sinir, 1)} mm`, deger <= sinir + TOL, 'TS 500 13.2, Çizelge 13.3 (yorum: çapraz şerit)', deger / sinir);
+    e.iz = [`Sehim: kolon şeridi X ${tr(csx)} + orta şerit Y ${tr(msy)} mm; kolon şeridi Y ${tr(csy)} + orta şerit X ${tr(msx)} mm → ${tr(deger)} mm`];
+    return sonla(e);
+  });
+  // Zımbalama: kat başına kolon tepkisi (alan payı × süreklilik), d = h − 25 (iki doğrultu ortalaması)
+  const d = h - 25;
+  const zimb = ag.kolonlar.filter(c => !perdeDugum.has(c.ad)).map(c => {
+    const o = olcuF(c), ax = ((g.ax[c.i - 1] ?? 0) + (g.ax[c.i] ?? 0)) / 2, ay = ((g.ay[c.j - 1] ?? 0) + (g.ay[c.j] ?? 0)) / 2;
+    const disBoy = (c.j === 0 || c.j === ag.ny ? ax : 0) + (c.i === 0 || c.i === ag.nx ? ay : 0);
+    const V = yk.pd * ax * ay * Math.max(katKx[c.j][c.i], katKy[c.i][c.j]) + wD * disBoy; // TS 500 8.3.1: duvar yükü çevreden geçer (içte kalan payı düşülmedi, güvenli yan)
+    // Dengelenmemiş moment: kenarda dış mesnet momenti (0,30·Mo), içte Denk. 11.5
+    const dengesiz = (yon) => {
+      const L = yon === 'x' ? g.ax : g.ay, u = yon === 'x' ? c.i : c.j, l2 = yon === 'x' ? ay : ax;
+      const sideA = L[u - 1], sideB = L[u];
+      const kenar = sideA == null || sideB == null, ln = x => x - (yon === 'x' ? o.b : o.h) / 1000;
+      const wl = (yon === 'x' ? c.j === 0 || c.j === ag.ny : c.i === 0 || c.i === ag.nx) ? wD : 0; // çerçeve dış aksta: duvar çizgisel yükü
+      if (kenar) { const l = sideA ?? sideB; return 0.30 * (yk.pd * l2 + wl) * ln(l) ** 2 / 8; }
+      const [uzun, kisa] = sideA >= sideB ? [sideA, sideB] : [sideB, sideA];
+      return Math.max(0, 0.07 * (((1.4 * yk.g + 0.5 * 1.6 * yk.q) * l2 + wl) * ln(uzun) ** 2 - (1.4 * yk.g * l2 + wl) * ln(kisa) ** 2));
+    };
+    const kx = c.i === 0 || c.i === ag.nx ? 0 : Infinity, ky = c.j === 0 || c.j === ag.ny ? 0 : Infinity;
+    const z = zimbalama({ V, p: yk.pd, b: o.b, hk: o.h, d, kx, ky, Mx: dengesiz('x'), My: dengesiz('y'), fctd: mz.fctd });
+    const e = { ad: c.ad.replace('S', 'Z'), kolon: c.ad, aks: c.aks, i: c.i, j: c.j, Nd: V, d, ...z, maddeler: [] };
+    madde(e, 'Zımbalama', z.Vpd, `≤ γ·fctd·u_p·d = ${tr(z.Vpr, 0)} kN`, z.Vpd <= z.Vpr + TOL, 'TS 500 8.3.1', z.Vpd / z.Vpr);
+    e.iz = [`Kat başına kolon tepkisi V = p_d·${tr(ax)}·${tr(ay)}·süreklilik${disBoy ? ` + 1,4·${tr(g.duvarDis)}·${tr(disBoy)} (dış duvar)` : ''} = ${tr(V, 0)} kN, d = ${d} mm`,
+      `u_p = ${tr(z.up, 3)} m${z.acik ? ' (serbest kenara açık çevre, TS 500 Şekil 8.5)' : ''}; e_x ${tr(z.ex * 1000, 0)} mm, e_y ${tr(z.ey * 1000, 0)} mm (e = 0,4·M/V, Şekil 8.3) → γ = ${tr(z.gam, 3)}`,
+      `V_pd = V − p_d·A_p = ${tr(z.Vpd, 0)} kN ≤ V_pr = ${tr(z.Vpr, 0)} kN`];
+    return sonla(e);
+  });
+  return { seritler, panolar, zimb };
 }

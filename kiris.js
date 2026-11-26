@@ -150,6 +150,7 @@ function hatTasarla(ag, hat, hi, g, mz, dos, kolonOlcu, b, h) {
     e.sehim = sh;
     madde(e, 'Sehim', sh.deger, `${sh.yazi.replace(/ ≤.*/, '')} ≤ ${tr(sh.sinir, 1)} mm`, sh.deger <= sh.sinir + TOL, 'TS 500 13.2, Çizelge 13.3', sh.deger / sh.sinir);
     e.iz.push(`${n} açıklıklı sürekli kiriş, rijit mesnet; 1,4G + 1,6Q, hareketli yük dama yüklemesi (TS 500 6.3.3)`,
+      `Düşey yük uç momentleri (kNm): sol üst ${tr(e.MdSolUst, 1)}, sol alt ${tr(e.MdSolAlt, 1)}; sağ üst ${tr(e.MdSagUst, 1)}, sağ alt ${tr(e.MdSagAlt, 1)}. Deprem etkisi ve donatı detaylandırması hesaplanmadı.`,
       `M_d mesnet ${tr(e.MdMesnet, 1)} kNm → üst ${cn(ust)} (gerekli ${tr(AsU, 0)} mm²); açıklık ${tr(e.MdAcik, 1)} kNm → alt ${cn(alt)} (gerekli ${tr(Math.max(AsA0, 0.5 * ust.As), 0)} mm²)`,
       `Orta bölge: max(V_d ${tr(e.Vd, 1)}; V_e ${tr(Ve, 1)}) − V_c ${tr(Vc, 1)} = ${tr(Vo - Vc, 1)} kN (V_c = 0,8·V_cr, TBDY 7.4.5.3) → ${e.etrOrta}`,
       `V_e = V_dy + (M_pi + M_pj)/ℓn = ${tr(Vdy, 1)} + (${tr(MpU, 1)} + ${tr(MpA, 1)})/${tr(lnH)} = ${tr(Ve, 1)} kN (M_p ≈ 1,4·M_r) → sarılma bölgesi (2h = ${tr(2 * h)} mm) ${e.etrSar}`,

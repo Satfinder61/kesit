@@ -27,6 +27,13 @@ r = surekliKiris([5, 5], [[duz(10)], []]);
 yakin(r.acikliklar[0].Macik, 49 * 10 * 25 / 512);
 const z = zarf([5, 5], [[], []], [[duz(10)], [duz(10)]]);               // yalnız Q: 1,6·(49/512)wL², mesnet 1,6·wL²/8
 yakin(z[0].MdAcik, 1.6 * 49 * 10 * 25 / 512); yakin(z[0].MdMesnet, 1.6 * 31.25);
+for (const [v, beklenen] of [[z[0].MdSolUst, 0], [z[0].MdSagUst, 50], [z[1].MdSolUst, 50], [z[1].MdSagUst, 0]]) yakin(v, beklenen);
+// Üç açıklığın yalnız ilki yüklü: uzaktaki mesnette pozitif moment oluşur.
+const zUclar = zarf([4, 4, 4], [[], [], []], [[duz(10)], [], []]);
+yakin(zUclar[1].MdSolUst, 1.6 * 32 / 3); yakin(zUclar[1].MdSagAlt, 1.6 * 8 / 3);
+yakin(zUclar[2].MdSolAlt, zUclar[1].MdSagAlt);
+const zAnk = zarf([5], [[duz(10)]], [[]], [true, true]);
+yakin(zAnk[0].MdSolUst, 1.4 * 10 * 25 / 12); yakin(zAnk[0].MdSagUst, zAnk[0].MdSolUst);
 assert.deepEqual(desenler(4).slice(3), [[true, true, false, true], [false, true, true, false], [true, false, true, true]]);
 
 // 45° dağıtımı: dört kenarın toplamı pano yüküne eşit; L/s > 2'de kısa kenar yük almaz.
@@ -74,6 +81,19 @@ for (const tur of ['plak', 'disli', 'kaset', 'kirissiz']) {
 }
 const zr = zincirHesap(G0);
 assert.equal(zr.beta, 0.88);                                                   // TS 498 Çizelge 8, 5 kat konut
+// Majör ve minör için her yüzdeki çubuklar yazılır; köşeler her iki yönde ortak, toplamda bir kez sayılır.
+for (const [b, h, major, minor] of [[300, 350, '2φ16/yüz (kısa yüz)', '3φ16/yüz (uzun yüz)'], [350, 300, '2φ16/yüz (kısa yüz)', '3φ16/yüz (uzun yüz)'],
+  [300, 300, '3φ14/yüz (b, kare)', '2φ14/yüz (h, kare)']]) {
+  const c = zincirHesap({ ...G0, ax: [4], ay: [4], katSayisi: 1, kolonOzel: { S1: { b, h } } }).kolonlar[0];
+  assert.equal(c.boyunaMajor, major); assert.equal(c.boyunaMinor, minor);
+  assert.equal(2 * (c.nb + c.nh) - 4, Number(c.boyuna.split('φ')[0]));
+}
+{ const c = zr.kolonlar[0], rows = zr.katKolonYukleri.filter(x => x.ad === c.ad);
+  assert.equal(rows.length, 5); assert.deepEqual(rows.map(x => x.kat), [1, 2, 3, 4, 5]);
+  yakin(rows[0].NG, c.NG); yakin(rows[0].NQ, c.NQ); yakin(rows[0].Nd, c.Nd);
+  yakin(rows[4].NG, c.NG / 5); yakin(rows[4].NQ, c.Q1Ham); // üst kat β=1; zemin β=0,88
+  yakin(rows[1].NQ, c.Q1Ham * 4 * 0.95); yakin(rows[4].Nd, 1.4 * rows[4].NG + 1.6 * rows[4].NQ);
+}
 // Duvar taşıyan kirişte sehim sınırı ℓn/480 (TS 500 Çizelge 13.3)
 for (const e of zr.kirisler) yakin(e.sehim.sinir, e.ln * 1000 / 480);
 // Kirişte donatı ≥ en küçük oran; mesnet altı ≥ 0,5·üst (TBDY 7.4.2)
@@ -120,7 +140,7 @@ assert.ok(kN[0].ln === 0 && kN[0].maddeler.some(m => m.ad === 'Net açıklık' &
 // F4 — yüz başına çubuk eksen eksen sayılır (6φ14 → 3/2) ve etriye kolu yüzdeki çubuktan çok olamaz (TBDY 7.3.4 → 7.2.8);
 // 300×300 6φ14'e 4×4 kol veriliyordu.
 for (const c of zincirHesap({ ...G0, katSayisi: 3, ax: [4, 4, 4], ay: [4, 4] }).kolonlar) {
-  const [kx, ky] = c.kol.split('×').map(Number);
+  const [kx, ky] = c.kol.split('×').map(x => parseInt(x, 10));
   assert.ok(c.gecti && kx <= c.nb && ky <= c.nh && 2 * (c.nb + c.nh) - 4 === +c.boyuna.split('φ')[0], `${c.ad} ${c.boyuna} kol ${c.kol}`);
 }
 // F5 — TS 500 9.5.2 en küçük aralık (φ8/φ10 ≥ 40, φ12–16 ≥ 50 mm): geçen döşeme/şerit/radye şeridinde aralık kodda; radyede
@@ -206,7 +226,7 @@ for (const c of zr.kolonlar) {
   assert.ok(Math.max(c.VeX, c.VeY) <= 0.85 * c.b * c.h * Math.sqrt(30) / 1000 && c.maddeler.find(m => m.ad === 'Kolon kesmesi').gecti);
 }
 // 6. Narinlik (TS 500 7.6.2): α = 1,5 → ötelenmede k = (20 − α)/20·√(1 + α) (Denk. 7.15), önlenmişte 0,7 + 0,05·2α ≤ 0,85 + 0,05α (7.14)
-import { narinlik } from './kolon.js';
+import { narinlik, katNarinlik } from './kolon.js';
 const Ic3 = 300 ** 4 / 12, nr = t => narinlik({ bw: 300, hd: 300, ln: 2600, H: 3000, n: 5, kirisR: 2 * Ic3 / 3000 / 1.5, Nd: 1000, Ngd: 800, fck: 30, tutulu: t });
 yakin(nr(false).lamMax, 18.5 / 20 * Math.sqrt(2.5) * 2600 / 90); yakin(nr(true).lamMax, 0.85 * 2600 / 90); assert.ok(nr(false).beta > nr(true).beta && nr(true).beta >= 1);
 // λ > 100 (H = 8 m, sabit 300×300, kirişsiz, ötelenmeli): yaklaşık yöntem dışı, 'Narinlik' sağlanmaz, kullanım sonlu
@@ -307,6 +327,10 @@ assert.ok(tumu(rD12).every(e => e.gecti) && rD12.notlar.some(x => x.includes('ri
 for (const e of rp.radyePerde) { const P = rp.perdeler.find(x => x.ad === e.perde); yakin(e.qw, P.Nd / (P.lw / 1000)); assert.ok(e.maddeler[0].kaynak.includes('8.1.2')); }
 
 // ── Elle verilen boyutlar (Excel hücreleri): araç büyütmez, bütün koşullarla denetler; yetmeyen madde sağlanmaz, boyutlandırma yine oturur
+for (const ay of [[2], [5]]) { // Kısa açıklıkta tek ve çift doğrultu: proje alt sınırı 120 mm
+  const g = { ...G0, ax: [2], ay }, kontrol = h => zincirHesap({ ...g, dosemeOzel: { h } }).dosemeler[0].maddeler.find(m => m.ad === 'Döşeme kalınlığı');
+  assert.ok(zincirHesap(g).h >= 120 && !kontrol(119).gecti && kontrol(120).gecti);
+}
 { const rH = zincirHesap({ ...G0, dosemeOzel: { h: 100 } });                     // kirişli plak: 100 < h_min
   assert.ok(rH.h === 100 && rH.dosemeler.every(d => d.h === 100 && d.ozel.h && !d.gecti && !d.maddeler.find(m => m.ad === 'Döşeme kalınlığı').gecti));
   assert.ok([...rH.kirisler, ...rH.kolonlar, rH.radye].every(e => e.gecti) && rH.notlar.some(n => n.startsWith('Elle verilen boyutlar') && n.includes('döşeme h = 100 mm')));
@@ -340,5 +364,13 @@ for (const e of rp.radyePerde) { const P = rp.perdeler.find(x => x.ad === e.perd
   assert.ok(['dosemeOzel', { h: 20 }, 'kirisOzel', { A: { b: 100 } }, 'dosemeOzel', { h: 100, t: 120 }, 'radyeOzel', { a: 12 }, 'perdeOzel', { 'A/2–3': 2000 }, 'kolonOzel', { S1: { b: 50 } }]
     .every((x, i, a) => i % 2 || girdiDenetle({ ...G0, [x]: a[i + 1] }).ozel));
   assert.ok(!girdiDenetle({ ...GP, dosemeOzel: { h: 150 }, kirisOzel: { A: { b: 300 } }, perdeOzel: { 'A/2–3': 300 }, radyeOzel: { h: 600, a: 1 } }).ozel); }
+
+// Gerçek kat narinliği tek katlı eski hesapla aynı; kat toplamı duraylılığı sınırı ayrıca geçerli.
+{ const g = { bw: 350, hd: 300, ln: 2600, H: 3000, n: 1, kirisR: 40000, Nd: 500, Ngd: 350, fck: 30, tutulu: false };
+  const eski = narinlik(g), yeni = katNarinlik({ ...g, alphaAlt: eski.a1, alphaUst: eski.a2 });
+  for (const ad of ['k', 'lk', 'lam', 'NkB', 'NkS', 'beta', 'burMax']) yakin(eski[ad], yeni[ad], 1e-9);
+  const ortak = { ...g, ln: 4000, alphaAlt: 2, alphaUst: 3 };
+  assert.ok(katNarinlik({ ...ortak, katOran: 0.44 }).durMax < 1 && katNarinlik({ ...ortak, katOran: 0.46 }).durMax > 1);
+  assert.throws(() => katNarinlik({ ...ortak, ln: 0 }), RangeError); }
 
 console.log('zincir: tüm kontroller geçti');

@@ -355,8 +355,10 @@ h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -.015em; text-wrap: ba
       <p class="ipucu">Boşlukla ayır, ondalık virgülle: <span class="olcu">4,5 5 3,8</span>. X aksları 1, 2, 3…; Y aksları A, B, C…</p>
       <div class="satir">
         <label class="alan">Kat sayısı <span class="kutu"><input name="kat" type="text" inputmode="numeric" value="5"><span>kat</span></span></label>
-        <label class="alan">Kat yüksekliği <span class="kutu"><input name="H" type="text" inputmode="decimal" value="3000"><span>mm</span></span></label>
+        <label class="alan">Ortak kat yüksekliği <span class="kutu"><input name="H" type="text" inputmode="decimal" value="3000"><span>mm</span></span></label>
       </div>
+      <label class="alan">Kat yükseklikleri <span class="kutu"><input name="katYukseklikleri" type="text" placeholder="3000 3200 3000" aria-describedby="kat-yukseklik-ipucu"><span>mm</span></span></label>
+      <p class="ipucu" id="kat-yukseklik-ipucu">Katları ayrı hesaplamak için tabandan yukarı her katın yüksekliğini gir; boş bırakılırsa ortak kesit hesabı yapılır.</p>
     </fieldset>
     <fieldset class="grup">
       <legend>Perdeler</legend>

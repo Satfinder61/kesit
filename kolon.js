@@ -151,3 +151,24 @@ export function narinlik({ bw, hd, ln, H, n, kirisR, Nd, Ngd, fck, tutulu, kat =
   const B = x => x.beta ?? Infinity, en = r.reduce((x, y) => B(y) > B(x) || (B(y) === B(x) && y.lam > x.lam) ? y : x);
   return { ...en, i, a, Rm, tutulu, katlar: r.map(x => [x.N, x.NkS]), lamMax: Math.max(...r.map(x => x.lam)), durMax: Math.max(...r.map(x => x.dur)), burMax: Math.max(...r.map(x => x.bur)) };
 }
+
+// Tek kat: düğümlerdeki kolon/kiriş rijitlik oranları ve kat ΣN_d/ΣN_k dışarıda, gerçek komşulardan hesaplanır.
+export function katNarinlik({ bw, hd, ln, H, Nd, Ngd, fck, tutulu, alphaAlt, alphaUst, katOran = null }) {
+  if (![bw, hd, ln, H].every(x => Number.isFinite(x) && x > 0) || ![Nd, Ngd, alphaAlt, alphaUst].every(x => Number.isFinite(x) && x >= 0)
+    || !Number.isFinite(EC[fck]) || (katOran != null && !(Number.isFinite(katOran) && katOran >= 0))) throw new RangeError('Kat narinliği girdileri geçersiz');
+  const Ic = bw * hd ** 3 / 12, i = 0.3 * hd, Rm = Nd > 0 ? Ngd / Nd : 0;
+  const EIb = 0.4 * EC[fck] * Ic / (1 + Rm), EIs = 0.4 * EC[fck] * Ic;
+  const kB = Math.min(0.7 + 0.05 * (alphaAlt + alphaUst), 0.85 + 0.05 * Math.min(alphaAlt, alphaUst), 1);
+  const am = (alphaAlt + alphaUst) / 2, kS = am < 2 ? (20 - am) / 20 * Math.sqrt(1 + am) : 0.9 * Math.sqrt(1 + am);
+  const k = tutulu ? kB : kS, lk = k * ln, lam = lk / i, ihmal = lam <= 22 + 1e-9;
+  const Nk = (EI, boy) => Math.PI ** 2 * EI / boy ** 2 / 1000;
+  const NkB = Nk(EIb, kB * ln), NkS = tutulu ? null : Nk(EIs, lk), oranS = tutulu ? 0 : katOran ?? Nd / NkS;
+  const buy = x => x < 1 ? 1 / (1 - x) : null;
+  const b1 = ihmal ? 1 : buy(1.3 * Nd / NkB), bs = tutulu || ihmal ? 1 : buy(1.3 * oranS);
+  const carpim = !tutulu && !ihmal && ln / i > 35 / Math.sqrt(Nd * 1000 / (fck * bw * hd));
+  const beta = b1 == null || bs == null ? null : carpim ? b1 * bs : Math.max(b1, bs);
+  const dur = tutulu || ihmal || katOran == null ? 0 : oranS / 0.45;
+  const bur = ihmal ? 0 : Math.max(1.3 * Nd / NkB, tutulu ? 0 : 1.3 * oranS);
+  return { a1: alphaAlt, a2: alphaUst, k, lk, lam, N: Nd, NkB, NkS, oranS, katToplam: katOran != null, ihmal, b1, bs, carpim, beta,
+    dur, bur, i, Rm, tutulu, katlar: [[Nd, NkS]], lamMax: lam, durMax: dur, burMax: bur };
+}

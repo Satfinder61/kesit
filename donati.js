@@ -3,8 +3,12 @@
 
 export const alan = phi => Math.PI * phi * phi / 4;
 
-// Kullanıcının çap seçenekleri
-export const CAP = { doseme: [8, 10], kiris: [12, 14, 16], kolon: [14, 16], etriye: [8, 10], radye: [12, 14, 16] };
+// Kullanıcının çap seçenekleri. doseme: plak, kirişsiz şerit ve dişli/kaset tablası; kiris: kiriş ve diş boyuna; etriye: kiriş
+// etriyesi; kolonEtriye: kolon etriyesi/çirozu. Kolon boyunada φ12 yok: TBDY 7.3.2.1 ve TS 500 7.4.1 φ14'ten ince çubuğa izin vermez.
+// perde: uç bölgesi boyuna ve gövde çubukları (perdede φ12 serbest; uç bölgesinde toplam ≥ 4φ14 alanı, TBDY 7.6.5.1); perdeEtriye:
+// uç bölgesi etriyesi ve çiroz (TBDY 7.6.5.2(a): φ ≥ 8).
+export const CAP = { doseme: [8, 10, 12], kiris: [12, 14, 16], kolon: [14, 16], etriye: [8, 10], kolonEtriye: [8, 10, 12], radye: [12, 14, 16],
+  perde: [12, 14, 16], perdeEtriye: [8, 10, 12] };
 
 // ρb = 0,85·k1·(fcd/fyd)·600/(600 + fyd) (TS 500 0.2.5 ve 7.1 varsayımlarından; εcu = 0,003, Es = 2·10⁵ MPa)
 export const rhoB = mz => 0.85 * mz.k1 * mz.fcd / mz.fyd * 600 / (600 + mz.fyd);
@@ -70,8 +74,8 @@ export function kolonCubuk(As, { caplar = CAP.kolon, enAz = 4 } = {}) {
   return en;
 }
 // Kolon: bir yüze tek sırada sığan en çok çubuk (köşeler dahil). TS 500 9.5.2: kolonda net aralık ≥ 1,5φ, ≥ 40 mm, ≥ 4/3·Dmax
-// (Dmax ≤ 30 mm varsayımı: 40 mm belirler); örtü 25 + etriye φ10 (güvenli yan).
-export const kolonYuzMax = (D, phi, { ortu = 25, etriye = 10 } = {}) => { const s = Math.max(1.5 * phi, 40); return Math.floor((D - 2 * (ortu + etriye) + s) / (phi + s) + 1e-9); };
+// (Dmax ≤ 30 mm varsayımı: 40 mm belirler); örtü 25 + en büyük kolon etriyesi (φ12, güvenli yan).
+export const kolonYuzMax = (D, phi, { ortu = 25, etriye = Math.max(...CAP.kolonEtriye) } = {}) => { const s = Math.max(1.5 * phi, 40); return Math.floor((D - 2 * (ortu + etriye) + s) / (phi + s) + 1e-9); };
 
 // Etriye: gereken Asw/s (mm²/mm) için çap ve aralık; aralık 10 mm'ye aşağı yuvarlanır, sMax'ı aşmaz.
 // Önce küçük çap; aralık sAlt'tan küçük kalırsa büyük çap.

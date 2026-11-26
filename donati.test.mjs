@@ -21,8 +21,8 @@ assert.deepEqual((({ phi, s }) => [phi, s])(dosemeCubuk(300, 200)), [8, 160]);
 assert.deepEqual((({ phi, s }) => [phi, s])(dosemeCubuk(100, 200)), [8, 200]);         // sMax sınırı
 assert.deepEqual((({ phi, s }) => [phi, s])(dosemeCubuk(600, 200)), [10, 130]);        // φ8 aralığı 80 < 100 → φ10
 assert.ok(dosemeCubuk(300, 200).As >= 300);
-// F5 — aralık 0'a düşünce As sonsuz değil 0 (kullanım 0 sayılıp geçiyordu); TS 500 9.5.2 kod aralığı
-assert.ok((({ s, As, kod }) => s === 0 && As === 0 && !kod)(dosemeCubuk(9000, 200)) && [8, 10, 12, 16].map(p => sKod(p)).join() === '40,40,50,50');
+// F5 — aralık 0'a düşünce As sonsuz değil 0 (kullanım 0 sayılıp geçiyordu); TS 500 9.5.2 kod aralığı (φ12 de denendiği için As = 12000)
+assert.ok((({ s, As, kod }) => s === 0 && As === 0 && !kod)(dosemeCubuk(12000, 200)) && [8, 10, 12, 16].map(p => sKod(p)).join() === '40,40,50,50');
 
 // Kiriş: 600 mm², bw 250 → 3φ16 (603) ya da 4φ14 (616); en az çelik 3φ16. Sığma: 2·33 + 3·16 + 2·25 = 164 ≤ 250.
 assert.deepEqual((({ n, phi, sigar }) => [n, phi, sigar])(kirisCubuk(600, 250)), [3, 16, true]);
@@ -35,5 +35,10 @@ assert.deepEqual((({ n, phi }) => [n, phi])(kolonCubuk(100)), [4, 14]);
 assert.deepEqual((({ phi, s }) => [phi, s])(etriyeSec(0.5, 150)), [8, 150]);
 assert.deepEqual((({ phi, s }) => [phi, s])(etriyeSec(2.5, 150)), [10, 60]);           // φ8: 40 < 50 → φ10: 62 → 60
 yakin(alan(10), 78.54);
+// Faz 1 — çap takımları: döşeme/şerit/tabla φ8/10/12, kolon etriyesi φ8/10/12 (kiriş etriyesinden ayrı), kolon boyunası φ14/16
+// (TBDY 7.3.2.1, TS 500 7.4.1: φ14'ten ince olamaz). 900 mm²/m: φ8/50, φ10/80 < 100 → φ12/120.
+import { CAP } from './donati.js';
+assert.deepEqual([CAP.doseme, CAP.kolon, CAP.etriye, CAP.kolonEtriye], [[8, 10, 12], [14, 16], [8, 10], [8, 10, 12]]);
+assert.deepEqual((({ phi, s }) => [phi, s])(dosemeCubuk(900, 200)), [12, 120]);
 
 console.log('donati: tüm kontroller geçti');

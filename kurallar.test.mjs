@@ -91,6 +91,13 @@ assert.ok(Math.abs(yz.Ndm - (700 + 176 + 140)) < 1e-9 && Math.abs(yz.Nd - y.Nd) 
 assert.equal(yukHesap({ alan: 20, katSayisi: 5, g: 7, q: 2, kullanim: 'atolye' }).qAz, true);
 assert.equal(yukHesap({ alan: 20, katSayisi: 5, g: 7, q: 5, kullanim: 'atolye' }).qAz, false);
 assert.equal(yukHesap({ alan: 20, katSayisi: 5, g: 7, q: 1, kullanim: 'depo' }).qAz, false);
+// Faz 1 — TS 498 Çizelge 7 kullanımları: q ve Çizelge 8 grubu; eski anahtarlar (konut, atolye, depo) aynı q/β
+import { KULLANIM, Q_MIN, DUVAR, duvarYuku } from './kurallar.js';
+assert.deepEqual([Q_MIN.konut, Q_MIN.atolye, Q_MIN.sinif, Q_MIN.tribun, Q_MIN.catiArasi, KULLANIM.depo.q], [2, 5, 3.5, 7.5, 1.5, null]);
+assert.deepEqual([beta('buro', 5), beta('magaza', 7), beta('hastane', 10), beta('garaj', 12), beta('depo', 12)], [0.88, 0.86, 1, 1, 1]);
+// Duvar türü: kN/m² (t·γ + 2 cm iki yüz sıva 0,80) × net yükseklik; tür yoksa elle kN/m
+assert.equal(DUVAR.tugla19.q, 2.7);
+assert.ok(Math.abs(duvarYuku('tugla19', 6, 2500).w - 6.75) < 1e-9 && duvarYuku('elle', 6, 2500).w === 6 && duvarYuku(undefined, 4, 2500).w === 4);
 
 
 // Tablo: Türkçe Excel sayıları, varsayılanlar, eksik girişte sonuç yok.

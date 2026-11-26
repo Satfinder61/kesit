@@ -216,8 +216,8 @@ function plakTasarla(ag, g, h, mz, bwK) {
 // ── Dişli (TS 500 11.3) ve kaset (11.5) döşeme. Dişler kirişler arasında kısa doğrultuda (dişli) ya da iki doğrultuda (kaset).
 // Diş başına genişlik e + bw; açıklık kesiti T (tabla genişliği e + bw, TS 500 11.3.1), mesnet kesiti dikdörtgen bw.
 function disTasarla(ag, g, h, mz, bwK) {
-  const kaset = g.dosemeTuru === 'kaset', e0 = g.disAralik, bw = g.disGen, B = e0 + bw;
-  const t = yukari(Math.max(70, e0 / 10), 10);                              // TBDY 7.11.2 ≥ 70; TS 500 11.3.2 ≥ e/10
+  const kaset = g.dosemeTuru === 'kaset', e0 = g.disAralik, bw = g.disGen, B = e0 + bw, tElle = g.dosemeOzel?.t;
+  const t = tElle ?? yukari(Math.max(70, e0 / 10), 10);                     // TBDY 7.11.2 ≥ 70; TS 500 11.3.2 ≥ e/10; elle verilirse denetlenir
   const yk = panoYuk(g, t, h), k = B / 1000;                                // diş başına yük oranı (m)
   const panolar = ag.dosemeler.map(d => ({ d, geo: panoGeo(d) }));
   const d = h - 35, dUst = h - 25;                                          // diş: örtü 20 + etriye 8 + φ/2; tabla üst: 15 + φ/2
@@ -264,7 +264,9 @@ function disTasarla(ag, g, h, mz, bwK) {
     const oran = s.tek ? 20 : 25, hMin = Math.ceil(Math.max(t + 50, s.ln * 1000 / oran) - TOL);
     e.hMin = hMin;
     madde(e, 'Toplam yükseklik', h, `≥ ℓn/${oran} = ${tr(hMin)} mm`, h >= hMin, kaset ? 'TS 500 11.5 → 11.3.2 (yorum)' : 'TS 500 11.3.2', hMin / h);
-    madde(e, 'Tabla kalınlığı', t, `≥ max(70; e/10) = ${tr(t)} mm`, true, 'TBDY 7.11.2; TS 500 11.3.2');
+    const tMin = Math.max(70, e0 / 10);
+    if (tElle == null) madde(e, 'Tabla kalınlığı', t, `≥ max(70; e/10) = ${tr(t)} mm`, true, 'TBDY 7.11.2; TS 500 11.3.2');
+    else madde(e, 'Tabla kalınlığı', t, `≥ max(70; e/10) = ${tr(tMin)} mm (elle verildi)`, t >= tMin - TOL, 'TBDY 7.11.2; TS 500 11.3.2', tMin / t);
     madde(e, 'Diş aralığı', e0, '≤ 700 mm', e0 <= 700, 'TS 500 11.3.1');
     madde(e, 'Diş genişliği', bw, `≥ ${DIS_GEN_MIN} mm (≥ 100; 2φ${CAP.kiris[0]} + φ8 etriye + 20 mm örtü sığmalı)`, bw >= DIS_GEN_MIN, 'TS 500 11.3.2, 9.5.1–9.5.2');
     const Mk = mMax(bw, dUst, mz);
@@ -393,14 +395,17 @@ export function zimbalama({ V, p, b, hk, d, kx = Infinity, ky = Infinity, Mx = 0
 }
 
 // Plak, dişli ve kaset için kalınlığı bul: en küçük kalınlıktan başlayıp tüm panolar sağlanana dek 10 mm artır.
+// g.dosemeOzel = { h?, t? } (mm): elle verilen kalınlık boyutlandırılmaz, yalnız denetlenir (t yalnız dişli/kasette).
 export function dosemeBul(ag, g, mz, bwK) {
-  const tasarla = g.dosemeTuru === 'plak' ? plakTasarla : disTasarla;
-  let h = g.dosemeTuru === 'plak' ? 80 : yukari(Math.max(70, g.disAralik / 10), 10) + 50, panolar;
+  const tasarla = g.dosemeTuru === 'plak' ? plakTasarla : disTasarla, hElle = g.dosemeOzel?.h;
+  let h = hElle ?? (g.dosemeTuru === 'plak' ? 80 : (g.dosemeOzel?.t ?? yukari(Math.max(70, g.disAralik / 10), 10)) + 50), panolar;
   for (let adim = 0; adim < 80; adim++) {
     panolar = tasarla(ag, g, h, mz, bwK);
+    if (hElle != null) { for (const e of panolar) e.iz.push(`h = ${h} mm elle verildi: araç kalınlığı boyutlandırmadı, koşullar bu kalınlıkla denetlendi`); break; }
     const enAz = Math.max(...panolar.map(e => e.hMin));                    // yönetmelik en küçük kalınlığından başla
     if (adim === 0 && enAz > h) { h = yukari(enAz, 10); continue; }
-    if (panolar.every(e => e.gecti)) break;
+    // elle verilen tabla kalınlığı kalınlaştırmakla düzelmez: o madde sağlanmasa da h büyümez
+    if (panolar.every(e => e.maddeler.every(m => m.gecti || m.uyari || (m.ad === 'Tabla kalınlığı' && g.dosemeOzel?.t != null)))) break;
     if (adim === 79) { for (const e of panolar) if (!e.gecti) e.iz.push(`h = ${h} mm'ye dek 10 mm adımla kalınlaştırıldı (80 adım sınırı); sağlanamayan koşul kalınlıkla düzelmiyor`); break; } // h panolarınki kalsın
     h += 10;
   }

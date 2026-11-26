@@ -1,9 +1,10 @@
 // Kiriş tasarımı: her aks çizgisi bir sürekli kiriş; kesit (b × h) hat boyunca aynı, koşullar sağlanana dek büyütülür.
 // Birimler: açıklık m, kesit mm, kN, kN/m, kNm.
-import { surekliKiris, desenler, zarf, ortaMomentler, kenarParcasi } from './mekanik.js';
+import { surekliKiris, desenler, zarf, ortaMomentler, kenarParcasi, parcaToplam } from './mekanik.js';
 import { egilmeAs, mMax, rhoMax, rhoMinKiris, kirisCubuk, etriyeSec, alan, CAP } from './donati.js';
 import { kesit, aciklikSehim } from './sehim.js';
 import { panoGeo, GAMMA_BA, seritler, oz } from './doseme.js';
+import { duvarYuku } from './kurallar.js';
 
 const TOL = 1e-9;
 const NF = {}; // Intl biçimleyici her çağrıda kurulursa hesap süresinin çoğunu yer: ondalık sayısına göre önbellek
@@ -51,23 +52,23 @@ export function dosemedenKenar(d, kenar, p, tur, ag = null, bil = 'G') {
   return uzunKenar ? parca(p * geo.s / 2) : { w: 0, a: 0 };
 }
 
-// Hattın yükleri: G ve Q parçaları (açıklık başına). gAlan, qAlan: döşeme alan yükleri; govde: kiriş gövdesi kN/m.
-function hatYukleri(ag, hat, g, tur, gAlan, qAlan, govde) {
+// Hattın yükleri: G ve Q parçaları (açıklık başına). gAlan, qAlan: döşeme alan yükleri; govde: kiriş gövdesi kN/m (null: perde
+// açıklığı, gövde yok); dv: duvarYuku. hat.ofs: parça hattın ilk açıklığının hat içindeki sırası (perdeyle bölünen hat).
+function hatYukleri(ag, hat, g, tur, gAlan, qAlan, govde, dv) {
   const G = [], Q = [], iz = [];
-  hat.kirisler.forEach((_, k) => {
-    const pG = [], pQ = [], z = [];
+  hat.kirisler.forEach((_, k0) => {
+    const pG = [], pQ = [], z = [], k = k0 + (hat.ofs ?? 0);
     const komsu = hat.yon === 'x' ? [[k, hat.no - 1, 'ust'], [k, hat.no, 'alt']] : [[hat.no - 1, k, 'sag'], [hat.no, k, 'sol']];
     for (const [i, j, kenar] of komsu) {
       const d = ag.dosemeler.find(x => x.i === i && x.j === j); if (!d) continue;
       const pg = dosemedenKenar(d, kenar, gAlan, tur, ag, 'G'), pq = dosemedenKenar(d, kenar, qAlan, tur, ag, 'Q');
       if (pg.w === 0) { z.push(`${d.ad}: yük vermez (tek doğrultuda taşır)`); continue; }
       pG.push(pg); pQ.push(pq);
-      z.push(`${d.ad}: ${pg.a === 0 ? 'düzgün' : 2 * pg.a >= (hat.L[k]) - TOL ? 'üçgen' : 'yamuk'}, tepe g ${tr(pg.w)} + q ${tr(pq.w)} kN/m` +
+      z.push(`${d.ad}: ${pg.a === 0 ? 'düzgün' : 2 * pg.a >= (hat.L[k0]) - TOL ? 'üçgen' : 'yamuk'}, tepe g ${tr(pg.w)} + q ${tr(pq.w)} kN/m` +
         (pg.kat || pq.kat ? ` (sürekli şerit tepkisi: g ×${tr(pg.kat ?? 1)}, q ×${tr(pq.kat ?? 1)}; TS 500 11.2.2/11.3.2, 6.3.3)` : ''));
     }
-    const duvar = hat.dis ? g.duvarDis : g.duvarIc;
-    pG.push({ w: duvar + govde, a: 0 });
-    z.push(`${hat.dis ? 'Dış' : 'İç'} duvar ${tr(duvar)} + kiriş gövdesi ${tr(govde)} kN/m`);
+    pG.push({ w: dv.w + (govde ?? 0), a: 0 });
+    z.push(`${hat.dis ? 'Dış' : 'İç'} duvar ${dv.yazi}${govde == null ? '' : ` + kiriş gövdesi ${tr(govde)} kN/m`}`);
     G.push(pG); Q.push(pQ); iz.push(z);
   });
   return { G, Q, iz };
@@ -81,16 +82,20 @@ function hatTasarla(ag, hat, hi, g, mz, dos, kolonOlcu, b, h) {
   const tur = g.dosemeTuru, tSlab = dos.tabla ?? dos.h;
   // Gövde: b × h dolu beton (TS 498 1.3), döşeme öz ağırlığı kiriş izinde de alana yayıldığından düşülür (dişli/kasette ortalama yoğunluk)
   const govde = b / 1000 * Math.max(0, h / 1000 * GAMMA_BA - oz(g, tSlab, dos.h));
-  const { G, Q, iz } = hatYukleri(ag, hat, g, tur, dos.gAlan, dos.qAlan, govde);
-  const z = zarf(hat.L, G, Q), rG = surekliKiris(hat.L, G), rQ = surekliKiris(hat.L, Q);
-  const sG = ortaMomentler(hat.L, G), sGQ = ortaMomentler(hat.L, G.map((p, k) => [...p, ...Q[k]]));
+  // Duvar: türü seçildiyse kN/m² × net yükseklik (H − kiriş h; kiriş büyüdükçe azalır), değilse elle kN/m (TS 498 1.5)
+  const dv = duvarYuku(hat.dis ? g.duvarDisTur : g.duvarIcTur, hat.dis ? g.duvarDis : g.duvarIc, g.H - h);
+  const { G, Q, iz } = hatYukleri(ag, hat, g, tur, dos.gAlan, dos.qAlan, govde, dv);
+  const ank = hat.uc; // perdeye saplanan uç ankastre (perdenin düzlem içi rijitliği)
+  const z = zarf(hat.L, G, Q, ank), rG = surekliKiris(hat.L, G, ank), rQ = surekliKiris(hat.L, Q, ank);
+  const sG = ortaMomentler(hat.L, G, ank), sGQ = ortaMomentler(hat.L, G.map((p, k) => [...p, ...Q[k]]), ank);
   const d = h - 50;
   const n = hat.L.length;
   const kirisler = hat.kirisler.map((kr, k) => {
-    const uc = [k, k + 1].map(u => kolonOlcu(ag.kolonlar.find(c => hat.yon === 'x' ? c.i === u && c.j === hat.no : c.i === hat.no && c.j === u)));
+    const K = k + (hat.ofs ?? 0); // hat içindeki açıklık sırası
+    const uc = [K, K + 1].map(u => kolonOlcu(ag.kolonlar.find(c => hat.yon === 'x' ? c.i === u && c.j === hat.no : c.i === hat.no && c.j === u)));
     const boy = uc.map(o => (hat.yon === 'x' ? o.b : o.h) / 1000), dik = Math.min(...uc.map(o => hat.yon === 'x' ? o.h : o.b));
     // Kolonlar açıklıktan genişse ℓn ≤ 0 (sehim sınırı 0/0 = NaN ya da eksi): hesapta en az 0,1 m, ayrıca 'Net açıklık' sağlanmaz
-    const ln = kr.L - (boy[0] + boy[1]) / 2, lnH = Math.max(ln, 0.1), e = { ad: kr.ad, aks: kr.aks, hat: hi, k, L: kr.L, ln, b, h, duvar: hat.dis ? g.duvarDis : g.duvarIc,
+    const ln = kr.L - (boy[0] + boy[1]) / 2, lnH = Math.max(ln, 0.1), e = { ad: kr.ad, aks: kr.aks, hat: hi, k: K, L: kr.L, ln, b, h, duvar: dv.w,
       gOrt: rG.acikliklar[k].W / kr.L, qOrt: rQ.acikliklar[k].W / kr.L, ...z[k], maddeler: [], iz: [...iz[k]] };
     // Boyuna donatı: mesnet üst, açıklık alt (TBDY 7.4.2: ρ ≥ 0,8fctd/fyd, mesnet altı ≥ 0,5·üst, en az 2φ12)
     // Tek sıra sığmazsa iki sıra (d = h − 75: örtü 25 + etriye 10 + φ + sıra arası/2)
@@ -156,39 +161,76 @@ function hatTasarla(ag, hat, hi, g, mz, dos, kolonOlcu, b, h) {
 
 // Kirişleri boyutlandır: hat başına b = 250'den, h = en küçük yükseklikten başla; koşullar sağlanana dek önce h'yi
 // (h ≤ 2,5b), sonra b'yi 50 mm büyüt. Dönüş: kirişler ve kolonlara gidecek tepkiler.
-export function kirisBul(ag, g, mz, dos, kolonOlcu) {
+// perde: perde açıklıkları (`${hat}:${açıklık}`): orada kiriş yok, hat perdeyle parçalara bölünür ve her parça ayrı boyutlanır;
+// perdeye saplanan parça ucu ankastre (perde düzlem içinde çok rijit). Perde açıklığına kirişe gelecek döşeme ve duvar yükü
+// çizgisel yük olarak perdeye (perdeYuk, kat başına kN). hEk: hat → en küçük kiriş h (yanal ötelenmesi önlenmemiş çerçevede kolon
+// narinliği için rijitleştirme, TS 500 7.6.2.2 Denk. 7.16: α kiriş rijitliğiyle küçülür). ozel: aks adı → { b?, h? } (mm), elle verilen
+// boyut aks boyunca bütün parçalarda sabit kalır, yalnız denetlenir; verilmeyen boyut büyütülür (b ≤ h, h ≤ 3,5b içinde).
+export function kirisBul(ag, g, mz, dos, kolonOlcu, { perde = new Set(), hEk = new Map(), ozel = {} } = {}) {
   const tur = g.dosemeTuru, tSlab = dos.tabla ?? dos.h;
   const hBas = yukari(Math.max(300, 3 * tSlab, tur === 'disli' || tur === 'kaset' ? dos.h : 0), 50);
-  const kirisler = [], tepki = new Map(), kalkma = [];
+  const kirisler = [], tepki = new Map(), kalkma = [], perdeYuk = new Map();
   ag.hatlar.forEach((hat, hi) => {
-    let b = 250, h = hBas, r, enIyi = null, bos = 0;
-    for (let adim = 0; adim < 60; adim++) {
-      r = hatTasarla(ag, hat, hi, g, mz, dos, kolonOlcu, b, h);
-      // ℓn ≤ 0 açıklık kiriş büyütmekle düzelmez (kolon boyutu): büyütmeyi o açıklık sürmez, 'Net açıklık' sağlanmaz kalır
-      if (r.kirisler.every(e => e.gecti || e.ln <= TOL)) break;
-      // Yalnız etriye yetmiyor ve büyütme gereksinimi azaltmıyorsa dur: V_e'nin kapasite terimi (TBDY Denk. 7.9) kesitle büyür,
-      // iki kollu etriye kesit büyütmekle çözülmez (sınırsız büyüme); üç adımda iyileşmezse en iyi kesitte kalınır.
-      if (r.kirisler.every(e => e.ln <= TOL || e.maddeler.every(m => m.gecti || m.uyari || m.ad === 'Etriye'))) {
-        const kul = Math.max(...r.kirisler.filter(e => e.ln > TOL).map(e => e.etrKul));
-        if (!enIyi || kul < enIyi.kul - TOL) { enIyi = { r, kul }; bos = 0; }
-        else if (++bos >= 3) {
-          r = enIyi.r;
-          for (const e of r.kirisler) if (!e.gecti) e.iz.push('Kesit büyütmek etriye gereksinimini azaltmıyor (V_e kapasite kesmesi kesitle artıyor): büyütme durduruldu; çok kollu etriye ya da daha yüksek beton sınıfı gerekir (TBDY 7.4.4, 7.4.5)');
+    const n = hat.L.length, RG = Array(n + 1).fill(0), RQ = Array(n + 1).fill(0), pMi = k => perde.has(`${hi}:${k}`);
+    // Perde açıklığı: kirişin alacağı döşeme payı (aynı aktarım) ve duvar (net yükseklik H − döşeme h), kiriş gövdesi yok
+    for (let k = 0; k < n; k++) if (pMi(k)) {
+      const dv = { w: 0, yazi: 'perde açıklığında dolgu duvar yok' }; // perde yerinde örme duvar olmaz; perdenin öz ağırlığı perde.js'de
+      const y = hatYukleri(ag, { ...hat, L: [hat.L[k]], kirisler: [hat.kirisler[k]], ofs: k }, g, tur, dos.gAlan, dos.qAlan, null, dv);
+      const W = p => p.reduce((t, x) => t + parcaToplam(x, hat.L[k]), 0);
+      perdeYuk.set(`${hi}:${k}`, { G: W(y.G[0]), Q: W(y.Q[0]), duvar: dv.w * hat.L[k], iz: y.iz[0] });
+    }
+    const hMin = yukari(Math.max(hBas, hEk.get(hi) ?? 0), 50);
+    for (let a = 0; a < n;) {
+      if (pMi(a)) { a++; continue; }
+      let son = a; while (son < n && !pMi(son)) son++;
+      const par = { ...hat, L: hat.L.slice(a, son), kirisler: hat.kirisler.slice(a, son), ofs: a, uc: [a > 0, son < n] };
+      const { b: bS, h: hS } = ozel[hat.aks] ?? {};
+      let b = bS ?? 250, h = hS ?? hMin, r, enIyi = null, bos = 0;
+      for (let adim = 0; adim < 60; adim++) {
+        r = hatTasarla(ag, par, hi, g, mz, dos, kolonOlcu, b, h);
+        if (bS != null && hS != null) break;
+        // ℓn ≤ 0 açıklık kiriş büyütmekle düzelmez (kolon boyutu): büyütmeyi o açıklık sürmez, 'Net açıklık' sağlanmaz kalır
+        if (r.kirisler.every(e => e.gecti || e.ln <= TOL)) break;
+        // Yalnız etriye yetmiyor ve büyütme gereksinimi azaltmıyorsa dur: V_e'nin kapasite terimi (TBDY Denk. 7.9) kesitle büyür,
+        // iki kollu etriye kesit büyütmekle çözülmez (sınırsız büyüme); üç adımda iyileşmezse en iyi kesitte kalınır.
+        if (r.kirisler.every(e => e.ln <= TOL || e.maddeler.every(m => m.gecti || m.uyari || m.ad === 'Etriye'))) {
+          const kul = Math.max(...r.kirisler.filter(e => e.ln > TOL).map(e => e.etrKul));
+          if (!enIyi || kul < enIyi.kul - TOL) { enIyi = { r, kul }; bos = 0; }
+          else if (++bos >= 3) {
+            r = enIyi.r;
+            for (const e of r.kirisler) if (!e.gecti) e.iz.push('Kesit büyütmek etriye gereksinimini azaltmıyor (V_e kapasite kesmesi kesitle artıyor): büyütme durduruldu; çok kollu etriye ya da daha yüksek beton sınıfı gerekir (TBDY 7.4.4, 7.4.5)');
+            break;
+          }
+        } else { enIyi = null; bos = 0; }
+        if (adim === 59) for (const e of r.kirisler) if (!e.gecti) e.iz.push(`Kesit 60 adımda ${b}×${h} mm'ye büyütüldü (büyütme sınırı); sağlanamayan koşullar yukarıda`);
+        // Elle verilen boyut sabit: yalnız öbürü büyür (b ≤ h, h ≤ 3,5b; aşılacaksa durur, koşullar sağlanmaz kalır)
+        if (hS != null ? b + 50 > hS : bS != null && h + 50 > 3.5 * bS) {
+          for (const e of r.kirisler) if (!e.gecti) e.iz.push(`Elle verilen ${hS != null ? `h = ${hS} mm ile b ≤ h` : `b = ${bS} mm ile h ≤ 3,5·b`} sınırına ulaşıldı: büyütme durdu; sağlanamayan koşullar yukarıda`);
           break;
         }
-      } else { enIyi = null; bos = 0; }
-      if (adim === 59) for (const e of r.kirisler) if (!e.gecti) e.iz.push(`Kesit 60 adımda ${b}×${h} mm'ye büyütüldü (büyütme sınırı); sağlanamayan koşullar yukarıda`);
-      if (h + 50 <= 2.5 * b) h += 50; else b += 50; // ponytail: h ≤ 2,5b tercihi (TBDY sınırı 3,5b), sonra genişlik
+        if (hS != null) b += 50; else if (bS != null) h += 50;
+        else if (h + 50 <= 2.5 * b) h += 50; else b += 50; // ponytail: h ≤ 2,5b tercihi (TBDY sınırı 3,5b), sonra genişlik
+      }
+      for (const e of r.kirisler) {
+        if (par.uc.some(Boolean)) e.iz.push(`Perdeye saplanan ${par.uc[0] && par.uc[1] ? 'iki' : par.uc[0] ? 'sol' : 'sağ'} uç ankastre alındı (perde düzlem içinde rijit; üç moment denkleminde sıfır boylu hayali açıklık)`);
+        if (hMin > hBas && hS == null) e.iz.push(`Kolon narinliği için kiriş yüksekliği en az ${hMin} mm alındı (yanal ötelenmesi önlenmemiş çerçeve: kiriş rijitliği α'yı küçültür, k ve λ azalır; TS 500 7.6.2.2, Denk. 7.15–7.16)`);
+        if (bS != null || hS != null) {
+          e.ozel = { b: bS != null, h: hS != null };
+          e.iz.push(`${hat.aks} aksı boyunca ${[bS != null && `b = ${bS}`, hS != null && `h = ${hS}`].filter(Boolean).join(', ')} mm elle verildi: araç bu boyutu büyütmedi, koşullar bu kesitle denetlendi`);
+        }
+      }
+      kirisler.push(...r.kirisler);
+      // Kolona giden tepki: G alan payıyla alttan sınırlı; Q her mesnet için en elverişsiz desen (TS 500 6.3.3)
+      const pay = rr => rr.R.map((_, u) => ((rr.acikliklar[u - 1]?.W ?? 0) + (rr.acikliklar[u]?.W ?? 0)) / 2);
+      const rq = pay(r.rQ), pg = pay(r.rG);
+      for (const d of desenler(par.L.length))
+        surekliKiris(par.L, r.Q.map((p, k) => d[k] ? p : []), par.uc).R.forEach((x, u) => { rq[u] = Math.max(rq[u], x); });
+      if (!kalkma.includes(`${hat.aks} aksı`) && desenler(par.L.length).some(d => surekliKiris(par.L, r.G.map((p, k) => [...p.map(y => ({ w: 1.4 * y.w, a: y.a })),
+        ...(d[k] ? r.Q[k].map(y => ({ w: 1.6 * y.w, a: y.a })) : [])]), par.uc).R.some(x => x < -TOL))) kalkma.push(`${hat.aks} aksı`);
+      r.rG.R.forEach((x, u) => { RG[a + u] += Math.max(x, pg[u]); RQ[a + u] += rq[u]; });
+      a = son;
     }
-    kirisler.push(...r.kirisler);
-    // Kolona giden tepki: G alan payıyla alttan sınırlı; Q her mesnet için en elverişsiz desen (TS 500 6.3.3)
-    const pay = rr => rr.R.map((_, u) => ((rr.acikliklar[u - 1]?.W ?? 0) + (rr.acikliklar[u]?.W ?? 0)) / 2);
-    const RQ = pay(r.rQ);
-    for (const d of desenler(hat.L.length))
-      surekliKiris(hat.L, r.Q.map((p, k) => d[k] ? p : [])).R.forEach((x, u) => { RQ[u] = Math.max(RQ[u], x); });
-    if (desenler(hat.L.length).some(d => surekliKiris(hat.L, r.G.map((p, k) => [...p.map(y => ({ w: 1.4 * y.w, a: y.a })),
-      ...(d[k] ? r.Q[k].map(y => ({ w: 1.6 * y.w, a: y.a })) : [])])).R.some(x => x < -TOL))) kalkma.push(`${hat.aks} aksı`);
-    tepki.set(hi, { G: r.rG.R.map((x, u) => Math.max(x, pay(r.rG)[u])), Q: RQ });
+    tepki.set(hi, { G: RG, Q: RQ });
   });
-  return { kirisler, tepki, kalkma };
+  return { kirisler, tepki, kalkma, perdeYuk };
 }

@@ -168,7 +168,11 @@ for (const c of zr.kolonlar) {
     assert.ok(top(c.h, c.b, nh * A) >= 1.2 * kMr(hatI('x', c.j), c.i) - 1e-6 && top(c.b, c.h, nb * A) >= 1.2 * kMr(hatI('y', c.i), c.j) - 1e-6, `${c.ad}: ${6 - k}. düğüm güçlü kolon`);
   }
 }
-assert.ok(zincirHesap({ ...G0, katSayisi: 1, ax: [8, 8], ay: [8, 8] }).kolonlar.every(c => c.b <= 350 && /7\.3\.5\.3\(b\)/.test(c.maddeler.find(m => m.ad === 'Güçlü kolon').deger)));
+// Faz 1: TBDY 7.5 birleşim kesmesi bu açıklıktaki çok donatılı kirişlerde kolonu büyütür; boyut sınırı yerine kolonlar 350×350
+// sabitken güçlü kolonun aranmadığı ve yalnız birleşim kesmesinin sağlanmadığı denetlenir.
+const k8 = { ...G0, katSayisi: 1, ax: [8, 8], ay: [8, 8] }, s350 = Object.fromEntries(agKur([8, 8], [8, 8]).kolonlar.map(c => [c.ad, { b: 350, h: 350 }]));
+assert.ok(zincirHesap(k8).kolonlar.every(c => /7\.3\.5\.3\(b\)/.test(c.maddeler.find(m => m.ad === 'Güçlü kolon').deger)));
+assert.ok(zincirHesap({ ...k8, kolonOzel: s350 }).kolonlar.every(c => c.maddeler.every(m => m.gecti || m.uyari || m.ad === 'Birleşim kesmesi')));
 // F6 — TBDY 7.4.5.1/7.4.5.3: kiriş orta bölge etriyesi V_e için (V_c = 0,8·V_cr); K5'te φ8/160 V_e'nin 1/1,31'ini karşılıyordu.
 for (const e of zincirHesap({ ...G0, ax: [6, 7, 6], ay: [6, 6], q: 3.5, duvarIc: 6 }).kirisler) {
   const [phi, s] = e.etrOrta.slice(1).split('/').map(Number), d = e.h - 50;
@@ -177,5 +181,164 @@ for (const e of zincirHesap({ ...G0, ax: [6, 7, 6], ay: [6, 6], q: 3.5, duvarIc:
 // Büyüme sınırı: yalnız etriye yetmeyen kirişte büyütme V_e'yi artırır; iyileşmeyince durur (1300×3150'ye koşuyordu), açıklama iz'de
 const kE = zincirHesap({ ...G0, dosemeTuru: 'disli', disGen: 105, ax: [11, 8.8, 11], ay: [11, 11], q: 5, katSayisi: 3 }).kirisler;
 assert.ok(kE.every(e => e.b <= 900 && (e.gecti || e.iz.some(x => x.includes('büyütme durduruldu')))));
+
+
+// ── Faz 1
+const tr2 = x => x.toLocaleString('tr-TR', { maximumFractionDigits: 2 });
+// 3. Duvar türü: kirişte kN/m² × (H − kiriş h), dış/iç ayrı; tür seçiliyken elle kN/m denetlenmez; kirişsizde H − döşeme h
+const rD = zincirHesap({ ...G0, duvarDisTur: 'tugla19', duvarIcTur: 'gazbeton20' });
+for (const e of rD.kirisler) { const dis = rD.ag.hatlar[e.hat].dis; yakin(e.duvar, (dis ? 2.7 : 1.8) * (3000 - e.h) / 1000); assert.ok(e.iz.some(x => x.includes('kN/m² ×'))); }
+assert.ok(!girdiDenetle({ ...G0, duvarDisTur: 'tugla19', duvarDis: NaN }).duvarDis && girdiDenetle({ ...G0, duvarIcTur: 'kerpic' }).duvarIcTur && girdiDenetle({ ...G0, kullanim: 'x' }).kullanim);
+const rDK = zincirHesap({ ...G0, dosemeTuru: 'kirissiz', duvarDisTur: 'tugla19' }), wD = 2.7 * (3000 - rDK.h) / 1000;
+assert.ok(rDK.zimbD[0].Nd >= rDK.dosemeler[0].pd * 2 * 2.5 + 1.4 * wD * 4.5 - 1e-6 && rDK.notlar.some(x => x.includes(`${tr2(2.7)} kN/m² × ${(3000 - rDK.h).toLocaleString('tr-TR')} mm`)));
+// 4. Birleşim (TBDY 7.5): V_e = 1,25·fyk·(A_s1 + A_s2) (V_kol = 0), b_j = min(kolon genişliği; b_w + h), kuşatılmamış 1,0·b_j·h·√fck
+for (const c of zr.kolonlar) {
+  const at = (yon, k) => zr.kirisler.find(e => e.hat === hatI(yon, yon === 'x' ? c.j : c.i) && e.k === k);
+  const oran = ['x', 'y'].map(yon => { const u = yon === 'x' ? c.i : c.j, [s, d] = [at(yon, u - 1), at(yon, u)], As = Math.max((s?.AsUst ?? 0) + (d?.AsAlt ?? 0), (s?.AsAlt ?? 0) + (d?.AsUst ?? 0));
+    const hj = yon === 'x' ? c.b : c.h, bj = Math.min(yon === 'x' ? c.h : c.b, Math.min(...[s, d].filter(Boolean).map(e => e.b)) + hj), kus = c.maddeler.find(m => m.ad === 'Birleşim kesmesi').sinir.includes('kuşatılmış');
+    return 1.25 * 420 * As / 1000 / ((kus ? 1.7 : 1) * bj * hj * Math.sqrt(30) / 1000); });
+  const m = c.maddeler.find(m => m.ad === 'Birleşim kesmesi'); yakin(m.kullanim, Math.max(...oran)); assert.ok(m.gecti && c.etrBirlesim);
+}
+// 5. Kolon kesmesi (TBDY 7.3.7): V_e ≤ 0,85·A_w·√fck ve orta bölgede V_c + V_w ≥ V_e (X'i h boyunca ky kol, Y'yi kx kol taşır)
+for (const c of zr.kolonlar) {
+  const [phi, s] = c.etrOrta.slice(1).split('/').map(Number), A = Math.PI * phi * phi / 4, vc = (bw, d) => 0.8 * 0.65 * fctd30 * bw * d * (1 + 0.07 * c.Nd / 5 * 1000 / (c.b * c.h)) / 1000;
+  assert.ok(vc(c.h, c.b - 45) + c.ky * A * 365.2 * (c.b - 45) / s / 1000 >= c.VeX - 0.5 && vc(c.b, c.h - 45) + c.kx * A * 365.2 * (c.h - 45) / s / 1000 >= c.VeY - 0.5, `${c.ad} kesme`);
+  assert.ok(Math.max(c.VeX, c.VeY) <= 0.85 * c.b * c.h * Math.sqrt(30) / 1000 && c.maddeler.find(m => m.ad === 'Kolon kesmesi').gecti);
+}
+// 6. Narinlik (TS 500 7.6.2): α = 1,5 → ötelenmede k = (20 − α)/20·√(1 + α) (Denk. 7.15), önlenmişte 0,7 + 0,05·2α ≤ 0,85 + 0,05α (7.14)
+import { narinlik } from './kolon.js';
+const Ic3 = 300 ** 4 / 12, nr = t => narinlik({ bw: 300, hd: 300, ln: 2600, H: 3000, n: 5, kirisR: 2 * Ic3 / 3000 / 1.5, Nd: 1000, Ngd: 800, fck: 30, tutulu: t });
+yakin(nr(false).lamMax, 18.5 / 20 * Math.sqrt(2.5) * 2600 / 90); yakin(nr(true).lamMax, 0.85 * 2600 / 90); assert.ok(nr(false).beta > nr(true).beta && nr(true).beta >= 1);
+// λ > 100 (H = 8 m, sabit 300×300, kirişsiz, ötelenmeli): yaklaşık yöntem dışı, 'Narinlik' sağlanmaz, kullanım sonlu
+const rN = zincirHesap({ ...G0, dosemeTuru: 'kirissiz', yanalTutulu: false, H: 8000, kolonOzel: { S1: { b: 300, h: 300 } } }).kolonlar[0].maddeler.find(m => m.ad === 'Narinlik');
+assert.ok(!rN.gecti && Number.isFinite(rN.kullanim) && rN.kullanim > 1);
+// Kiriş rijitleştirmesi (TS 500 7.6.2.2, Denk. 7.15–7.16): kirişlide aynı kolonun narinliği kirişler yükseltilerek sağlanır (λ ≤ 100),
+// yükseltilen hatlar not ve kiriş iz'inde; 1000 mm sınırı aşılmaz
+const rR = zincirHesap({ ...G0, H: 8000, kolonOzel: { S1: { b: 300, h: 300 } } });
+assert.ok(rR.kolonlar[0].maddeler.find(m => m.ad === 'Narinlik').gecti && rR.kirisler.some(e => e.h > 400) && rR.kirisler.every(e => e.h <= 1000)
+  && rR.notlar.some(x => x.includes('rijitleştirildi')) && rR.kirisler.some(e => e.iz.some(x => x.includes('Kolon narinliği için kiriş yüksekliği'))));
+// Kolon kirişe göre çok rijitse (4000×4000 sabit) rijitleştirme boşuna: iyileşmeyen hat büyütülmez
+assert.ok(zincirHesap({ ...G0, kolonOzel: { S1: { b: 4000, h: 4000 }, S2: { b: 4000, h: 4000 } } }).kirisler.every(e => e.h <= 500));
+// 7. Çift etriye: bir doğrultuda ≥ 4 kol → kol alanında 'çift etriye'
+assert.ok(zr.kolonlar.every(c => /çift etriye/.test(c.kol) === Math.max(c.kx, c.ky) >= 4) && zr.kolonlar.some(c => c.ciftEtriye));
+
+// ── Perde (TBDY 7.6, TS 500 7.6.2.1)
+import { perdeOku, perdeYaz, perdeKirp, duraylilik } from './perde.js';
+import { surekliKiris as sk } from './mekanik.js';
+// Ankastre uç (perdeye saplanan kiriş): iki ucu ankastre −wL²/12, bir ucu ankastre −wL²/8 (diğer uç 0); denge korunur
+r = sk([6], [[duz(10)]], [true, true]); yakin(r.M[0], -30); yakin(r.M[1], -30); yakin(r.R[0] + r.R[1], 60);
+r = sk([6], [[duz(10)]], [true, false]); yakin(r.M[0], -45); yakin(r.M[1], 0); yakin(r.R[0], 37.5);
+r = sk([4, 5], [[duz(10)], [duz(8)]], [false, true]); yakin(r.R.reduce((a, b) => a + b), 80); assert.ok(r.M[2] < 0 && r.M[0] === 0);
+// Girdi metni: tire türü, boşluk, küçük harf, ters yazım ("1–2/A"), ayraç ; , satır; bitişik açıklıklar birleşir
+assert.deepEqual(perdeOku(' a/2-3 , 1 / A — B ;B/1–2\nb/2-3; 2–1/C ').liste,
+  [{ yon: 'x', no: 0, k0: 1, k1: 1 }, { yon: 'x', no: 1, k0: 0, k1: 1 }, { yon: 'x', no: 2, k0: 0, k1: 0 }, { yon: 'y', no: 0, k0: 0, k1: 0 }]);
+assert.equal(perdeYaz(perdeOku('a/2-3, 1/a-b, b/1-2, b/2-3').liste), 'A/2–3; B/1–3; 1/A–B');
+assert.equal(perdeOku('A/1-3').liste[0].k1, 1); assert.deepEqual(perdeOku('').liste, []);
+assert.equal(perdeOku('A/1-2; A/B-C; 3; 0/A-B; A/2-2').hata.length, 4);           // harfli aksta harfli açıklık, biçim, 0 aks, aynı aks
+assert.ok(girdiDenetle({ ...G0, perdeler: 'A/4–5' }).perdeler.includes('planda yok') && !girdiDenetle({ ...G0, perdeler: 'C/3–4; 4/A–C' }).perdeler);
+assert.ok(girdiDenetle({ ...G0, perdeler: 'A/1-2', perdeKal: 100 }).perdeKal && !girdiDenetle({ ...G0, perdeKal: 100 }).perdeKal);
+assert.equal(perdeYaz(perdeKirp(perdeOku('A/2–4; 3/A–C; C/1–2').liste, 2, 1)), 'A/2–3; 3/A–B'); // aks azalınca kırpılır (C aksı yok)
+// Varsayılan plan + A/2–3 (X) ve 1/A–B (Y) perdeleri
+const GP = { ...G0, perdeler: 'A/2–3; 1/A–B' }, rp = zincirHesap(GP), [P1, P2] = rp.perdeler;
+assert.ok(tumu(rp).every(e => e.gecti) && rp.perdeler.every(e => e.gecti) && rp.radyePerde.every(e => e.gecti), 'perdeli varsayılan plan uygun');
+// Uç kolonlar kolon değil perde uç bölgesi; perde açıklığında kiriş yok; zımbalama yalnız kolonlarda
+assert.deepEqual(rp.kolonlar.map(c => c.ad), ['S4', 'S6', 'S7', 'S8', 'S9', 'S10', 'S11', 'S12']);
+assert.deepEqual([P1.uclar, P2.uclar], [['S2', 'S3'], ['S1', 'S5']]);
+assert.ok(!rp.kirisler.some(e => ['K2', 'K10'].includes(e.ad)) && rp.kirisler.length === 15);
+assert.deepEqual(rp.radyeZimb.map(z => z.kolon), rp.kolonlar.map(c => c.ad));
+// Perdeye saplanan kiriş ucu ankastre: K1 (A/1–2) sağ ucunda mesnet momenti; perdesiz planda K1'in iç mesneti S2 de süreklidir
+assert.ok(rp.kirisler.find(e => e.ad === 'K1').iz.some(x => x.includes('ankastre')));
+// Yük korunur: kat başına uygulanan G (döşeme + duvar [perde açıklığı dahil] + kiriş gövdesi + kolon ve perde öz ağırlığı) kolon ve
+// perdelere iner (alan payı alt sınırı yüzünden biraz fazlası); radyeye giden ΣN_d = Σ(kolon + perde) N_d
+{ const plan = 13 * 9.5, n = 5, dis = 0, ozD = rp.h * 25 / 1000;
+  const duvar = rp.ag.hatlar.reduce((a, h) => a + h.L.reduce((x, y) => x + y, 0) * (h.dis ? 6 : 3), 0);
+  const govde = rp.kirisler.reduce((a, e) => a + e.L * e.b / 1000 * (e.h / 1000 * 25 - ozD), 0);
+  const oz = rp.kolonlar.reduce((a, c) => a + c.b * c.h / 1e6 * 3 * 25, 0) + rp.perdeler.reduce((a, e) => a + e.bw * e.lw / 1e6 * 3 * 25, 0);
+  const katG = plan * rp.dosemeler[0].gAlan + duvar + govde + oz, el = [...rp.kolonlar, ...rp.perdeler];
+  const sNG = el.reduce((a, c) => a + c.NG, 0) / n, sNQ = el.reduce((a, c) => a + c.NQ, 0) / n / rp.beta;
+  assert.ok(sNG >= katG - 1e-6 && sNG <= 1.25 * katG, `perdeli ΣN_G/kat ${sNG} ↔ ${katG}`);
+  assert.ok(sNQ >= plan * 2 - 1e-6 && sNQ <= 1.25 * plan * 2, `perdeli ΣN_Q/kat ${sNQ}`);
+  yakin(rp.katYukAlan, (katG + plan * 2) / plan, 0.25);
+  for (const e of el) yakin(e.Nd, 1.4 * e.NG + 1.6 * e.NQ);
+  yakin(rp.radye.iz[0].includes('perde') ? el.reduce((a, c) => a + c.Nd, 0) : NaN, Number(rp.radye.iz[0].match(/ΣN_d = ([\d.]+)/)[1].replace(/\./g, '')), 1e-3); }
+// Perde koşulları (TBDY 7.6): ℓw = eksen + b_w; ℓw/b_w ≥ 6; b_w ≥ max(250; H/16; ℓw/30); A_c ≥ N_dm/(0,35·fck); ℓu ≥ max(0,2ℓw; 2b_w);
+// uç boyuna ≥ max(0,002·A_c; 4φ14), çaplar φ12/14/16, etriye φ8/10/12 ve s ≤ min(150; 6φ; b_w/3); gövde iki yüz ρ ≥ 0,0025, s ≤ 250;
+// V_r = A_ch·(0,65·fctd + ρsh·fywd) yalnız bilgi (not), deprem etkileri not
+for (const e of rp.perdeler) {
+  const m = ad => e.maddeler.find(x => x.ad === ad), [n, phi] = e.ucBoyuna.split('φ').map(Number), [pe, s] = e.ucEtriye.slice(1).split('/').map(Number);
+  const [pg, sg] = e.govdeDusey.slice(1).split('/').map(Number), fctd = 0.35 * Math.sqrt(30) / 1.5;
+  assert.ok(e.lw === 5000 + e.bw && e.lw / e.bw >= 6 && e.bw >= Math.max(250, 3000 / 16, e.lw / 30) && e.Ndm <= 0.35 * 30 * e.bw * e.lw / 1000);
+  assert.ok(e.lu >= Math.max(0.2 * e.lw, 2 * e.bw) && n * Math.PI * phi ** 2 / 4 >= Math.max(0.002 * e.bw * e.lw, 4 * Math.PI * 49) - 1e-6 && [12, 14, 16].includes(phi));
+  assert.ok([8, 10, 12].includes(pe) && s <= Math.min(150, 6 * phi, e.bw / 3) && s >= 50 && 2 * Math.PI * pg ** 2 / 4 / (sg * e.bw) >= 0.0025 && sg <= 250);
+  assert.ok(m('Kesme dayanımı').uyari && !m('Kesme dayanımı').gecti && m('Deprem etkileri').uyari);
+  yakin(e.Vr, e.bw * e.lw * (0.65 * fctd + e.rhoSh * 420 / 1.15) / 1000); yakin(e.VeMax, 0.85 * e.bw * e.lw * Math.sqrt(30) / 1000);
+  assert.deepEqual(['Uzun kenar/kalınlık', 'Perde kalınlığı', 'Net kesit alanı', 'Uç bölgesi boyu', 'Uç bölgesi boyuna donatı', 'Uç bölgesi etriyesi', 'Gövde donatısı'].map(a => m(a).gecti), Array(7).fill(true));
+}
+// Kalınlık koşulu sağlanmazsa büyür (150 → 250, TBDY 7.6.1.2), not iz'de; ℓw/b_w < 6 ise perde değil (açık madde, çökmez)
+const rk = zincirHesap({ ...GP, perdeKal: 150 });
+assert.ok(rk.perdeler.every(e => e.bw === 250 && e.iz.some(x => x.includes("150 mm'den 250 mm'ye"))));
+const r6 = zincirHesap({ ...G0, ax: [4, 1.2, 4], perdeler: 'A/2–3' }).perdeler[0];
+assert.ok(!r6.gecti && r6.tur !== 'perde' && r6.maddeler.some(m => m.ad === 'Perde tanımı' && !m.gecti));
+// Eksenel sınır: çok katta ince perde N_dm/(0,35·fck) için kalınlaşır (sınırlı döngü)
+const rE = zincirHesap({ ...GP, katSayisi: 30, perdeKal: 250 }).perdeler;
+assert.ok(rE.every(e => e.Ndm <= 0.35 * 30 * e.bw * e.lw / 1000 + 1e-6 && e.bw <= 250 + 20 * 50));
+// Yanal ötelenme (TS 500 Denk. 7.13): φ = 1,5·ΣN·Δ/(V·ℓ); tek katta konsol eğilme + kayma ile elle; perdeli doğrultu önlenmiş
+{ const d = duraylilik({ perdeler: [{ bw: 250, lw: 5250 }], n: 1, H: 3000, W: 1000, Ec: 32000 });
+  const EI = 32e6 * 0.25 * 5.25 ** 3 / 12, GA = 32e6 / 2.4 * 5 / 6 * 0.25 * 5.25;
+  yakin(d.phi, 1.5 * 1000 * (3 ** 3 / (3 * EI) + 3 / GA) / 3); }
+assert.ok(rp.yanal.x.tutulu && rp.yanal.y.tutulu && rp.yanal.x.phi < 0.05 && rp.notlar.some(x => x.includes('Denk. 7.13')));
+assert.ok(rp.kolonlar.every(c => c.narinlik.every(x => x.tutulu) && c.iz.some(x => x.includes('önlenmiş — P'))));
+const rX = zincirHesap({ ...G0, perdeler: 'A/2–3' });                                   // yalnız X'te perde
+assert.ok(rX.yanal.x.tutulu && !rX.yanal.y.tutulu && rX.kolonlar.every(c => c.narinlik[0].tutulu && !c.narinlik[1].tutulu));
+assert.ok(zincirHesap({ ...G0, yanalTutulu: true }).yanal.y.tutulu);                    // elle (çizilmeyen perdeler)
+// 12 katta tek perde yetmez (φ > 0,05): kirişsizde de önlenmemiş sayılır, not perde eklemeyi söyler; zımbalama perde düğümünde yok
+const rK12 = zincirHesap({ ...G0, dosemeTuru: 'kirissiz', ax: [5, 5, 5], ay: [5, 5], katSayisi: 12, perdeler: 'A/2–3; 1/B–C' });
+assert.ok(rK12.yanal.x.phi > 0.05 && !rK12.yanal.x.tutulu && rK12.notlar.some(x => x.includes('yetmiyor')) && rK12.notlar.some(x => x.includes('2 perde yerleştirildi')));
+assert.ok(!rK12.zimbD.some(z => ['S2', 'S3', 'S5', 'S9'].includes(z.kolon)) && rK12.zimbD.length === 8);
+const rK4 = zincirHesap({ ...G0, dosemeTuru: 'kirissiz', ax: [5, 5, 5], ay: [5, 5], katSayisi: 12, perdeler: 'A/2–3; C/2–3; 1/B–C; 4/B–C' });
+assert.ok(rK4.yanal.x.tutulu && rK4.yanal.y.tutulu && [...rK4.kolonlar, ...rK4.perdeler].every(e => e.gecti));
+// Köşede birleşen perdeler (L): ortak düğüm yükü tek perdeye; iki ucu dik perdeyle tutulu perdede kalınlık H/20 (7.6.1.2(c))
+const rL = zincirHesap({ ...G0, ax: [4], ay: [5], perdeler: 'A/1–2; 1/A–B; B/1–2; 2/A–B' });
+assert.ok(rL.kolonlar.length === 0 && rL.perdeler.every(e => e.gecti && e.maddeler.find(m => m.ad === 'Perde kalınlığı').kaynak.includes('(c)')) && rL.radye.gecti);
+// Perdesiz 12 katlı dişli (önceden yalnız narinlikten uygun değildi): kirişler rijitleştirilerek sağlanır
+const rD12 = zincirHesap({ ...G0, dosemeTuru: 'disli', ax: [5, 5, 5], ay: [5, 5], katSayisi: 12 });
+assert.ok(tumu(rD12).every(e => e.gecti) && rD12.notlar.some(x => x.includes('rijitleştirildi')));
+// Radye: perde yükü çizgisel; perde yüzünden d uzakta kesme v = p_w·(b − b_w/2 − d), p_w = max(p; q_w/Σb)
+for (const e of rp.radyePerde) { const P = rp.perdeler.find(x => x.ad === e.perde); yakin(e.qw, P.Nd / (P.lw / 1000)); assert.ok(e.maddeler[0].kaynak.includes('8.1.2')); }
+
+// ── Elle verilen boyutlar (Excel hücreleri): araç büyütmez, bütün koşullarla denetler; yetmeyen madde sağlanmaz, boyutlandırma yine oturur
+{ const rH = zincirHesap({ ...G0, dosemeOzel: { h: 100 } });                     // kirişli plak: 100 < h_min
+  assert.ok(rH.h === 100 && rH.dosemeler.every(d => d.h === 100 && d.ozel.h && !d.gecti && !d.maddeler.find(m => m.ad === 'Döşeme kalınlığı').gecti));
+  assert.ok([...rH.kirisler, ...rH.kolonlar, rH.radye].every(e => e.gecti) && rH.notlar.some(n => n.startsWith('Elle verilen boyutlar') && n.includes('döşeme h = 100 mm')));
+  assert.ok(zincirHesap({ ...G0, dosemeOzel: { h: 200 } }).dosemeler.every(d => d.h === 200 && d.gecti));
+  const rT = zincirHesap({ ...G0, dosemeTuru: 'disli', dosemeOzel: { t: 60 } }), hD = zincirHesap({ ...G0, dosemeTuru: 'disli' }).h; // tabla < max(70; e/10): kalınlaştırma koşmaz
+  assert.ok(rT.tabla === 60 && rT.h === hD && rT.dosemeler.every(d => d.ozel.t && !d.ozel.h && !d.maddeler.find(m => m.ad === 'Tabla kalınlığı').gecti && d.maddeler.every(m => m.gecti || m.uyari || m.ad === 'Tabla kalınlığı')));
+  const rK = zincirHesap({ ...G0, dosemeTuru: 'kirissiz', dosemeOzel: { h: 180 } }); // kirişsiz: 180 < 200; zımbalama için kolonlar yine büyür
+  assert.ok(rK.h === 180 && rK.dosemeler.every(d => !d.maddeler.find(m => m.ad === 'Döşeme kalınlığı').gecti) && rK.zimbD.every(z => z.d === 155 && z.gecti));
+  // Kiriş: aks hattı boyunca; yalnız b verilirse h büyür, yetmeyen h 'Kiriş yüksekliği'ni düşürür
+  const hatK = (r, a) => r.kirisler.filter(e => r.ag.hatlar[e.hat].aks === a);
+  const rA = zincirHesap({ ...G0, kirisOzel: { A: { b: 300, h: 600 } } });
+  assert.ok(hatK(rA, 'A').length === 3 && hatK(rA, 'A').every(e => e.b === 300 && e.h === 600 && e.ozel.b && e.ozel.h && e.gecti) && rA.kirisler.filter(e => !hatK(rA, 'A').includes(e)).every(e => !e.ozel));
+  const rA2 = zincirHesap({ ...G0, kirisOzel: { A: { h: 250 } } });
+  assert.ok(hatK(rA2, 'A').every(e => e.h === 250 && !e.gecti && !e.maddeler.find(m => m.ad === 'Kiriş yüksekliği').gecti));
+  const r1 = zincirHesap({ ...G0, kirisOzel: { 1: { b: 400 } } });
+  assert.ok(hatK(r1, '1').every(e => e.b === 400 && e.h >= 300 && e.ozel.b && !e.ozel.h && e.gecti));
+  // Narinlik rijitleştirmesi elle verilen kiriş yüksekliğine dokunmaz (sınırlı turda oturur)
+  const rN = zincirHesap({ ...G0, H: 8000, kolonOzel: { S1: { b: 300, h: 300 } }, kirisOzel: { A: { h: 400 }, 1: { h: 400 } } });
+  assert.ok([...hatK(rN, 'A'), ...hatK(rN, '1')].every(e => e.h === 400) && !rN.notlar.some(n => /\bA aksı h ≥|\b1 aksı h ≥/.test(n)));
+  // Radye: elle h ve taşma
+  const rR = zincirHesap({ ...G0, radyeOzel: { h: 250 } });
+  assert.ok(rR.radye.h === 250 && rR.radye.ozel.h && !rR.radye.gecti && !rR.radye.maddeler.find(m => m.ad === 'Radye kalınlığı').gecti && rR.radyeZimb.every(z => z.d === 180));
+  const rR2 = zincirHesap({ ...G0, radyeOzel: { h: 700, a: 0.1 } });
+  assert.ok(rR2.radye.h === 700 && rR2.radye.a === 0.1 && !rR2.radye.maddeler.find(m => m.ad === 'Radye taşması').gecti && rR2.radye.Bx === 13.2);
+  // Perde: elle kalınlık yazımla ("A/2–3"), büyütülmez; öbür perde yine büyür
+  const rP = zincirHesap({ ...GP, perdeKal: 150, perdeOzel: { 'A/2–3': 200 } });
+  assert.ok(rP.perdeler[0].bw === 200 && rP.perdeler[0].ozel && !rP.perdeler[0].maddeler.find(m => m.ad === 'Perde kalınlığı').gecti && rP.perdeler[1].bw === 250 && !rP.perdeler[1].ozel);
+  // Planda olmayan aks ya da perde anahtarı yok sayılır; aralık dışı değer girdi hatası
+  const rS = zincirHesap({ ...GP, kirisOzel: { F: { b: 300 } }, perdeOzel: { 'C/1–2': 300 } });
+  assert.deepEqual(rS.kirisler.map(e => [e.b, e.h]), rp.kirisler.map(e => [e.b, e.h])); assert.ok(!rS.notlar.some(n => n.startsWith('Elle')));
+  assert.ok(['dosemeOzel', { h: 20 }, 'kirisOzel', { A: { b: 100 } }, 'dosemeOzel', { h: 100, t: 120 }, 'radyeOzel', { a: 12 }, 'perdeOzel', { 'A/2–3': 2000 }, 'kolonOzel', { S1: { b: 50 } }]
+    .every((x, i, a) => i % 2 || girdiDenetle({ ...G0, [x]: a[i + 1] }).ozel));
+  assert.ok(!girdiDenetle({ ...GP, dosemeOzel: { h: 150 }, kirisOzel: { A: { b: 300 } }, perdeOzel: { 'A/2–3': 300 }, radyeOzel: { h: 600, a: 1 } }).ozel); }
 
 console.log('zincir: tüm kontroller geçti');

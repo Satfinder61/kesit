@@ -6,6 +6,7 @@
 <meta name="color-scheme" content="dark">
 <script>addEventListener("pagereveal",function(e){var v=e.viewTransition;if(v){v.ready.catch(function(){});v.finished.catch(function(){})}});(function(d){var t={},m;try{t=JSON.parse(localStorage.getItem("kesit.tema.v1"))||{}}catch(e){}m=t.mod||"koyu";if(m=="sistem")m=matchMedia("(prefers-color-scheme: light)").matches?"acik":"koyu";if(m!="acik"&&m!="krem")m="koyu";d.dataset.tema=m;if(m!="koyu")document.querySelector('meta[name="color-scheme"]').content="light";if(t.olcek==90||t.olcek==110||t.olcek==120)d.dataset.olcek=t.olcek;if(t.hareket=="az")d.dataset.hareket="az";if(t.css&&t.css[m]){var s=document.createElement("style");s.id="tema-renk";s.textContent="@media screen{:root{"+t.css[m]+"}}";document.head.appendChild(s)}})(document.documentElement)</script>
 <title>Kesit — Kolon / perde ön kontrolü</title>
+<link rel="icon" href="img/favicon.svg" type="image/svg+xml">
 <link rel="preload" href="fonts/HankenGrotesk-400-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/HankenGrotesk-600-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/JetBrainsMono-latin.woff2" as="font" type="font/woff2" crossorigin>

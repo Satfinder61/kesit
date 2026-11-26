@@ -1,0 +1,72 @@
+/* Ortak çalışma kitabı (sira.html, tablo.html; calisma.js): zincir sayfası, Girdiler satırları, düzenlenebilir hücreler, alt sekmeler,
+   Excel düğmesi. Sayfanın kendi <style>'ından sonra, tema.css'ten önce yüklenir; renkler belirteçlerle (koyu, açık, krem).
+   Zincir sayfası kuralları sira.html'deki .sayfa kurallarıyla aynı değerde: tablo.html'in kolon listesi (.sayfa, dolgusuz hücre) etkilenmez. */
+
+/* Üst çubuk: Excel düğmesi tema düğmesiyle Yazdır arasında, aralıklar .75rem */
+.ust #excel { margin-right: -1.25rem; }
+@media (max-width: 960px) { .ust #excel + .dugme { margin-left: 0; } }
+@media (max-width: 640px) {
+  .ust #excel { margin: 0 -.5rem 0 -.25rem; width: 40px; padding: 0; justify-content: center; } /* telefonda yalnız simge; üç düğme tek satıra sığar */
+  .ust #excel span { display: none; }
+}
+
+/* Zincir sayfası */
+.sayfa.zincir th, .sayfa.zincir td { height: 32px; padding: 0 .625rem; }
+.sayfa.zincir .no, .sayfa.zincir .harfler th { padding: 0; }
+.sayfa.zincir td.sayi { text-align: right; font-family: var(--olcu); font-variant-numeric: tabular-nums; }
+.sayfa.zincir td.sinir-sol, .sayfa.zincir th.sinir-sol { border-left: 2px solid var(--cizgi-2); }
+.sayfa.zincir tbody tr { cursor: pointer; }
+.sayfa.zincir td.hucre-gir { padding: 0; }
+.sayfa.zincir td.hucre-gir input:not([type=checkbox]) { display: block; width: 100%; height: 31px; padding: 0 .625rem; border: 0; border-radius: 0; background: transparent; color: var(--murekkep); font: 400 .875rem var(--olcu); font-variant-numeric: tabular-nums; text-align: right; }
+.sayfa.zincir td.hucre-gir input.metin { text-align: left; }
+.sayfa.zincir td.hucre-gir :is(input, select):focus { outline: 2px solid var(--turuncu); outline-offset: -2px; background-color: var(--alan); }
+.sayfa.zincir td.hucre-gir input.ozel { color: var(--turuncu); }
+.sayfa.zincir td.hucre-gir input[aria-invalid="true"] { color: var(--kirmizi); text-decoration: underline wavy; text-underline-offset: 5px; }
+.sayfa.zincir td.dolgu { position: relative; font-family: var(--olcu); font-size: .8125rem; }
+
+/* Girdiler: grup başlığı satırı, seçim ve onay hücreleri, not sütunu */
+.sayfa.zincir tr.ara-baslik { cursor: default; }
+.sayfa.zincir tr.ara-baslik td { font: 600 .6875rem var(--yazi); letter-spacing: .06em; text-transform: uppercase; color: var(--soluk); background: color-mix(in srgb, var(--murekkep) 3%, transparent); }
+.sayfa.zincir td.not { color: var(--soluk); font-size: .8125rem; }
+.sayfa.zincir td.hucre-gir select { display: block; width: 100%; height: 31px; padding: 0 1.75rem 0 .625rem; border: 0; border-radius: 0; appearance: none; background: transparent var(--ok) no-repeat right .5rem center; color: var(--murekkep); font: 400 .875rem var(--yazi); text-overflow: ellipsis; cursor: pointer; }
+.sayfa.zincir td.hucre-gir select option { background: var(--panel); color: var(--murekkep); }
+.sayfa.zincir .onay { display: flex; align-items: center; gap: .5rem; height: 31px; padding: 0 .625rem; font-size: .8125rem; cursor: pointer; }
+.sayfa.zincir .onay input { display: block; flex: none; width: 16px; height: 16px; margin: 0; padding: 0; accent-color: var(--turuncu); }
+.sayfa.zincir .onay input:focus-visible { outline: 2px solid var(--turuncu); outline-offset: 2px; }
+.hata-yazi { color: var(--kirmizi); }
+
+@media (max-width: 640px) { /* telefonda Parametre ve Değer dar: değer ekrana sığsın (tam ad formül çubuğunda) */
+  .sayfa.zincir.girdi { width: max(100%, 54.5rem) !important; }
+  .sayfa.zincir.girdi col:nth-child(2) { width: 9.5rem !important; }
+  .sayfa.zincir.girdi col:nth-child(3) { width: 9rem !important; }
+}
+
+/* Alt sekmeler (Excel sayfa sekmeleri) */
+.sekmeler-alt { display: flex; align-items: stretch; height: 34px; padding-left: .5rem; border-top: 1px solid var(--cizgi); background: var(--alan); overflow-x: auto; }
+.sekmeler-alt button { padding: 0 1rem; border: 0; border-right: 1px solid var(--cizgi); background: transparent; color: var(--soluk); font: 600 .8125rem var(--yazi); white-space: nowrap; cursor: pointer; }
+.sekmeler-alt button:first-child { border-left: 1px solid var(--cizgi); }
+.sekmeler-alt button:hover { color: var(--murekkep); }
+.sekmeler-alt button[aria-selected="true"] { background: var(--panel); color: var(--murekkep); box-shadow: inset 0 -2px 0 var(--turuncu); }
+
+/* Ayrıntı, iz, notlar, girdi hatası (sira.html'deki değerler; tablo.html'de de) */
+.ayrinti .icerik { overflow-x: auto; position: relative; }
+.ayrinti .icerik td.olcu { white-space: normal; }
+.ayrinti .icerik td.olcu + td.olcu { min-width: 13em; }
+.iz { margin: 0; padding: .875rem 1.25rem 1rem 2.5rem; border-top: 1px solid var(--cizgi); color: var(--soluk); font-size: .875rem; }
+.iz:empty { display: none; }
+.iz li + li { margin-top: .25rem; }
+.iz b { color: var(--murekkep); font-weight: 600; }
+.notlar { margin: 0; padding: .875rem 1.25rem .875rem 2.5rem; border-top: 1px solid var(--cizgi); font-size: .875rem; }
+.notlar:empty { display: none; }
+.sonuc-hucre.uyari { color: var(--turuncu); }
+.hata-kutu { padding: 1rem 1.25rem; border: 1px solid var(--kirmizi); border-radius: var(--r); color: var(--murekkep); background: rgb(255 92 87 / .08); }
+
+@media print {
+  .baski-sayfa { margin-top: 5mm; }
+  .baski-sayfa h2 { font-size: 11pt; margin: 0 0 2mm; break-after: avoid; }
+  .baski-sayfa table { width: 100%; border-collapse: collapse; font-size: 7.5pt; }
+  .baski-sayfa th, .baski-sayfa td { border: .5pt solid #999; padding: 1mm 1.5mm; text-align: left; }
+  .baski-sayfa td.sayi { text-align: right; font-family: var(--olcu); }
+  .baski-sayfa .sonuc-hucre { font-size: 7.5pt; white-space: nowrap; }
+  .baski-sayfa .sonuc-hucre svg { width: 9pt; height: 9pt; }
+}

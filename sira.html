@@ -6,6 +6,7 @@
 <meta name="color-scheme" content="dark">
 <script>addEventListener("pagereveal",function(e){var v=e.viewTransition;if(v){v.ready.catch(function(){});v.finished.catch(function(){})}});(function(d){var t={},m;try{t=JSON.parse(localStorage.getItem("kesit.tema.v1"))||{}}catch(e){}m=t.mod||"koyu";if(m=="sistem")m=matchMedia("(prefers-color-scheme: light)").matches?"acik":"koyu";if(m!="acik"&&m!="krem")m="koyu";d.dataset.tema=m;if(m!="koyu")document.querySelector('meta[name="color-scheme"]').content="light";if(t.olcek==90||t.olcek==110||t.olcek==120)d.dataset.olcek=t.olcek;if(t.hareket=="az")d.dataset.hareket="az";if(t.css&&t.css[m]){var s=document.createElement("style");s.id="tema-renk";s.textContent="@media screen{:root{"+t.css[m]+"}}";document.head.appendChild(s)}})(document.documentElement)</script>
 <title>Kesit — Döşemeden temele</title>
+<link rel="icon" href="img/favicon.svg" type="image/svg+xml">
 <link rel="preload" href="fonts/HankenGrotesk-400-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/HankenGrotesk-600-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/JetBrainsMono-latin.woff2" as="font" type="font/woff2" crossorigin>
@@ -70,7 +71,7 @@ h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -.015em; text-wrap: ba
 .grup { border: 1px solid var(--cizgi); border-radius: var(--r); background: var(--panel); padding: 1rem 1rem 1.125rem; margin: 0; min-width: 0; }
 .grup legend { float: left; width: 100%; padding: 0; margin: 0 0 .875rem; font-size: .8125rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--soluk); }
 .satir { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; align-items: end; clear: both; }
-.satir[hidden] { display: none; }
+.satir[hidden], .alan[hidden] { display: none; }
 .alan { display: grid; gap: .3125rem; font-size: .8125rem; color: var(--soluk); clear: both; }
 .satir .alan { clear: none; }
 .alan.tam { grid-column: 1 / -1; }
@@ -170,6 +171,23 @@ h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -.015em; text-wrap: ba
 #plan .etiket { font: 600 11px var(--yazi); fill: var(--murekkep); pointer-events: none; }
 #plan :is(.etiket, .alt-etiket) { paint-order: stroke; stroke: var(--levha); stroke-width: 3px; stroke-linejoin: round; }
 #plan .alt-etiket { font: 400 10px var(--olcu); fill: var(--soluk); pointer-events: none; }
+/* Perde: taralı dikdörtgen (kirişten ve dolu kolondan ayrı); renkler tema belirteçleriyle */
+#plan .perde { fill: url(#tarama); stroke: var(--murekkep); stroke-width: 1; cursor: pointer; }
+#plan .perde.degil { fill: url(#tarama-k); stroke: var(--kirmizi); }
+#plan .tarama rect { fill: var(--levha); }
+#plan .tarama line { stroke: var(--murekkep); stroke-width: 1.5; }
+#plan .tarama.k line { stroke: var(--kirmizi); }
+#plan .aciklik { fill: transparent; stroke: none; cursor: copy; }
+#plan .aciklik:hover { fill: color-mix(in srgb, var(--turuncu) 30%, transparent); }
+#plan .aciklik.var { cursor: not-allowed; }
+#plan .aciklik.var:hover { fill: color-mix(in srgb, var(--kirmizi) 30%, transparent); }
+#plan[data-perde] :is(.pano, .kiris, .kolon, .perde) { pointer-events: none; }
+.lejant .l-perde { background: repeating-linear-gradient(45deg, var(--murekkep) 0 1.5px, transparent 1.5px 4px); }
+.perde-dugme { height: 30px; padding: 0 .875rem; margin-right: auto; border-radius: 999px; border: 1px solid var(--cizgi-2); background: transparent; color: var(--murekkep); font: 600 .8125rem var(--yazi); cursor: pointer; white-space: nowrap; transition: background var(--hizli), border-color var(--hizli); }
+.perde-dugme:hover { border-color: var(--murekkep); }
+.perde-dugme[aria-pressed="true"] { margin-right: 0; background: var(--turuncu); border-color: var(--turuncu); color: var(--turuncu-ustu, #140c08); }
+.perde-dugme[hidden], .perde-ipucu[hidden] { display: none; }
+.perde-ipucu { margin-right: auto; font-size: .75rem; color: var(--turuncu); }
 
 /* Çalışma kitabı (Excel tarzı) */
 .kitap { border: 1px solid var(--cizgi-2); border-radius: var(--r); background: var(--panel); overflow: hidden; }
@@ -259,7 +277,7 @@ h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -.015em; text-wrap: ba
   @page { size: A4 landscape; margin: 10mm 12mm; }
   :root { color-scheme: light; --zemin: #fff; --panel: #fff; --alan: #fff; --levha: #fff; --murekkep: #111; --soluk: #555; --cizgi: #bbb; --cizgi-2: #777; --nane: #111; --kirmizi: #111; --turuncu: #111; }
   body { font-size: 9pt; }
-  .ust, .baslik, .adimlar, .giris, .kitap, .ayrinti, .plan .bas .lejant { display: none !important; }
+  .ust, .baslik, .adimlar, .giris, .kitap, .ayrinti, .plan .bas .lejant, .perde-dugme, .perde-ipucu { display: none !important; }
   .yalniz-baski { display: block; }
   .rapor-bas { display: flex; justify-content: space-between; align-items: baseline; gap: 6mm; padding-bottom: 2.5mm; border-bottom: 1.5pt solid #111; margin-bottom: 2.5mm; }
   .rapor-bas h1 { font-size: 14pt; }
@@ -284,6 +302,7 @@ h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -.015em; text-wrap: ba
 /* Sayfa geçişi izni satır içinde de olmalı: yalnız gecis.css'te kalınca önbelleksiz açılışta Chrome geçişi iptal ediyor */
 @media (prefers-reduced-motion: no-preference) { @view-transition { navigation: auto; } }
 </style>
+<link rel="stylesheet" href="calisma.css">
 <link rel="stylesheet" href="gecis.css">
 <link rel="stylesheet" href="tema.css">
 <script type="module" src="tema.js"></script>
@@ -300,6 +319,10 @@ h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -.015em; text-wrap: ba
     <a href="tablo.html">Tablo</a>
     <a href="hesap.html#kurallar">Kurallar</a>
   </nav>
+  <button class="dugme" type="button" id="excel" aria-label="Excel'e aktar" title="Girdiler, bütün sayfalar ve koşullar .xlsx olarak">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M8 2v8M4.5 6.5L8 10l3.5-3.5M3 13.5h10"/></svg>
+    <span>Excel'e aktar</span>
+  </button>
   <button class="dugme ana" type="button" id="yazdir">
     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 6V2h8v4M4 12H2.5V6.5h11V12H12M4 9.5h8V14H4z"/></svg>
     Yazdır / PDF
@@ -336,12 +359,20 @@ h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -.015em; text-wrap: ba
       </div>
     </fieldset>
     <fieldset class="grup">
+      <legend>Perdeler</legend>
+      <label class="alan">Perdeli açıklıklar <span class="kutu"><input name="perdeler" type="text" spellcheck="false" placeholder="A/1–2; 3/A–B" aria-describedby="perde-ipucu"></span></label>
+      <label class="alan"><span>Perde kalınlığı b<sub>w</sub></span> <span class="kutu"><input name="perdeKal" type="text" inputmode="decimal" value="250"><span>mm</span></span></label>
+      <p class="ipucu" id="perde-ipucu">Aks / açıklık yaz: <span class="olcu">A/1–2</span> A aksında 1–2 arası, <span class="olcu">3/A–B</span> 3 aksında A–B arası; noktalı virgülle ayır. Ya da planda <b>Perde ekle/kaldır</b> ile açıklığa tıkla (Alt/Shift + tık da olur). Perde açıklığı eksenden eksene kaplar, uç kolonları uç bölgesi olur; kalınlık TBDY 7.6.1'i sağlayana dek büyür.</p>
+      <label class="secim"><input name="yanalTutulu" type="checkbox"> <span>Yanal ötelenme önlenmiş say (plana çizilmeyen perdeler var)</span></label>
+      <p class="ipucu">Kolon narinliğinde yanal ötelenme her doğrultuda o doğrultudaki perdelerin rijitliğinden denetlenir (TS 500 7.6.2.1, Denk. 7.13 φ ≤ 0,05). Kutu işaretliyse iki doğrultuda da önlenmiş sayılır.</p>
+    </fieldset>
+    <fieldset class="grup">
       <legend>Malzeme</legend>
       <div class="satir">
         <label class="alan">Beton <select name="beton"></select></label>
         <label class="alan">Donatı çeliği <select name="celik"></select></label>
       </div>
-      <p class="ipucu">Çaplar: döşeme φ8/φ10, kiriş φ12/14/16, kolon φ14/16, etriye φ8/10, radye φ12/14/16.</p>
+      <p class="ipucu">Çaplar: döşeme, kirişsiz şerit ve diş tablası φ8/10/12; kiriş ve diş φ12/14/16, kiriş etriyesi φ8/10; kolon φ14/16 (TBDY 7.3.2.1: φ14'ten ince olamaz), kolon etriyesi φ8/10/12; radye φ12/14/16.</p>
     </fieldset>
     <fieldset class="grup">
       <legend>Döşeme</legend>
@@ -359,24 +390,23 @@ h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -.015em; text-wrap: ba
         <label class="alan tam">Dolgu (asmolen) ağırlığı <span class="kutu"><input name="dolgu" type="text" inputmode="decimal" value="0"><span>kN/m²</span></span></label>
       </div>
       <label class="secim"><input name="dosemeDuvar" type="checkbox" checked> <span>Döşemelerde bölme duvar var (sehim ℓ<sub>n</sub>/480)</span></label>
-      <p class="ipucu">Kalınlık, kiriş, kolon ve radye boyutları araç tarafından bulunur. Dolgu ağırlığını kullanacağın bloğa göre gir; TS 500 ve TS 498 değer vermiyor.</p>
+      <p class="ipucu">Kalınlık, kiriş, kolon, perde ve radye boyutları araç tarafından bulunur; sayfalardaki h, b hücrelerine yazılan değer turuncu olur, araç onu büyütmeden denetler (silince yine kendisi bulur). Dolgu ağırlığını kullanacağın bloğa göre gir; TS 500 ve TS 498 değer vermiyor.</p>
     </fieldset>
     <fieldset class="grup">
       <legend>Yükler</legend>
       <div class="satir">
         <label class="alan">Kaplama, sıva g <span class="kutu"><input name="g" type="text" inputmode="decimal" value="2"><span>kN/m²</span></span></label>
         <label class="alan">Hareketli q <span class="kutu"><input name="q" type="text" inputmode="decimal" value="2"><span>kN/m²</span></span></label>
-        <label class="alan tam">Kullanım
-          <select name="kullanim">
-            <option value="konut">Konut, büro, işhanı (β ≥ 0,60)</option>
-            <option value="atolye">Hafif işyeri, atölye, mağaza (β ≥ 0,80)</option>
-            <option value="depo">Azaltma yok (depo, ağır sanayi, okul, hastane, toplanma, garaj)</option>
-          </select>
+        <label class="alan tam">Kullanım (TS 498 Çizelge 7)
+          <select name="kullanim"></select>
         </label>
-        <label class="alan">Dış duvar <span class="kutu"><input name="duvarDis" type="text" inputmode="decimal" value="6"><span>kN/m</span></span></label>
-        <label class="alan">İç duvar <span class="kutu"><input name="duvarIc" type="text" inputmode="decimal" value="3"><span>kN/m</span></span></label>
+        <p class="ipucu alan tam" id="kullanim-not"></p>
+        <label class="alan">Dış duvar <select name="duvarDisTur"></select></label>
+        <label class="alan" id="duvarDis-alan">Dış duvar yükü <span class="kutu"><input name="duvarDis" type="text" inputmode="decimal" value="6"><span>kN/m</span></span></label>
+        <label class="alan">İç duvar <select name="duvarIcTur"></select></label>
+        <label class="alan" id="duvarIc-alan">İç duvar yükü <span class="kutu"><input name="duvarIc" type="text" inputmode="decimal" value="3"><span>kN/m</span></span></label>
       </div>
-      <p class="ipucu">Öz ağırlıklar 25 kN/m³ ile kendiliğinden eklenir. Dış duvar dış akslardaki, iç duvar iç akslardaki kirişlere konur; kirişsiz döşemede iç duvar alan yüküne çevrilir.</p>
+      <p class="ipucu">Kullanım seçilince q Çizelge 7 değeriyle dolar ve β grubu (Çizelge 8) belirlenir; q elle değiştirilebilir. Öz ağırlıklar 25 kN/m³ ile kendiliğinden eklenir. Dış duvar dış akslardaki, iç duvar iç akslardaki kirişlere konur; duvar türü seçilirse kN/m² sıvalı duvar yüzü ağırlığı, kirişte kat yüksekliği − kiriş yüksekliği, kirişsizde kat yüksekliği − döşeme kalınlığı ile kN/m'ye çevrilir (değerler kabuldür, ürüne göre elle gir). Kirişsiz döşemede iç duvar alan yüküne çevrilir.</p>
     </fieldset>
     <fieldset class="grup">
       <legend>Deprem ve zemin</legend>
@@ -395,14 +425,16 @@ h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -.015em; text-wrap: ba
     <div id="hata" class="hata-kutu" role="alert" hidden></div>
     <div class="plan">
       <div class="bas"><h2 id="plan-baslik">Kat planı</h2>
-        <div class="lejant"><span><i></i>Kiriş</span><span><i class="l-degil"></i>Uygun değil</span><span><i class="l-secili"></i>Seçili</span></div></div>
+        <button type="button" class="perde-dugme" id="perde-dugme" aria-pressed="false" title="Açıklığa tıkla: perde ekle ya da kaldır (Esc: bitir). Alt/Shift + tık her zaman çalışır." hidden>Perde ekle/kaldır</button>
+        <span class="perde-ipucu" id="perde-mod-ipucu" hidden>Açıklığa tıkla · Esc bitir</span>
+        <div class="lejant"><span><i></i>Kiriş</span><span id="lejant-perde" hidden><i class="l-perde"></i>Perde</span><span><i class="l-degil"></i>Uygun değil</span><span><i class="l-secili"></i>Seçili</span></div></div>
       <div class="plan-alan"><svg id="plan" role="img" aria-labelledby="plan-baslik"></svg></div>
       <ul class="notlar" id="notlar"></ul>
     </div>
 
     <div class="kitap">
       <div class="formul"><output id="ad-kutusu" aria-label="Seçili eleman"></output><span class="fx" aria-hidden="true">fx</span><output id="formul" aria-label="Belirleyici koşul"></output></div>
-      <div class="kap"><table class="sayfa" id="sayfa"></table></div>
+      <div class="kap"><table class="sayfa zincir" id="sayfa"></table></div>
       <div class="sekmeler-alt" role="tablist" aria-label="Sayfalar"></div>
       <div class="durum-cubugu"><span id="durum-sol">Hazır</span><span id="durum-sag"></span></div>
     </div>

@@ -122,7 +122,7 @@ if (ana && 'popover' in HTMLElement.prototype) {
       <label class="tema-secim"><input type="checkbox" name="tema-hareket"><span>Hareketi azalt</span></label>
       <div class="tema-alt"><p class="tema-durum" role="status"></p><button type="button" class="tema-sifirla">Sıfırla</button></div>
     </div>`;
-  ust.insertBefore(kap, ana);
+  ust.insertBefore(kap, ust.querySelector(':scope > .dugme')); // ana düğmeden (varsa Excel düğmesinden) önce
   const $ = s => kap.querySelector(s);
   const dugme = $('.tema-dugme'), panel = $('.tema-panel'), ozel = $('[name=tema-ozel]'), hareket = $('[name=tema-hareket]');
   const sifirla = $('.tema-sifirla'), durumYazi = $('.tema-durum'), not = $('.tema-not');

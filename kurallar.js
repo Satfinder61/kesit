@@ -14,6 +14,56 @@ const TOL = 1e-9;                  // kayan nokta: 450.6/300.4 gibi sınırdaki 
 // TBDY 7.2.5.1: C25'ten düşük beton kullanılamaz.
 export const BETON = { C25: 25, C30: 30, C35: 35, C40: 40, C45: 45, C50: 50 };
 
+// TS 498 (Kasım 1997) Çizelge 7 'Döşemeler' sütunu: kullanıma göre q (kN/m²; satır no) ve Bölüm 13 azaltma grubu β
+// (konut = a, atolye = b, null = azaltma yok). Adı Bölüm 13'te geçmeyen kullanımlarda (okul, hastane, toplanma, lokanta,
+// kütüphane, garaj…) azaltma yapılmadı (güvenli yan, yorum). Çatı arası oda konutun parçası sayıldı (a; yorum).
+// Depo ve ağır sanayi Çizelge 7'de yok: q TS ISO 9194'e göre elle girilir (TS 498 1.1), azaltma yasak (Bölüm 13).
+// Eski kayıtlar (konut, atolye, depo) aynı anahtarla aynı q/β'yı verir.
+export const KULLANIM = {
+  konut: { ad: 'Konut, konutun teras odası ve koridoru', q: 2, beta: 'konut', satir: 2 },
+  buro: { ad: 'Büro, işhanı', q: 2, beta: 'konut', satir: 2 },
+  catiArasi: { ad: 'Çatı arası oda', q: 1.5, beta: 'konut', satir: 1 },
+  dukkan: { ad: "Konuttaki 50 m²'ye kadar dükkân", q: 2, beta: 'atolye', satir: 2 },
+  hastane: { ad: 'Hastane odası', q: 2, beta: null, satir: 2 },
+  sinif: { ad: 'Sınıf, yatakhane, amfi; hastane mutfağı, muayene ve poliklinik odası', q: 3.5, beta: null, satir: 3 },
+  magaza: { ad: 'Mağaza', q: 5, beta: 'atolye', satir: 4 },
+  atolye: { ad: 'Hafif ağırlıklı atölye, hafif işyeri', q: 5, beta: 'atolye', satir: 4 },
+  toplanma: { ad: 'Cami, tiyatro, sinema, spor/dans/sergi salonu, sabit oturmalı tribün, toplantı/bekleme salonu, lokanta', q: 5, beta: null, satir: 4 },
+  kutuphane: { ad: 'Kütüphane, arşiv, büyük mutfak, kantin', q: 5, beta: null, satir: 4 },
+  koridor: { ad: 'Büro, hastane, okul, tiyatro… genel yapı koridoru', q: 5, beta: null, satir: 4 },
+  tribun: { ad: 'Tribün (oturma yeri sabit olmayan)', q: 7.5, beta: null, satir: 5 },
+  garaj: { ad: 'Garaj (toplam ağırlığı 2,5 t\'a kadar araçlar)', q: 5, beta: null, satir: 6 },
+  depo: { ad: 'Depo, ağır sanayi atölyesi ve imalathanesi (q elle, TS ISO 9194)', q: null, beta: null },
+};
+
+// TS 498 Çizelge 7: kullanıma göre en küçük q (kN/m²); tabloda olmayan kullanımda denetim yok.
+export const Q_MIN = Object.fromEntries(Object.entries(KULLANIM).filter(([, k]) => k.q != null).map(([a, k]) => [a, k.q]));
+
+// Duvar türleri: duvar yüzünün kN/m²'si = t·γ (harçlı kâgir) + iki yüz 20 mm sıva (2·0,02·20 = 0,80). TS 498 1.2, 1.5 birim
+// ağırlıkları TS ISO 9194'e bırakır (elde değil); değerler üretici verisinden yukarı yuvarlanmış kabullerdir, projedeki ürünle
+// değiştirilmeli ('elle'): yatay delikli tuğla 19×19×13,5 ≈ 2,4 kg, 25 adet/m² → harçla ≈ 6,5 kN/m³; 19'luk ≈ 9 kN/m³ → 10 alındı;
+// gazbeton G2/04 kuru 400 kg/m³ (TS EN 771-4) + nem ve ince harç → 5; bims blok (TS EN 771-3) 8; delikli beton briket 13 kN/m³.
+// Sıva: kireç-çimento harcı 18–20 kN/m³ (TS EN 1991-1-1 Çizelge A.1) → 20.
+const SIVA = 2 * 0.02 * 20;
+export const DUVAR = {
+  tugla19: { ad: '19 cm yatay delikli tuğla', t: 0.19, gamma: 10 },
+  tugla135: { ad: '13,5 cm yatay delikli tuğla', t: 0.135, gamma: 10 },
+  gazbeton20: { ad: '20 cm gazbeton (G2/04)', t: 0.20, gamma: 5 },
+  gazbeton25: { ad: '25 cm gazbeton (G2/04)', t: 0.25, gamma: 5 },
+  bims20: { ad: '20 cm bims blok', t: 0.20, gamma: 8 },
+  briket20: { ad: '20 cm beton briket', t: 0.20, gamma: 13 },
+};
+for (const d of Object.values(DUVAR)) d.q = Math.round((d.t * d.gamma + SIVA) * 100) / 100; // kN/m² duvar yüzü, sıvalı
+
+// Duvar çizgisel yükü (kN/m): tur DUVAR anahtarıysa q·(net duvar yüksekliği), değilse ('elle' ya da yok) elle girilen kN/m.
+// hNet: kat yüksekliği − kiriş (ya da kirişsizde döşeme) yüksekliği, mm.
+export function duvarYuku(tur, elle, hNet) {
+  const d = DUVAR[tur];
+  if (!d) return { w: elle, yazi: `${tr(elle)} kN/m (elle)` };
+  const w = d.q * Math.max(0, hNet) / 1000;
+  return { w, yazi: `${d.ad} ${tr(d.q)} kN/m² × ${tr(Math.max(0, hNet), 0)} mm = ${tr(w)} kN/m` };
+}
+
 // TS 498 Çizelge 8: taşınan kat sayısına göre hareketli yük azaltma değeri β (1..12 kat; 12 üstü son değer).
 // a) konut/büro/işhanı, b) hafif işyeri/atölye/imalathane/mağaza; ağır sanayi atölye/imalathanesi,
 // depo ve Bölüm 13'te adı geçmeyen kullanımlarda (okul, hastane, toplanma, garaj…) azaltma yok (TS 498 Bölüm 13).
@@ -23,15 +73,12 @@ const BETA = {
   atolye: [1, 1, 1, 0.98, 0.94, 0.9, 0.86, 0.83, 0.8, 0.8, 0.8, 0.8],
 };
 
-// TS 498 Çizelge 7: kullanıma göre en küçük q (kN/m²); tabloda olmayan kullanımda denetim yok.
-export const Q_MIN = { konut: 2, atolye: 5 };
-
 const tamKat = n => { if (!Number.isInteger(n) || n < 1) throw new RangeError('Kat sayısı 1 veya daha büyük tam sayı olmalı'); };
 
 export function beta(kullanim, katSayisi) {
   tamKat(katSayisi);
-  const t = BETA[kullanim];
-  return t ? t[Math.min(katSayisi, t.length) - 1] : 1; // tablo dışı: depo / ağır sanayi
+  const t = BETA[kullanim in KULLANIM ? KULLANIM[kullanim].beta : kullanim];
+  return t ? t[Math.min(katSayisi, t.length) - 1] : 1; // azaltma yok: depo, ağır sanayi, Bölüm 13 dışı kullanımlar
 }
 
 // Ön boyutlandırma yükü: etki alanı × kat × (g + β·q).

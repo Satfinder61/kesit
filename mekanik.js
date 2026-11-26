@@ -23,20 +23,25 @@ export function kenarParcasi(Le, lx, ly, p) {
 // Üç moment denklemi (simetrik yükte yük terimi 6Ax̄/L = 3·F·L, F ankastrelik momenti):
 //   M[k−1]·L[k−1] + 2·M[k]·(L[k−1] + L[k]) + M[k+1]·L[k] = −3·(F[k−1]·L[k−1] + F[k]·L[k])
 // Momentler alt lif çekme pozitif; mesnet momentleri negatif çıkar.
-export function surekliKiris(L, yukler) {
+// uc = [sol, sağ]: true ise o uç ankastre (perdeye saplanan kiriş): sıfır boylu hayali açıklık, uçta dönme yok → M[0] ya da M[n] de bilinmeyen.
+const UC0 = [false, false];
+export function surekliKiris(L, yukler, uc = UC0) {
   const n = L.length;
   const F = yukler.map((p, k) => p.reduce((t, y) => t + parcaAnkastre(y, L[k]), 0));
   const W = yukler.map((p, k) => p.reduce((t, y) => t + parcaToplam(y, L[k]), 0));
   const M = Array(n + 1).fill(0);
-  if (n > 1) { // Thomas algoritması, bilinmeyen M[1..n−1]
+  const i0 = uc[0] ? 0 : 1, i1 = uc[1] ? n : n - 1;
+  if (i1 >= i0) { // Thomas algoritması, bilinmeyen M[i0..i1]
     const a = [], b = [], c = [], d = [];
-    for (let k = 1; k < n; k++) {
-      a.push(L[k - 1]); b.push(2 * (L[k - 1] + L[k])); c.push(L[k]);
-      d.push(-3 * (F[k - 1] * L[k - 1] + F[k] * L[k]));
+    for (let k = i0; k <= i1; k++) {
+      const Ls = L[k - 1] ?? 0, Lr = L[k] ?? 0;
+      a.push(Ls); b.push(2 * (Ls + Lr)); c.push(Lr);
+      d.push(-3 * ((F[k - 1] ?? 0) * Ls + (F[k] ?? 0) * Lr));
     }
-    for (let i = 1; i < n - 1; i++) { const m = a[i] / b[i - 1]; b[i] -= m * c[i - 1]; d[i] -= m * d[i - 1]; }
-    M[n - 1] = d[n - 2] / b[n - 2];
-    for (let i = n - 3; i >= 0; i--) M[i + 1] = (d[i] - c[i] * M[i + 2]) / b[i];
+    const m = d.length;
+    for (let i = 1; i < m; i++) { const w = a[i] / b[i - 1]; b[i] -= w * c[i - 1]; d[i] -= w * d[i - 1]; }
+    M[i0 + m - 1] = d[m - 1] / b[m - 1];
+    for (let i = m - 2; i >= 0; i--) M[i0 + i] = (d[i] - c[i] * M[i0 + i + 1]) / b[i];
   }
   const acikliklar = L.map((Lk, k) => {
     const VL = W[k] / 2 + (M[k + 1] - M[k]) / Lk, VR = W[k] - VL;
@@ -71,10 +76,10 @@ export function desenler(n) {
   return d;
 }
 // 1,4G (her açıklıkta) + 1,6Q (desene göre) zarfı: açıklık başına en büyük mesnet ve açıklık momenti, uç kesmesi.
-export function zarf(L, G, Q) {
+export function zarf(L, G, Q, uc = UC0) {
   const z = L.map(() => ({ MdMesnet: 0, MdAcik: 0, Vd: 0 }));
   for (const d of desenler(L.length)) {
-    const r = surekliKiris(L, G.map((p, k) => [...p.map(y => ({ w: 1.4 * y.w, a: y.a })), ...(d[k] ? Q[k].map(y => ({ w: 1.6 * y.w, a: y.a })) : [])]));
+    const r = surekliKiris(L, G.map((p, k) => [...p.map(y => ({ w: 1.4 * y.w, a: y.a })), ...(d[k] ? Q[k].map(y => ({ w: 1.6 * y.w, a: y.a })) : [])]), uc);
     r.acikliklar.forEach((s, k) => {
       z[k].MdMesnet = Math.max(z[k].MdMesnet, -Math.min(s.Msol, s.Msag, 0));
       z[k].MdAcik = Math.max(z[k].MdAcik, s.Macik);
@@ -116,7 +121,7 @@ export function agKur(ax, ay) {
 // Basit açıklık ortası momenti (kNm): w(3L² − 4a²)/24
 export const parcaOrta = ({ w, a }, L) => w * (3 * L * L - 4 * a * a) / 24;
 // Kullanım (sehim) momentleri: her açıklıkta açıklık ortası Mm ve mesnet momentleri M1, M2 (kNm).
-export function ortaMomentler(L, yukler) {
-  const r = surekliKiris(L, yukler);
+export function ortaMomentler(L, yukler, uc = UC0) {
+  const r = surekliKiris(L, yukler, uc);
   return L.map((Lk, k) => ({ Mm: yukler[k].reduce((t, y) => t + parcaOrta(y, Lk), 0) + (r.M[k] + r.M[k + 1]) / 2, M1: r.M[k], M2: r.M[k + 1] }));
 }

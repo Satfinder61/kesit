@@ -44,18 +44,23 @@ for (const x of bar) {
 }
 
 // Excel'e aktar: düzenlenen hücre ve bekleyen hesap önce işlenir; kolon listesi kaydından (kesit.tablo.v1) ayrı sayfa
-$('#excel').addEventListener('click', () => {
+$('#excel').addEventListener('click', async () => {
   if (zs.contains(document.activeElement)) document.activeElement.blur();
-  K.simdi();
+  await K.hazir(); // işçideki hesap beklenir
   let liste;
   try { const k = JSON.parse(localStorage.getItem('kesit.tablo.v1')); if (Array.isArray(k?.veri)) liste = { veri: k.veri, ayar: k.ayar ?? {} }; } catch {}
   excelIndir(K.d, K.tumSonuc, { liste });
 });
+// Yazdır düğmesi (tablo.html satır içi betiği print() çağırır): zincir hesabı sürüyorsa önce sonuç beklenir
+$('#yazdir').addEventListener('click', e => {
+  if (gorunum !== 'zincir' || K.guncel()) return;
+  e.stopImmediatePropagation(); K.hazir().then(() => print());
+}, true);
 // Yazdır: zincir görünümündeyse bütün sayfalar (Girdiler özeti paragrafta), kolon listesinde satır içi betiğin raporu
 addEventListener('beforeprint', () => {
   if (gorunum !== 'zincir') return;
-  if (zs.contains(document.activeElement)) { document.activeElement.blur(); hesapla(); }
-  K.bekleyeni();
+  if (zs.contains(document.activeElement)) document.activeElement.blur();
+  K.kesinlestir(); // sonuç güncel değilse eşzamanlı hesap (tarayıcı menüsünden yazdırma)
   $('#z-tarih').textContent = new Date().toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
   $('#z-girdi-ozet').innerHTML = girdiOzet(K.d, K.sonuc);
   $('#baski-zincir').innerHTML = K.sonuc ? K.gorunur().filter(s => !s.girdi).map((s, i) => `<section class="baski-sayfa"><h2>${i + 1}. ${s.baslik}${K.sonuc.aktifKat && s.adim !== 'temel' ? ` · ${K.sonuc.aktifKat}. kat` : ''}</h2>${tabloHtml(s, K.sonuc, K.d, true)}</section>`).join('') : '';

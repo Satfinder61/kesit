@@ -2,13 +2,14 @@
 // Birimler: açıklık m, kesit mm, kuvvet kN, alan yükü kN/m², moment kNm (şerit başına) ya da kNm/m.
 import { egilmeAs, mMax, dosemeCubuk, kirisCubuk, etriyeSec, CAP } from './donati.js';
 import { kesit, aciklikSehim } from './sehim.js';
-import { zarf, ortaMomentler } from './mekanik.js';
+import { zarf, ortaMomentler, surekliKiris } from './mekanik.js';
+import { hatDestek } from './kolonduzen.js';
+import { bicim } from './bicim.js';
 
 export const GAMMA_BA = 25; // betonarme birim hacim ağırlığı, kN/m³ (genel kabul; TS 498 1.3 TS ISO 9194'e gönderir)
 const TOL = 1e-9;
 const PLAK_MIN = 120; // Kirişli plak için proje alt sınırı (mm); yönetmelik sınırından ayrı.
-const NF = {}; // Intl biçimleyici her çağrıda kurulursa hesap süresinin çoğunu yer: ondalık sayısına göre önbellek
-const tr = (x, d = 2) => (NF[d] ??= new Intl.NumberFormat('tr-TR', { maximumFractionDigits: d })).format(x);
+const tr = (x, d = 2) => bicim(x, d); // bicim.js: biçimleyici ve sonuç önbellekte
 const yukari = (x, adim) => Math.ceil(x / adim - TOL) * adim;
 export const TUR_ADI = { plak: 'Kirişli plak', disli: 'Dişli', kaset: 'Kaset', kirissiz: 'Kirişsiz' };
 // En küçük diş genişliği: TS 500 11.3.2 ≥ 100; 2φ12 + φ8 etriye + 20 mm örtü sığması (9.5.1–9.5.2) için 2·(20 + 8) + 2·12 + 25 = 105
@@ -292,6 +293,33 @@ function disTasarla(ag, g, h, mz, bwK) {
   });
 }
 
+// Kirişsiz döşemede kolonun alan payı (ax × ay, m), süreklilik katsayısı k (birim yüklü sürekli şerit tepkisi / alan payı, ≥ 1), dış duvar
+// boyu, komşu açıklıklar acik = [sol, sağ, alt, üst] ve serbest kenara uzaklık (m; kenarda değilse Infinity). katKx, katKy: aks açıklıklarıyla
+// hesaplanmış katsayılar. Kolon düzeni değiştiyse (ag.duzen) gerçek yerlerle: kaydırılan kolon kendi hattında yeni yerinde, dik çerçevede aks
+// üzerinde sayılır (TS 500 11.4.4.2(d): kaçıklık ≤ açıklığın 1/10'u; kolonduzen.js); hat ucundaki kolon içeri kayınca taşan döşeme payına eklenir.
+const katsayi = L => surekliKiris(L, L.map(() => [{ w: 1, a: 0 }])).R.map((R, u) => Math.max(1, R / (((L[u - 1] ?? 0) + (L[u] ?? 0)) / 2)));
+const PAY = new WeakMap(); // kolon düzeni değişmiş ağda kolon → pay (yalnız ağ geometrisine bağlı, turlarda ve katlarda yeniden istenir; çağıranlar yalnız okur)
+export function kolonPay(ag, c, katKx, katKy) {
+  const kenX = c.i === 0 || c.i === ag.nx, kenY = c.j === 0 || c.j === ag.ny;
+  if (ag.duzen && PAY.has(c)) return PAY.get(c);
+  if (!ag.duzen) {
+    const ax = ((ag.ax[c.i - 1] ?? 0) + (ag.ax[c.i] ?? 0)) / 2, ay = ((ag.ay[c.j - 1] ?? 0) + (ag.ay[c.j] ?? 0)) / 2;
+    return { ax, ay, k: katKx && Math.max(katKx[c.j][c.i], katKy[c.i][c.j]), disBoy: (kenY ? ax : 0) + (kenX ? ay : 0),
+      acik: [ag.ax[c.i - 1], ag.ax[c.i], ag.ay[c.j - 1], ag.ay[c.j]], kx: kenX ? 0 : Infinity, ky: kenY ? 0 : Infinity };
+  }
+  const pay = (yon, no) => {
+    const ds = hatDestek(ag, yon, no, { dis: true }), k = ds.findIndex(d => d.c === c), P = yon === 'x' ? ag.xs : ag.ys;
+    const L = ds.slice(1).map((d, i) => d.s - ds[i].s);
+    const t = ((L[k - 1] ?? 0) + (L[k] ?? 0)) / 2 + (k === 0 ? ds[0].s - P[0] : 0) + (k === ds.length - 1 ? P.at(-1) - ds.at(-1).s : 0);
+    return { t, k: L.length ? katsayi(L)[k] : 1, acik: [L[k - 1], L[k]] };
+  };
+  const x = pay('x', c.j), y = pay('y', c.i);
+  const r = { ax: x.t, ay: y.t, k: Math.max(x.k, y.k), disBoy: (kenY ? x.t : 0) + (kenX ? y.t : 0), acik: [...x.acik, ...y.acik],
+    kx: kenX ? Math.abs(c.x - (c.gx ?? c.x)) : Infinity, ky: kenY ? Math.abs(c.y - (c.gy ?? c.y)) : Infinity };
+  PAY.set(c, r);
+  return r;
+}
+
 // ── Kirişsiz döşeme (TS 500 11.4.4.2 moment katsayıları; kolon/orta şerit). Çerçeve: aks hattı boyunca şerit.
 // kolonOlcu(c) → { b, h } (mm). Dönüş: şerit açıklıkları (Ş) ve pano sehimleri.
 // wKenar: kenar çerçevenin dış aksındaki çizgisel yük (kN/m, katsayılı; kirişsiz döşemede dış duvar).
@@ -302,12 +330,16 @@ export function ddmCerceveler(ag, p, h, mz, kolonOlcu, { radye = false, tasma = 
     for (let hatNo = 0; hatNo <= dik.length; hatNo++) {
       const yanlar = [dik[hatNo - 1], dik[hatNo]].map(v => v ?? (radye ? 2 * tasma : 0)); // radyede kenar taşması
       const l2 = (yanlar[0] + yanlar[1]) / 2, kenar = hatNo === 0 || hatNo === dik.length;
-      for (let k = 0; k < n; k++) {
-        const kol = [k, k + 1].map(u => kolonOlcu(ag.kolonlar.find(c => yon === 'x' ? c.i === u && c.j === hatNo : c.i === hatNo && c.j === u)));
+      // Kolon düzeni değiştiyse şerit mesnetleri kolonların gerçek yerleri: kaldırılan kolonda komşu açıklıklar birleşir, hat ucundaki
+      // kolon yoksa ya da içeri kaydıysa uç taşma konsolu (yaklaşık: TS 500 11.4.4.2 koşulları bozulur; zincir.js notu)
+      const P = yon === 'x' ? ag.xs : ag.ys, ds = ag.duzen ? hatDestek(ag, yon, hatNo, { dis: true }) : null, m = ds ? ds.length - 1 : n;
+      for (let q = 0; q < m; q++) {
+        const k = ds ? ds[q].u : q, k2 = ds ? ds[q + 1].u : q + 1;
+        const kol = ds ? [ds[q].c, ds[q + 1].c].map(kolonOlcu) : [k, k + 1].map(u => kolonOlcu(ag.kolonlar.find(c => yon === 'x' ? c.i === u && c.j === hatNo : c.i === hatNo && c.j === u)));
         const cw = kol.map(o => (yon === 'x' ? o.b : o.h) / 1000);
-        const l1 = L[k], ln = Math.max(l1 - (cw[0] + cw[1]) / 2, 0.65 * l1);
+        const l1 = ds ? ds[q + 1].s - ds[q].s : L[k], ln = Math.max(l1 - (cw[0] + cw[1]) / 2, 0.65 * l1);
         const Mo = p * l2 * ln * ln / 8;
-        const ucA = k === 0, ucB = k === n - 1;
+        const ucA = q === 0, ucB = q === m - 1, n = m, tA = ds && ucA ? ds[0].s - P[0] : 0, tB = ds && ucB ? P.at(-1) - ds[m].s : 0;
         // TS 500 11.4.4.2: kenar açıklık dış 0,30 / açıklık 0,50 / iç 0,70; iç açıklık 0,65 / 0,35 / 0,65
         let cA = ucA ? 0.30 : ucB && n > 1 ? 0.70 : 0.65, cB = ucB ? 0.30 : ucA ? 0.70 : 0.65, cP = ucA || ucB ? 0.50 : 0.35;
         if (n === 1) { cA = cB = 0.30; cP = 0.70; }       // tek açıklık: statik denge (yöntem dışı; uyarı verilir)
@@ -318,9 +350,12 @@ export function ddmCerceveler(ag, p, h, mz, kolonOlcu, { radye = false, tasma = 
         const MnegA = cA * Mo, MnegB = cB * Mo, Mpoz = cP * Mo;
         let MkA = MnegA, MkB = MnegB;
         if (radye && tasma > 0) { const kons = p * l2 * tasma * tasma / 2; if (ucA) MkA = Math.max(MkA, kons); if (ucB) MkB = Math.max(MkB, kons); }
+        // Uçtaki kolon kaldırıldı ya da içeri kaydı: mesnetten taşan döşeme konsol (p·ℓ2·a²/2; kat döşemesinde dış duvar ucunda w·ℓ2·a)
+        const tasan = t => { const a = t + (radye ? tasma : 0); return t > TOL ? p * l2 * a * a / 2 + (radye ? 0 : wKenar * l2 * a) : 0; };
+        MkA = Math.max(MkA, tasan(tA)); MkB = Math.max(MkB, tasan(tB));
         // Kenardaki duvar çizgisel yükü (Denk. 11.4 yalnız düzgün p_d için): Mo'su aynı katsayılarla, tamamı kolon şeridinde (statik denge)
         const MoW = kenar && !radye ? wKenar * ln * ln / 8 : 0;
-        cerceveler.push({ yon, hatNo, k, kenar, l1, l2, ln, Mo, MoW, cs, ms, n,
+        cerceveler.push({ yon, hatNo, k, k2, kenar, l1, l2, ln, Mo, MoW, cs, ms, n,
           csNeg: Math.max(MkA * pay(cA, ucA) + cA * MoW, MkB * pay(cB, ucB) + cB * MoW), msNeg: Math.max(MkA * (1 - pay(cA, ucA)), MkB * (1 - pay(cB, ucB))),
           csPoz: 0.6 * Mpoz + cP * MoW, msPoz: 0.4 * Mpoz, cA, cB, cP, MnegA: MkA, MnegB: MkB, Mpoz });
       }
@@ -379,13 +414,15 @@ export function zimbalama({ V, p, b, hk, d, kx = Infinity, ky = Infinity, Mx = 0
   const bx = x2 - xmin, by = y2 - ymin, Ap = cevre === kapali ? (B + D) * (H + D) : bx * by;
   // W_m: çevre parçaları üzerinde sayısal (her parça 40 dilim), eksen = çevrenin ağırlık merkezi
   const Wm = eksen => {
-    const pts = [];
-    for (const [a, b_, c, e] of cevre) for (let k = 0; k < 40; k++) {
-      const t = (k + 0.5) / 40, L = Math.hypot(c - a, e - b_) / 40;
-      pts.push([eksen === 'x' ? a + (c - a) * t : b_ + (e - b_) * t, L]);
-    }
-    const toplam = pts.reduce((t, [, L]) => t + L, 0), m = pts.reduce((t, [u, L]) => t + u * L, 0) / toplam;
-    const J = D * pts.reduce((t, [u, L]) => t + L * (u - m) ** 2, 0), c = Math.max(...pts.map(([u]) => Math.abs(u - m)));
+    const n = cevre.length * 40, U = new Float64Array(n), Ls = new Float64Array(n); // dilim konumu ve boyu (ara dizi ayırmadan)
+    let i = 0, toplam = 0, mL = 0, JL = 0, c = -Infinity;
+    for (const [a, b_, c_, e] of cevre) { const L = Math.hypot(c_ - a, e - b_) / 40;
+      for (let k = 0; k < 40; k++, i++) { const t = (k + 0.5) / 40; U[i] = eksen === 'x' ? a + (c_ - a) * t : b_ + (e - b_) * t; Ls[i] = L; } }
+    for (i = 0; i < n; i++) toplam += Ls[i];
+    for (i = 0; i < n; i++) mL += U[i] * Ls[i];
+    const m = mL / toplam;
+    for (i = 0; i < n; i++) { JL += Ls[i] * (U[i] - m) ** 2; c = Math.max(c, Math.abs(U[i] - m)); }
+    const J = D * JL;
     return J / c;
   };
   const ex = V > 0 ? 0.4 * Math.abs(Mx) / V : 0, ey = V > 0 ? 0.4 * Math.abs(My) / V : 0;
@@ -459,21 +496,19 @@ export function kirissizDoseme(ag, g, h, mz, yk, olcuF, katKx, katKy, perdeDugum
   });
   // Zımbalama: kat başına kolon tepkisi (alan payı × süreklilik), d = h − 25 (iki doğrultu ortalaması)
   const d = h - 25;
-  const zimb = ag.kolonlar.filter(c => !perdeDugum.has(c.ad)).map(c => {
-    const o = olcuF(c), ax = ((g.ax[c.i - 1] ?? 0) + (g.ax[c.i] ?? 0)) / 2, ay = ((g.ay[c.j - 1] ?? 0) + (g.ay[c.j] ?? 0)) / 2;
-    const disBoy = (c.j === 0 || c.j === ag.ny ? ax : 0) + (c.i === 0 || c.i === ag.nx ? ay : 0);
-    const V = yk.pd * ax * ay * Math.max(katKx[c.j][c.i], katKy[c.i][c.j]) + wD * disBoy; // TS 500 8.3.1: duvar yükü çevreden geçer (içte kalan payı düşülmedi, güvenli yan)
+  const zimb = ag.kolonlar.filter(c => !perdeDugum.has(c.ad) && !c.sil).map(c => {
+    const o = olcuF(c), py = kolonPay(ag, c, katKx, katKy), { ax, ay, disBoy } = py;
+    const V = yk.pd * ax * ay * py.k + wD * disBoy; // TS 500 8.3.1: duvar yükü çevreden geçer (içte kalan payı düşülmedi, güvenli yan)
     // Dengelenmemiş moment: kenarda dış mesnet momenti (0,30·Mo), içte Denk. 11.5
     const dengesiz = (yon) => {
-      const L = yon === 'x' ? g.ax : g.ay, u = yon === 'x' ? c.i : c.j, l2 = yon === 'x' ? ay : ax;
-      const sideA = L[u - 1], sideB = L[u];
+      const l2 = yon === 'x' ? ay : ax, [sideA, sideB] = yon === 'x' ? py.acik.slice(0, 2) : py.acik.slice(2);
       const kenar = sideA == null || sideB == null, ln = x => x - (yon === 'x' ? o.b : o.h) / 1000;
       const wl = (yon === 'x' ? c.j === 0 || c.j === ag.ny : c.i === 0 || c.i === ag.nx) ? wD : 0; // çerçeve dış aksta: duvar çizgisel yükü
       if (kenar) { const l = sideA ?? sideB; return 0.30 * (yk.pd * l2 + wl) * ln(l) ** 2 / 8; }
       const [uzun, kisa] = sideA >= sideB ? [sideA, sideB] : [sideB, sideA];
       return Math.max(0, 0.07 * (((1.4 * yk.g + 0.5 * 1.6 * yk.q) * l2 + wl) * ln(uzun) ** 2 - (1.4 * yk.g * l2 + wl) * ln(kisa) ** 2));
     };
-    const kx = c.i === 0 || c.i === ag.nx ? 0 : Infinity, ky = c.j === 0 || c.j === ag.ny ? 0 : Infinity;
+    const { kx, ky } = py; // serbest kenara uzaklık: kenar kolonu içeri kaydıysa kayma kadar
     const z = zimbalama({ V, p: yk.pd, b: o.b, hk: o.h, d, kx, ky, Mx: dengesiz('x'), My: dengesiz('y'), fctd: mz.fctd });
     const e = { ad: c.ad.replace('S', 'Z'), kolon: c.ad, aks: c.aks, i: c.i, j: c.j, Nd: V, d, ...z, maddeler: [] };
     madde(e, 'Zımbalama', z.Vpd, `≤ γ·fctd·u_p·d = ${tr(z.Vpr, 0)} kN`, z.Vpd <= z.Vpr + TOL, 'TS 500 8.3.1', z.Vpd / z.Vpr);

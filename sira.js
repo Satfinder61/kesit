@@ -1,7 +1,9 @@
 // Döşemeden temele sayfası: girdi → zincirHesap → kat planı, Excel tarzı sayfalar, ayrıntı.
 // Proje durumu, sayfalar (Girdiler dahil), hücre düzenleme ve Excel'e aktarma calisma.js'te (tablo.html de kullanır).
 import { perdeOku, perdeAciklik, perdeBirlestir, perdeYaz } from './perde.js';
-import { tr, simge, HARF, TUR_AD, ALANLAR, ANAHTAR, SECENEK, SAYFALAR, kitapKur, sekmeOk, girdiYaz, kullanimNot, tabloHtml, girdiOzet, durumYukle, excelIndir, aksKaymaSiniri, yerlesimKaydir } from './calisma.js';
+import { tr, simge, HARF, TUR_AD, ALANLAR, ANAHTAR, SECENEK, SAYFALAR, kitapKur, sekmeOk, girdiYaz, kullanimNot, tabloHtml, girdiOzet, durumYukle, excelIndir, aksKaymaSiniri, yerlesimKaydir, kolonDuzenDegistir, girdiOku } from './calisma.js';
+import { kolonDuzenOku, kolonKaymaSiniri, isaretli, uzunAciklikYazi } from './kolonduzen.js';
+import { girdiDenetle } from './zincir.js';
 
 const $ = s => document.querySelector(s);
 const f = $('#f');
@@ -21,7 +23,8 @@ const formaYaz = (keys = [...ALANLAR, 'duvar', 'tutulu']) => { for (const k of k
 let adim = 'doseme', perdeMod = false, yerlesimMod = false, subasmanMod = false;
 const yerlesim = $('#yerlesim'), yerlesimDugme = $('#yerlesim-dugme'), yerlesimEleman = $('#yerlesim-eleman');
 const kaydirma = { ax: $('#yerlesim-x'), ay: $('#yerlesim-y') };
-let yerlesimImza = '';
+const tek = $('#tek-kolon'), kolonD = { dx: $('#kolon-dx'), dy: $('#kolon-dy') };
+let yerlesimImza = '', tekImza = '';
 const sayfa = $('#sayfa');
 const K = kitapKur({ sayfa, kap: $('.kap'), sekmeler: [$('.sekmeler-alt')], ad: $('#ad-kutusu'), formul: $('#formul'), durumSol: $('#durum-sol'), durumSag: $('#durum-sag'),
   ayrinti: $('#ayrinti'), ayrintiBaslik: $('#ayrinti-baslik'), ayrintiNot: $('#ayrinti-not'), iz: $('#iz') },
@@ -38,7 +41,7 @@ function hesapla() {
   const F = K.d.form, hata = K.hata;
   $('#dis-alanlari').hidden = !(F.dosemeTuru === 'disli' || F.dosemeTuru === 'kaset');
   duvarGoster(); $('#kullanim-not').textContent = kullanimNot(F);
-  for (const k of ALANLAR) f[k].removeAttribute('aria-invalid');
+  for (const k of ALANLAR) f[k]?.removeAttribute('aria-invalid'); // kolon düzeni formda değil: Girdiler sayfası ve yerleşim paneli
   for (const k of Object.keys(hata)) f[FORM[k] ?? k]?.setAttribute('aria-invalid', 'true');
   const var_ = Object.keys(hata).length > 0, hataYazi = var_ ? `<b>Girdi hatası.</b> ${Object.values(hata).map(simge).join(' · ')}` : '';
   $('#hata').hidden = !var_;
@@ -96,6 +99,9 @@ function planCiz() {
   svg.dataset.adim = adim;
   svg.toggleAttribute('data-perde', perdeMod || subasmanMod);
   $('#lejant-subasman').hidden = adim !== 'temel' || !sonuc?.subasmanlar?.length;
+  $('#lejant-sil').hidden = !sonuc?.duzen?.sil.length;
+  $('#lejant-kesisim').hidden = adim === 'temel' || !sonuc?.duzen?.kesisim.length;
+  $('#lejant-konsol').hidden = !sonuc?.kirisler.some(e => e.konsol);
   svg.toggleAttribute('data-yerlesim', yerlesimMod);
   if (!sonuc) { svg.innerHTML = ''; svg.removeAttribute('viewBox'); return; }
   const { ag } = sonuc, W = ag.xs.at(-1), Hh = ag.ys.at(-1), a = adim === 'temel' ? sonuc.radye.a : 0;
@@ -142,10 +148,15 @@ function planCiz() {
   }
   for (const k of sonuc.kirisler) {
     const hat = ag.hatlar[k.hat], bw = mm(k.b);
-    const [cx, cy, w, hh] = hat.yon === 'x'
-      ? [(X(ag.xs[k.k]) + X(ag.xs[k.k + 1])) / 2, Y(ag.ys[hat.no]), k.L * s, bw]
-      : [X(ag.xs[hat.no]), (Y(ag.ys[k.k]) + Y(ag.ys[k.k + 1])) / 2, bw, k.L * s];
-    h += `<rect class="kiris${durum(k, ['kiris'])}" data-ad="${k.ad}" ${r(cx, cy, w, hh)}/>`;
+    const [cx, cy, w, hh] = hat.yon === 'x' // x0, x1: kirişin hat boyunca uçları (kolon düzeni değişince mesnetten mesnede)
+      ? [X((k.x0 + k.x1) / 2), Y(ag.ys[hat.no]), k.L * s, bw]
+      : [X(ag.xs[hat.no]), Y((k.x0 + k.x1) / 2), bw, k.L * s];
+    const baslik = k.konsol || k.birlesik?.length > 1 ? `<title>${k.ad} · ${k.aks}${k.birlesik.length > 1 ? ` · ${k.birlesik.join(' + ')} birleşik` : ''}</title>` : '';
+    const egik = k.p0 && (hat.yon === 'x' ? k.p0[1] !== k.p1[1] : k.p0[0] !== k.p1[0]); // kaydırılan kolona yönlendirilen dik kiriş
+    if (egik) { // uçları gerçek yerinde, kiriş genişliğinde dörtgen
+      const [ax, ay, bx, by] = [X(k.p0[0]), Y(k.p0[1]), X(k.p1[0]), Y(k.p1[1])], l = Math.hypot(bx - ax, by - ay), nx = -(by - ay) / l * bw / 2, ny = (bx - ax) / l * bw / 2;
+      h += `<polygon class="kiris${k.konsol ? ' konsol' : ''}${durum(k, ['kiris'])}" data-ad="${k.ad}" points="${[[ax + nx, ay + ny], [bx + nx, by + ny], [bx - nx, by - ny], [ax - nx, ay - ny]].map(p => p.map(v => v.toFixed(1)).join(',')).join(' ')}">${baslik || `<title>${k.ad} · ${k.aks} · kaydırılan kolona yönlendirildi</title>`}</polygon>`;
+    } else h += `<rect class="kiris${k.konsol ? ' konsol' : ''}${durum(k, ['kiris'])}" data-ad="${k.ad}" ${r(cx, cy, w, hh)}>${baslik}</rect>`;
     if (adim === 'kiris') h += hat.yon === 'x' ? `<text class="alt-etiket" x="${cx}" y="${cy - bw / 2 - 4}" text-anchor="middle">${k.ad} ${k.b}×${k.h}</text>`
       : `<text class="alt-etiket" x="${cx + bw / 2 + 10}" y="${cy}" text-anchor="middle" transform="rotate(-90 ${cx + bw / 2 + 10} ${cy})">${k.ad} ${k.b}×${k.h}</text>`;
   }
@@ -170,14 +181,29 @@ function planCiz() {
   }
   // Kolonlar: temelde radye zımbalama satırına (T), kirişsiz döşemede döşeme zımbalama satırına (Z) bağlanır
   const zimbOnek = adim === 'temel' ? 'T' : adim === 'doseme' && sonuc.tur === 'kirissiz' ? 'Z' : null;
+  // Kolon düzeni: kaydırılan kolondan aks kesişimine ince kesikli çizgi ve kayma yazısı (kolon gerçek yerinde çizilir)
+  for (const c of ag.kolonlar) if (!c.sil && (c.dx || c.dy)) {
+    const d = c.dx || c.dy, yz = `${c.dx ? 'X' : 'Y'} ${isaretli(d)}`;
+    h += `<path class="kayma" d="M${X(c.gx).toFixed(1)} ${Y(c.gy).toFixed(1)}L${X(c.x).toFixed(1)} ${Y(c.y).toFixed(1)}"/><circle class="kayma-ucu" cx="${X(c.gx).toFixed(1)}" cy="${Y(c.gy).toFixed(1)}" r="1.8"><title>${c.aks}: ${yz} m (aks kesişiminden)</title></circle>`;
+  }
   for (const c of sonuc.kolonlar) {
     const k = ag.kolonlar.find(x => x.ad === c.ad), w = mm(c.b, 6), hh = mm(c.h, 6);
     const ad = zimbOnek ? c.ad.replace('S', zimbOnek) : c.ad;
     const z = zimbOnek === 'T' ? sonuc.radyeZimb.find(t => t.ad === ad) : zimbOnek === 'Z' ? sonuc.zimbD.find(t => t.ad === ad) : c;
-    h += `<rect class="kolon${durum(z, ['kolon', 'radyeZ', 'zimbD'])}" data-ad="${ad}" ${r(X(k.x), Y(k.y), w, hh)}/>`;
+    const kay = k.dx || k.dy ? `${k.dx ? 'X' : 'Y'} ${isaretli(k.dx || k.dy)}` : ''; // kaydırılan kolon: kayma yazısı ölçü satırında
+    h += `<rect class="kolon${durum(z, ['kolon', 'radyeZ', 'zimbD'])}" data-ad="${ad}" ${r(X(k.x), Y(k.y), w, hh)}>${kay ? `<title>${ad} · ${k.aks} · ${kay} m kaydırıldı</title>` : ''}</rect>`;
     if (adim === 'kolon' || adim === 'temel') h += `<text class="etiket" x="${X(k.x) + w / 2 + 4}" y="${Y(k.y) - hh / 2 - 4}">${ad}</text>`;
-    if (adim === 'kolon') h += `<text class="alt-etiket" x="${X(k.x) + w / 2 + 4}" y="${Y(k.y) + hh / 2 + 12}">${c.b}×${c.h}</text>`;
+    // Dar planda (telefon) kayma yazısı komşu etiketlerle çakışır: yalnız geniş ölçekte; kesikli çizgi ve ipucu her zaman var
+    if (adim === 'kolon') h += `<text class="alt-etiket" x="${X(k.x) + w / 2 + 4}" y="${Y(k.y) + hh / 2 + 12}">${c.b}×${c.h}${kay && s >= 36 ? ` · ${kay}` : ''}</text>`;
   }
+  // Kaldırılan kolon: aks kesişiminde soluk kesikli kare ve × (yerleşim kipinde seçilir, Geri al); kolonsuz kesişim: küçük halka
+  for (const c of ag.kolonlar) if (c.sil) {
+    const w = mm(300, 6), x0 = X(c.x) - w / 2, y0 = Y(c.y) - w / 2;
+    h += `<g class="kolon-sil" data-ad="${c.ad}"><rect ${r(X(c.x), Y(c.y), w, w)}/><path d="M${x0.toFixed(1)} ${y0.toFixed(1)}l${w.toFixed(1)} ${w.toFixed(1)}m0 ${(-w).toFixed(1)}l${(-w).toFixed(1)} ${w.toFixed(1)}"/><title>${c.ad} · ${c.aks}: kolon kaldırıldı (bütün katlarda)</title></g>`;
+    if (adim === 'kolon') h += `<text class="alt-etiket" x="${X(c.x) + w / 2 + 4}" y="${Y(c.y) - w / 2 - 4}">${c.aks} ×</text>`;
+  }
+  if (adim !== 'temel') for (const k of sonuc.duzen?.kesisim ?? [])
+    h += `<circle class="kesisim" cx="${X(k.x).toFixed(1)}" cy="${Y(k.y).toFixed(1)}" r="${k.kacik ? 4 : (mm(300, 6) / 2 + 3).toFixed(1)}"><title>${k.aks}: kolonsuz kesişim · ${k.kirisler.join(' – ')} birbirine oturur · F_d ${tr(k.Fd, 1)} kN, askı donatısı ≥ ${tr(k.As, 0)} mm²</title></circle>`;
   // Perde ekle/kaldır kipi: her açıklıkta tıklanır hedef (kirişsizde de); perdeli açıklık tıklanınca kaldırılır
   if (perdeMod || subasmanMod) {
     const alan = subasmanMod ? 'subasman' : 'perdeler';
@@ -230,17 +256,17 @@ const adimSec = a => sayfaSec(K.gorunur().find(s => s.adim === a)?.ad ?? 'doseme
 function yerlesimAkslari() {
   const r = K.sonuc, ad = yerlesimEleman.value;
   if (!r) return {};
-  const c = r.kolonlar.find(e => e.ad === ad);
+  const c = r.kolonlar.find(e => e.ad === ad) ?? r.ag.kolonlar.find(e => e.ad === ad && e.sil);
   if (c) return { ax: c.i, ay: c.j };
   const k = r.kirisler.find(e => e.ad === ad);
   if (!k) return {};
   const hat = r.ag.hatlar[k.hat];
   return hat.yon === 'x' ? { ay: hat.no } : { ax: hat.no };
 }
-function yerlesimHata(yazi = '', alan) {
+function yerlesimHata(yazi = '', alan) { // alan: 'ax' | 'ay' (aks) ya da 'dx' | 'dy' (tek kolon)
   const el = $('#yerlesim-hata');
   el.hidden = !yazi; el.textContent = yazi;
-  for (const [k, input] of Object.entries(kaydirma)) {
+  for (const [k, input] of [...Object.entries(kaydirma), ...Object.entries(kolonD)]) {
     if (k === alan) input.setAttribute('aria-invalid', 'true');
     else input.removeAttribute('aria-invalid');
   }
@@ -252,9 +278,10 @@ function yerlesimCiz() {
   if (!yerlesimMod) return;
   const grup = (ad, elemanlar) => elemanlar?.length ? `<optgroup label="${ad}">${elemanlar.map(e => `<option value="${e.ad}">${e.ad} · ${e.aks}</option>`).join('')}</optgroup>` : '';
   const secili = yerlesimEleman.value || K.secili;
+  const silinen = grup('Kaldırılan kolonlar', r?.ag.kolonlar.filter(c => c.sil).map(c => ({ ad: c.ad, aks: `${c.aks} (kaldırıldı)` })));
   const secenekler = adim === 'kiris'
-    ? grup('Kirişler', r?.kirisler) + grup('Kolonlar', r?.kolonlar)
-    : grup('Kolonlar', r?.kolonlar) + grup('Kirişler', r?.kirisler);
+    ? grup('Kirişler', r?.kirisler) + grup('Kolonlar', r?.kolonlar) + silinen
+    : grup('Kolonlar', r?.kolonlar) + silinen + grup('Kirişler', r?.kirisler);
   if (yerlesimEleman.innerHTML !== secenekler) {
     yerlesimEleman.innerHTML = secenekler;
     if ([...yerlesimEleman.options].some(o => o.value === secili)) yerlesimEleman.value = secili;
@@ -278,7 +305,47 @@ function yerlesimCiz() {
   const yazi = bilgi ? `${bilgi}. Pozitif X sağa, pozitif Y yukarı.` : 'Yerleşimi düzenlemek için geçerli bir aks ağı gir.';
   const el = $('#yerlesim-bilgi');
   if (el.textContent !== yazi) el.textContent = yazi;
+  tekKolonCiz();
 }
+// Yalnız seçili kolon: kaldır / geri al / kendi kiriş aksı boyunca kaydır (calisma.js kolonDuzenDegistir; denetim kolonduzen.js)
+function tekKolonCiz() {
+  const r = K.sonuc, ad = yerlesimEleman.value, c = r?.ag.kolonlar.find(x => x.ad === ad);
+  const kolonMu = !!c && (c.sil || r.kolonlar.some(x => x.ad === ad));
+  tek.hidden = !kolonMu;
+  if (!kolonMu) return;
+  const duzen = kolonDuzenOku(K.d.form.kolonDuzen).duzen, o = duzen[c.aks] ?? {}, kirissiz = r.tur === 'kirissiz';
+  const imza = JSON.stringify([ad, o]);
+  if (tekImza !== imza) { kolonD.dx.value = tr(o.dx ?? 0, 3); kolonD.dy.value = tr(o.dy ?? 0, 3); tekImza = imza; }
+  for (const x of ['kolon-dx-alan', 'kolon-dy-alan', 'kolon-kaydir']) $('#' + x).hidden = !!o.sil;
+  $('#kolon-sil').hidden = !!o.sil; $('#kolon-sil').disabled = kirissiz;
+  $('#kolon-sil').title = kirissiz ? 'Kirişsiz döşemede kolon kaldırılamaz (TS 500 11.4.4: düzenli kolon ağı)' : '';
+  $('#kolon-geri').hidden = !(o.sil || o.dx || o.dy);
+  const sn = kolonKaymaSiniri(girdiOku(K.d), c.aks, duzen), ara = ([a, b]) => `${isaretli(a)} … ${isaretli(b)}`;
+  const yazi = o.sil ? `${c.aks} kaldırıldı (bütün katlarda): kirişler ızgara olarak çözülüyor, komşu açıklıklar birleşti${c.i === 0 || c.j === 0 || c.i === r.ag.nx || c.j === r.ag.ny ? ', uçta konsol ya da kirişe oturan kiriş oluştu' : ''}.`
+    : `${c.aks}: yalnız bir doğrultuda, X ${ara(sn.x)} m ya da Y ${ara(sn.y)} m (komşu kolonlara eksenden eksene en az 1 m)` +
+      (kirissiz ? `; kirişsizde en çok ±${tr(sn.kirissiz, 2)} m (TS 500 11.4.4.2(d)), kaldırma yok.` : `. Dik kiriş kolona yönlendirilir: X kaydırmasında en çok ±${tr(sn.yon.x, 2)} m, Y kaydırmasında ±${tr(sn.yon.y, 2)} m (komşu dik açıklığın 1/10'u); daha fazlasında kolona birleşmez, öbür kirişe oturur.`);
+  const el = $('#kolon-bilgi'); if (el.textContent !== yazi) el.textContent = yazi;
+  // Uzun açıklık uyarısı: bu kolonun kaldırılmasıyla oluşan uzun birleşik açıklık ya da konsol (sonuçtan; bilgi, denetim değil)
+  const uyari = o.sil && c.sil ? (r.duzen?.uzun ?? []).filter(u => u.sil.includes(c.aks)).map(u => uzunAciklikYazi(u, c.aks)).join('\n') : ''; // her kiriş ayrı satır
+  const ue = $('#kolon-uyari'); ue.hidden = !uyari; if (ue.textContent !== uyari) ue.textContent = uyari;
+}
+const sayiOkuM = v => { const t = v.trim().replace(/[−–]/g, '-') || '0'; return /^[+-]?(?:\d+(?:[.,]\d{1,3})?|[.,]\d{1,3})$/.test(t) ? Number(t.replace(',', '.')) : NaN; };
+async function kolonUygula(deger, odak) { // denetim eşzamanlı (girdiDenetle, ucuz); ileti hesap gelince
+  K.bekleyeni();
+  const c = K.sonuc?.ag.kolonlar.find(x => x.ad === yerlesimEleman.value); if (!c) return;
+  const { hata } = kolonDuzenDegistir(K.d, c.aks, deger);
+  if (hata) { yerlesimHata(hata, odak); if (odak) kolonD[odak].focus(); return; }
+  yerlesimHata(); tekImza = ''; K.simdi(); await K.hazir();
+  $('#kolon-bilgi').prepend(deger?.sil ? 'Kolon kaldırıldı ve hesap güncellendi. ' : deger ? 'Kolon kaydırıldı ve hesap güncellendi. ' : 'Kolon aks kesişimine geri alındı. ');
+}
+function kolonKaydir() {
+  const dx = sayiOkuM(kolonD.dx.value), dy = sayiOkuM(kolonD.dy.value);
+  if (!Number.isFinite(dx) || !Number.isFinite(dy)) { const a = Number.isFinite(dx) ? 'dy' : 'dx'; yerlesimHata(`${a === 'dx' ? 'X' : 'Y'} kaydırmasını metre cinsinden, en çok üç ondalık basamakla gir (ör. 0,40).`, a); kolonD[a].focus(); return; }
+  kolonUygula(dx || dy ? { ...(dx ? { dx } : {}), ...(dy ? { dy } : {}) } : null, dx ? 'dx' : 'dy');
+}
+$('#kolon-kaydir').addEventListener('click', kolonKaydir);
+$('#kolon-sil').addEventListener('click', () => kolonUygula({ sil: true }));
+$('#kolon-geri').addEventListener('click', () => kolonUygula(null));
 function yerlesimKipi(on) {
   yerlesimMod = on;
   if (on) { perdeMod = false; yerlesimImza = ''; }
@@ -288,8 +355,9 @@ function yerlesimKipi(on) {
 yerlesimDugme.addEventListener('click', () => yerlesimKipi(!yerlesimMod));
 yerlesimEleman.addEventListener('change', () => { yerlesimCiz(); planSecim(); });
 yerlesim.addEventListener('input', () => yerlesimHata());
-yerlesim.addEventListener('submit', e => {
+yerlesim.addEventListener('submit', async e => {
   e.preventDefault();
+  if (Object.values(kolonD).includes(document.activeElement)) return kolonKaydir(); // Enter tek kolon alanında: yalnız o kolon
   K.bekleyeni();
   const kaymalar = Object.fromEntries(Object.entries(yerlesimAkslari()).map(([alan, indeks]) =>
     [alan, { indeks, metin: kaydirma[alan].value }]));
@@ -299,7 +367,7 @@ yerlesim.addEventListener('submit', e => {
   yerlesimHata();
   if (!degisen.size) return;
   formaYaz(degisen);
-  K.simdi();
+  yerlesimImza = ''; K.simdi(); await K.hazir(); // kaydırma alanları hemen 0'a döner (hesap sürerken ikinci kez uygulanmasın)
   $('#yerlesim-bilgi').prepend('Akslar kaydırıldı ve hesap güncellendi. ');
 });
 
@@ -321,13 +389,17 @@ function perdeDegistir(liste_, alan = 'perdeler') {
     $('#durum-sol').textContent = mesaj;
     return;
   }
-  const yeni = hepsi ? var_.filter(a => !secilen.has(aciklikAnahtar(a))) : [...var_, ...liste_];
-  girdiYaz(K.d, alan, perdeYaz(perdeBirlestir(yeni)), true);
-  formaYaz([alan]); K.simdi(); adimCiz();
-  if (alan === 'subasman' && !hepsi && K.sonuc) {
-    const ek = K.sonuc.subasmanlar.find(x => secilen.has(aciklikAnahtar(x)));
-    if (ek) sayfaSec('subasman', ek.ad);
+  const yeni = hepsi ? var_.filter(a => !secilen.has(aciklikAnahtar(a))) : [...var_, ...liste_], yazi = perdeYaz(perdeBirlestir(yeni));
+  const den = girdiDenetle(girdiOku({ ...K.d, form: { ...K.d.form, [alan]: yazi } })), hata = den[alan] ?? den.kolonDuzen;
+  if (hata && !girdiDenetle(girdiOku(K.d))[alan]) { // yeni bir hata doğuruyorsa uygulama: plan boşalmasın
+    $('#perde-mod-ipucu').textContent = hata; $('#durum-sol').textContent = hata; return;
   }
+  girdiYaz(K.d, alan, yazi, true);
+  formaYaz([alan]); K.simdi(); adimCiz();
+  if (alan === 'subasman' && !hepsi) K.hazir().then(() => { // eklenen perde yeni sonuçta
+    const ek = K.sonuc?.subasmanlar.find(x => secilen.has(aciklikAnahtar(x)));
+    if (ek) sayfaSec('subasman', ek.ad);
+  });
 }
 const perdeKipi = on => { perdeMod = on; if (on) yerlesimMod = false; adimCiz(); yerlesimCiz(); planCiz(); K.secimCiz(); };
 const subasmanKipi = on => { subasmanMod = on; adimCiz(); planCiz(); K.secimCiz(); };
@@ -356,7 +428,7 @@ $('#plan').addEventListener('pointerdown', e => {
   const el = e.target.closest('[data-ad]'); if (!el) return;
   const ad = el.dataset.ad;
   if (yerlesimMod) {
-    if (el.matches('.kolon, .kiris')) {
+    if (el.matches('.kolon, .kiris, .kolon-sil')) {
       e.preventDefault();
       yerlesimEleman.value = ad;
       yerlesimCiz(); planSecim();
@@ -402,12 +474,12 @@ f.addEventListener('change', e => { if (!e.target.name) return; const ek = girdi
 // Başka sekmede (Tablo sayfası) aynı proje değişince
 addEventListener('storage', e => { if (e.key === ANAHTAR) { K.d = durumYukle(undefined, false); formaYaz(); K.simdi(); } });
 
-$('#yazdir').addEventListener('click', () => print());
-// Excel'e aktar: düzenlenen hücre ve bekleyen hesap önce işlenir
-$('#excel').addEventListener('click', () => { if (sayfa.contains(document.activeElement) || f.contains(document.activeElement)) document.activeElement.blur(); K.simdi(); excelIndir(K.d, K.tumSonuc); });
+$('#yazdir').addEventListener('click', async () => { await K.hazir(); print(); }); // hesap sürüyorsa önce sonuç
+// Excel'e aktar: düzenlenen hücre ve bekleyen hesap önce işlenir (işçideki hesap beklenir)
+$('#excel').addEventListener('click', async () => { if (sayfa.contains(document.activeElement) || f.contains(document.activeElement)) document.activeElement.blur(); await K.hazir(); excelIndir(K.d, K.tumSonuc); });
 addEventListener('beforeprint', () => {
-  if (sayfa.contains(document.activeElement)) { document.activeElement.blur(); hesapla(); } // düzenlenen hücre çıktıya girsin
-  K.bekleyeni(); planOlc(); // tema.js yazı boyutunu baskı için %100'e çekti: plan o genişlikle
+  if (sayfa.contains(document.activeElement)) document.activeElement.blur(); // düzenlenen hücre çıktıya girsin
+  K.kesinlestir(); planOlc(); // sonuç güncel değilse eşzamanlı hesap (tarayıcı menüsünden yazdırma); tema.js yazı boyutunu baskı için %100'e çekti: plan o genişlikle
   document.querySelectorAll('#plan .secili, #plan .aks-secili').forEach(x => x.classList.remove('secili', 'aks-secili')); // raporda seçim vurgusu olmasın (afterprint → planOlc geri koyar)
   $('#tarih').textContent = new Date().toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
   $('#girdi-ozet').innerHTML = girdiOzet(K.d, K.sonuc);

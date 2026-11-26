@@ -6,10 +6,10 @@
 import { ddmCerceveler, seritDonati, zimbalama } from './doseme.js';
 import { perdeDugumOlcu, perdeUzatma } from './perde.js';
 import { subasmanBul } from './subasman.js';
+import { bicim } from './bicim.js';
 
 const TOL = 1e-9;
-const NF = {}; // Intl biçimleyici her çağrıda kurulursa hesap süresinin çoğunu yer: ondalık sayısına göre önbellek
-const tr = (x, d = 2) => (NF[d] ??= new Intl.NumberFormat('tr-TR', { maximumFractionDigits: d })).format(x);
+const tr = (x, d = 2) => bicim(x, d); // bicim.js: biçimleyici ve sonuç önbellekte
 const GAMMA_BA = 25, GAMMA_DOLGU = 20;
 const madde = (e, ad, deger, sinir, gecti, kaynak, kullanim = null) => e.maddeler.push({ ad, deger, sinir, gecti, kaynak, kullanim, uyari: false });
 const sonla = e => {
@@ -28,7 +28,7 @@ export function radyeBul(ag, g, mz, kolonlar, perdeler = []) {
   const { h: hS, a: aS } = g.radyeOzel ?? {};
   const dugum = new Map();
   for (const p of perdeler) for (const ad of p.dugumler) if (!dugum.has(ad)) dugum.set(ad, perdeDugumOlcu(perdeler, ad));
-  const olcu = c => kolonlar.find(k => k.ad === c.ad) ?? dugum.get(c.ad);
+  const olcu = c => kolonlar.find(k => k.ad === c.ad) ?? dugum.get(c.ad) ?? { b: 0, h: 0 }; // kaldırılan kolon: ölçüsü yok
   const subasmanlar = subasmanBul(ag, g, olcu, perdeler);
   const subasmanNd = subasmanlar.reduce((t, s) => t + s.Nd, 0), SNd = SNdUst + subasmanNd;
   // Taşma en az kenar kolonun ve perdenin dış yüzüne kadar.
@@ -47,7 +47,8 @@ export function radyeBul(ag, g, mz, kolonlar, perdeler = []) {
     const pZimb = SNdUst / A;
     const d = h - 70;                                                     // iki doğrultu ortalaması: örtü 50 + φ
     const zimb = kolonlar.map(c => {
-      const kx = c.i === 0 || c.i === ag.nx ? a - c.b / 2000 : Infinity, ky = c.j === 0 || c.j === ag.ny ? a - c.h / 2000 : Infinity;
+      // serbest kenara uzaklık; kenar kolonu içeri kaydıysa kayma kadar artar (kolonduzen.js)
+      const kx = c.i === 0 || c.i === ag.nx ? a + Math.abs(c.x - (c.gx ?? c.x)) - c.b / 2000 : Infinity, ky = c.j === 0 || c.j === ag.ny ? a + Math.abs(c.y - (c.gy ?? c.y)) - c.h / 2000 : Infinity;
       const z = zimbalama({ V: c.Nd, p: pZimb, b: c.b, hk: c.h, d, kx: Math.max(kx, 0), ky: Math.max(ky, 0), fctd: mz.fctd });
       const e = { ad: c.ad.replace('S', 'T'), kolon: c.ad, aks: c.aks, i: c.i, j: c.j, Nd: c.Nd, d, ...z, maddeler: [] };
       madde(e, 'Zımbalama', z.Vpd, `≤ γ·fctd·u_p·d = ${tr(z.Vpr, 0)} kN`, z.Vpd <= z.Vpr + TOL, 'TS 500 8.3.1, 10.4.2 (donatısız)', z.Vpd / z.Vpr);
@@ -60,7 +61,7 @@ export function radyeBul(ag, g, mz, kolonlar, perdeler = []) {
     const seritler = cerceve.map(c => {
       const sd = seritDonati(c, h, mz, { radye: true });
       const vSinir = 0.8 * 0.65 * mz.fctd * sd.d, v = p * Math.max(c.ln / 2, a);   // kN/m: kolon yüzünde tek doğrultulu kesme
-      const e = { ad: `R${c.yon.toUpperCase()}${c.hatNo + 1}-${c.k + 1}`, aks: c.yon === 'x' ? `${String.fromCharCode(65 + c.hatNo)} / ${c.k + 1}–${c.k + 2}` : `${c.hatNo + 1} / ${String.fromCharCode(65 + c.k)}–${String.fromCharCode(66 + c.k)}`,
+      const e = { ad: `R${c.yon.toUpperCase()}${c.hatNo + 1}-${c.k + 1}`, aks: c.yon === 'x' ? `${String.fromCharCode(65 + c.hatNo)} / ${c.k + 1}–${c.k2 + 1}` : `${c.hatNo + 1} / ${String.fromCharCode(65 + c.k)}–${String.fromCharCode(65 + c.k2)}`,
         yon: c.yon, l1: c.l1, l2: c.l2, Mo: c.Mo, cs: c.cs, ms: c.ms, maddeler: [],
         csAlt: cy(sd.cCsN), csUst: cy(sd.cCsP), msAlt: cy(sd.cMsN), msUst: cy(sd.cMsP) };
       madde(e, 'Eğilme', sd.yetmez ? 'yetmez' : 'yeter', 'kesit momenti karşılamalı', !sd.yetmez, 'TS 500 7.1', sd.kul);

@@ -45,6 +45,10 @@ export function aciklikSehim({ l, ln, kesitler, G, GQ, rhoP = 0, duvar, fck }) {
   const I = M => 0.5 * ief(kesitler.m, M.Mm) + 0.25 * (ief(kesitler.s1, M.M1) + ief(kesitler.s2, M.M2));
   const dG = Math.max(0, sehimDeger(l, Ec, I(G), G.Mm, G.M1, G.M2));
   const dGQ = Math.max(dG, sehimDeger(l, Ec, I(GQ), GQ.Mm, GQ.M1, GQ.M2));
+  return sehimSinir({ dG, dGQ, ln, rhoP, duvar });
+}
+// Ani sehimlerden (mm) Çizelge 13.3 denetim değeri ve sınırı; λ = γt/(1 + 50ρ'), γt = 2 (Denk. 13.3–13.4)
+export function sehimSinir({ dG, dGQ, ln, rhoP = 0, duvar }) {
   const lam = 2 / (1 + 50 * rhoP);
   return duvar
     ? { deger: dGQ + lam * dG, sinir: ln / 480, yazi: 'δ_GQ + λ·δ_G ≤ ℓn/480 (bölme duvarlı)', dG, dGQ, lam }

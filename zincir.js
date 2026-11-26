@@ -2,7 +2,7 @@
 // Düzenli dikdörtgen aks ağı; bütün katlar aynı plan ve aynı yükte; düşey yük (1,4G + 1,6Q). Deprem kuvvetleri kesin hesapta.
 import { BETON, kontrol, kolonOner, beta, Q_MIN, KULLANIM, DUVAR, duvarYuku } from './kurallar.js';
 import { parcaToplam, parcaAnkastre, parcaSiddet, kenarParcasi, surekliKiris, desenler, zarf, agKur } from './mekanik.js';
-import { dosemeBul, kirissizDoseme, panoYuk, TUR_ADI, GAMMA_BA, oz, DIS_GEN_MIN } from './doseme.js';
+import { dosemeBul, kirissizDoseme, panoYuk, TUR_ADI, GAMMA_BA, oz, DIS_GEN_MIN, kolonPay } from './doseme.js';
 import { kirisBul } from './kiris.js';
 import { boyunaDonati, etriye, kirisMr, kolonVe, narinlik } from './kolon.js';
 import { CAP, alan, kolonYuzMax } from './donati.js';
@@ -11,6 +11,8 @@ import { subasmanGirdi } from './subasman.js';
 import { EC } from './sehim.js';
 import { perdeOku, perdeDisari, perdeYaz, perdeAg, perdeBoyHatalari, perdeDugumOlcu, perdeKismiDenetle, perdeTasarla, duraylilik } from './perde.js';
 import { katliHesap } from './katli.js';
+import { kolonDuzenOku, kolonDuzenHatalari, kolonDuzenUygula, duzenSonuc } from './kolonduzen.js';
+import { bicim } from './bicim.js';
 export { parcaToplam, parcaAnkastre, parcaSiddet, kenarParcasi, surekliKiris, desenler, zarf, agKur, GAMMA_BA, perdeOku };
 
 export const CELIK = { B420C: 420, B500C: 500 };                          // TBDY 7.2.5.3(b)
@@ -18,8 +20,7 @@ const GAMMA_DOLGU = 20;   // radye üstündeki dolgu, kN/m³ (kabul; zemin etüd
 const K1 = { 25: .85, 30: .82, 35: .79, 40: .76, 45: .73, 50: .70 };      // TS 500 Çizelge 7.1
 const KIRIS_H_MAX = 1000; // narinlik rijitleştirmesinde kiriş yüksekliği üst sınırı, mm (ön boyut kabulü)
 const TOL = 1e-9;
-const NF = {}; // Intl biçimleyici her çağrıda kurulursa hesap süresinin çoğunu yer: ondalık sayısına göre önbellek
-const tr = (x, d = 2) => (NF[d] ??= new Intl.NumberFormat('tr-TR', { maximumFractionDigits: d })).format(x);
+const tr = (x, d = 2) => bicim(x, d); // bicim.js: biçimleyici ve sonuç önbellekte
 const yukari = (x, adim) => Math.ceil(x / adim - TOL) * adim;
 // Malzeme, MPa (TS 500 3.3.2, 6.2.5; TBDY 7.2.5.2 nitelik denetimi zorunlu → γmc = 1,5, γms = 1,15)
 export const malzeme = (fck, fyk) => ({ fck, fyk, fcd: fck / 1.5, fctd: 0.35 * Math.sqrt(fck) / 1.5, fyd: fyk / 1.15, k1: K1[fck] });
@@ -70,6 +71,13 @@ export function girdiDenetle(g) {
     if (boyHatalari.length) h.perdeBoyOzel = `Perde uzunluğu: ${boyHatalari.join(' · ')}`;
   }
   if (!h.ax && !h.ay) Object.assign(h, subasmanGirdi(g, pr.liste).hata);
+  // Tek kolon kaldırma/kaydırma (kolonduzen.js): sözdizimi, perde düğümü, tek doğrultu, komşu kolonlara uzaklık, kiriş dizisinde en az iki mesnet
+  const kd = kolonDuzenOku(g.kolonDuzen);
+  if (kd.hata.length) h.kolonDuzen = `Kolon düzeni: ${kd.hata.join('; ')}`;
+  else if (Object.keys(kd.duzen).length && !h.ax && !h.ay && !h.perdeler && !h.perdeBoyOzel && g.dosemeTuru in TUR_ADI) {
+    const pa = perdeAg(agKur(g.ax, g.ay), pr.liste, g.perdeBoyOzel), l = kolonDuzenHatalari(g, kd.duzen, { perdeDugum: new Set(pa.dugum.keys()), perdeBay: pa.bay });
+    if (l.length) h.kolonDuzen = `Kolon düzeni: ${l.join('; ')}`;
+  }
   // Elle verilen boyutlar (Excel hücreleri): yalnız aralık; yetip yetmediğini motor denetler (sağlanmayan madde)
   const ara = (v, a, b) => v == null || (Number.isFinite(v) && v >= a && v <= b), ozH = [];
   for (const [ad, o] of Object.entries(g.kolonOzel ?? {})) if (!ara(o?.b, 100, 10000) || !ara(o?.h, 100, 10000)) ozH.push(`${ad} kolonu b, h 100–10.000 mm`);
@@ -103,7 +111,7 @@ export function zincirHesap(g) {
     if (Object.keys(hata).length) throw new RangeError(Object.values(hata).join('; '));
     return katliHesap(g, malzeme(BETON[g.beton], CELIK[g.celik]));
   }
-  const ag = agKur(g.ax, g.ay), mz = malzeme(BETON[g.beton], CELIK[g.celik]), n = g.katSayisi, fck = mz.fck;
+  const ag = kolonDuzenUygula(agKur(g.ax, g.ay), kolonDuzenOku(g.kolonDuzen).duzen), mz = malzeme(BETON[g.beton], CELIK[g.celik]), n = g.katSayisi, fck = mz.fck;
   const notlar = [], tur = g.dosemeTuru, kirissiz = tur === 'kirissiz', bt = beta(g.kullanim, n);
   const W = ag.xs.at(-1), Lp = ag.ys.at(-1), plan = W * Lp;
   const hatBoy = h => h.L.reduce((a, b) => a + b, 0);
@@ -118,7 +126,7 @@ export function zincirHesap(g) {
   // Elle kalınlık: perdeOzel anahtarı perdenin yazımı ("A/1–2"); aks ağı ya da perde değişince eşleşmeyen anahtar yok sayılır
   const pd = perdeAg(ag, perdeOku(g.perdeler).liste, g.perdeBoyOzel), pElle = p => g.perdeOzel?.[perdeYaz([p])];
   const pkal = new Map(pd.perdeler.map(p => [p.ad, pElle(p) ?? g.perdeKal ?? 250]));
-  const kolonListe = ag.kolonlar.filter(c => !pd.dugum.has(c.ad));
+  const kolonListe = ag.kolonlar.filter(c => !pd.dugum.has(c.ad) && !c.sil); // kaldırılan kolon tasarlanmaz (bütün katlarda)
   const dugumOlcu = ad => perdeDugumOlcu(pd.perdeler, ad, p => pkal.get(p.ad));
   let olcu = new Map(kolonListe.map(c => [c.ad, { b: ozel[c.ad]?.b ?? 300, h: ozel[c.ad]?.h ?? 300 }]));
   const olcuF = c => olcu.get(c.ad) ?? dugumOlcu(c.ad);
@@ -159,6 +167,7 @@ export function zincirHesap(g) {
   // kolon yüzünün ≥ 3/4'ü (7.5.1(a)). V_e = 1,25·fyk·(A_s1 + A_s2) − V_kol (Denk. 7.11); V_kol (Bölüm 4 deprem çözümlemesinde alt/üst
   // kolon kesmesinin küçüğü) burada yok → 0 (güvenli yan). Kiriş ve kolon eksenleri çakışık: b_j = min(kolon genişliği; b_w + h)
   // (TBDY 7.0 b_j tanımı, Şekil 7.10); h: kolonun deprem doğrultusundaki boyutu. Sınır 1,7 / 1,0·b_j·h·√fck (Denk. 7.12–7.13).
+  // Kaydırılan kolonda dik kiriş kolona yönlendirilir (kolonduzen.js): eksenler kolonda kesişir, b_j azaltılmaz.
   const birlesim = (kirisAt, c, b, h) => {
     const k = { x: kirisAt(c, 'x'), y: kirisAt(c, 'y') };
     const kus = [...k.x, ...k.y].every(Boolean) && k.x.every(e => e.b >= 0.75 * h - TOL) && k.y.every(e => e.b >= 0.75 * b - TOL);
@@ -183,7 +192,7 @@ export function zincirHesap(g) {
     for (let adim = 0; adim < 30; adim++) {
       const { G1, Q1, iz } = yukF(c, b, h);
       const G = n * G1, Q = n * Q1 * bt, Ndm = (G + Q + 0.2 * g.sds * G) * g.kDeprem, Nd = 1.4 * G + 1.6 * Q;
-      const kirissizL = kirissiz ? Math.max(...[g.ax[c.i - 1], g.ax[c.i], g.ay[c.j - 1], g.ay[c.j]].filter(Boolean)) * 1000 : null;
+      const kirissizL = kirissiz ? Math.max(...kolonPay(ag, c).acik.filter(Boolean)) * 1000 : null;
       if (!sabit && adim === 0 && oneri) {
         const o = kolonOner({ fck, Ndm, Nd, kirissizAciklik: kirissizL });
         if (o) { b = Math.max(b, o.b); h = Math.max(h, o.h); if (h / b > 1.5) h = Math.ceil(b * 1.5 / 50) * 50; }
@@ -321,7 +330,7 @@ export function zincirHesap(g) {
     // 2–3. Kiriş, perde ve kolon: kolon/perde boyutu kiriş açıklığını ve güçlü kolonu, kiriş donatısı kolonu etkiler; birkaç turda oturur.
     // Narinlik rijitleştirmesi: yanal ötelenmesi önlenmemiş doğrultuda narinliği (TS 500 7.6) sağlanmayan kolonun o doğrultudaki aks
     // hattında kiriş yüksekliği tur başına 50 mm artar (KIRIS_H_MAX'a dek); kolonlar ve kirişler yalnız büyür → sınırlı turda oturur.
-    const hEk = new Map(), TUR = 20;
+    const hEk = new Map(), TUR = 20, onb = new Map();
     const hatX = j => ag.hatlar.findIndex(t => t.yon === 'x' && t.no === j), hatY = i => ag.hatlar.findIndex(t => t.yon === 'y' && t.no === i);
     // Yalnız narinliğe bağlı koşulları sağlanmayan kolonlar için; hattın kolonlarında narinlik ölçüsü (λ/100, ΣN_d/0,45ΣN_k, 1,3·N_d/N_k)
     // üst üste iki adımda en iyi değerinden iyileşmiyorsa (kolon kirişe göre çok rijit: α ≫ 1; kat toplamı bir tur geriden gelir) o hat
@@ -351,9 +360,8 @@ export function zincirHesap(g) {
       return oldu;
     };
     for (let tur_ = 0; tur_ < TUR; tur_++) {
-      kr = kirisBul(ag, gg, mz, dos, olcuF, { perde: pd.bay, hEk, ozel: g.kirisOzel });
-      const kirisAt = (hi, k) => kr.kirisler.find(e => e.hat === hi && e.k === k) ?? null;
-      const kirisAtC = (c, yon) => { const hi = yon === 'x' ? hatX(c.j) : hatY(c.i), u = yon === 'x' ? c.i : c.j; return [kirisAt(hi, u - 1), kirisAt(hi, u)]; };
+      kr = kirisBul(ag, gg, mz, dos, olcuF, { perde: pd.bay, hEk, ozel: g.kirisOzel, onb }); // onb: turlarda aynı girdiyle yeniden boyutlanan hatlar
+      const kirisAtC = (c, yon) => kr.kolonKiris.get(c.ad)[yon]; // kolona birleşen kirişler (ızgarada kaldırılan/kaydırılan kolona göre)
       // Perde yükü (kat başına): açıklık boyunca kirişe gelecek döşeme payı ve duvar (aynı aktarım, çizgisel) + sahip düğümlerdeki
       // kiriş tepkileri (iki doğrultu; perdeye saplanan kiriş ucu dahil) + öz ağırlık (perde.js)
       const yukP = p => {
@@ -371,11 +379,14 @@ export function zincirHesap(g) {
         + topla(kolonListe.map(c => ozKat(olcuF(c)))) + topla(perdeler.map(ozPerde));
       yanal = yanalBul(Wkat);
       // TS 500 7.6.2.2: kiriş çatlamış I = 0,5·b·h³/12 (tabla ihmal), açıklık eksen boyu
-      const cevre = { kirisAt: kirisAtC, rijit: (c, yon) => kirisAtC(c, yon).filter(Boolean).reduce((a, e) => a + 0.5 * e.b * e.h ** 3 / 12 / (e.L * 1000), 0),
+      // Kolon düzeni değişince bir doğrultuda kirişi birleşmeyen kolon (dik kiriş L/10'dan çok kaçık, kolonduzen.js): o doğrultuda döşemenin kolon şeridi
+      // kiriş sayılır (TS 500 7.6.2.2 kirişsiz döşeme kuralı, yorum; tabla kalınlığıyla, güvenli yan)
+      const seritK = (c, yon) => { const tf = dos.tabla ?? dos.h, p = kolonPay(ag, c), [l1a, l1b, l2a, l2b] = yon === 'x' ? p.acik : [...p.acik.slice(2), ...p.acik.slice(0, 2)];
+        return [l1a, l1b].filter(Boolean).reduce((a, l1) => a + 0.5 * [l2a, l2b].filter(Boolean).reduce((w, t) => w + 0.25 * Math.min(l1, t) * 1000, 0) * tf ** 3 / 12 / (l1 * 1000), 0); };
+      const cevre = { kirisAt: kirisAtC, rijit: (c, yon) => { const k = kirisAtC(c, yon).filter(Boolean); return k.length || !ag.duzen ? k.reduce((a, e) => a + 0.5 * e.b * e.h ** 3 / 12 / (e.L * 1000), 0) : seritK(c, yon); },
         tutulu: { x: yanal.x.tutulu, y: yanal.y.tutulu }, yazi: pd.perdeler.length || g.yanalTutulu ? { x: yanal.x.yazi, y: yanal.y.yazi } : null };
       const kirisMrF = (c, yon) => {
-        const hi = yon === 'x' ? hatX(c.j) : hatY(c.i), u = yon === 'x' ? c.i : c.j;
-        const [sol, sag] = [kirisAt(hi, u - 1), kirisAt(hi, u)];
+        const [sol, sag] = kirisAtC(c, yon);
         const mr = (e, tip) => e ? kirisMr(tip === 'u' ? e.AsUst : e.AsAlt, e.b, e.h - 50, mz) : 0;
         const t = Math.max(mr(sol, 'u') + mr(sag, 'a'), mr(sol, 'a') + mr(sag, 'u'));
         return t > 0 ? t : null;
@@ -386,7 +397,7 @@ export function zincirHesap(g) {
         const G1 = tx.G[c.i] + ty.G[c.j] + oz, Q1 = tx.Q[c.i] + ty.Q[c.j];
         return { G1, Q1, iz: [`Kat başına G: X kirişlerinden ${tr(tx.G[c.i])} + Y kirişlerinden ${tr(ty.G[c.j])} + öz ağırlık ${tr(oz)} = ${tr(G1)} kN; Q: ${tr(Q1)} kN`] };
       };
-      const hK = c => Math.max(...kr.kirisler.filter(e => { const h_ = ag.hatlar[e.hat]; return (h_.yon === 'x' && h_.no === c.j && (e.k === c.i || e.k === c.i - 1)) || (h_.yon === 'y' && h_.no === c.i && (e.k === c.j || e.k === c.j - 1)); }).map(e => e.h), 0);
+      const hK = c => Math.max(...['x', 'y'].flatMap(y => kirisAtC(c, y)).filter(Boolean).map(e => e.h), 0);
       kolonlar = kolonTasarla(yukF, kirisMrF, c => g.H - hK(c), true, cevre);
       const katIlk = !katNar; katNarHesap(kolonlar);
       const yeni = new Map(kolonlar.map(c => [c.ad, { b: c.b, h: c.h }]));
@@ -418,9 +429,7 @@ export function zincirHesap(g) {
         return [L[u - 1], L[u]].filter(Boolean).reduce((a, l1) => a + 0.5 * l2.reduce((w, t) => w + 0.25 * Math.min(l1, t) * 1000, 0) * h ** 3 / 12 / (l1 * 1000), 0);
       };
       const yukF = (c, b, hh) => {
-        const ax = ((g.ax[c.i - 1] ?? 0) + (g.ax[c.i] ?? 0)) / 2, ay = ((g.ay[c.j - 1] ?? 0) + (g.ay[c.j] ?? 0)) / 2;
-        const k = Math.max(katKx[c.j][c.i], katKy[c.i][c.j]), A = ax * ay;
-        const disBoy = (c.j === 0 || c.j === ag.ny ? ax : 0) + (c.i === 0 || c.i === ag.nx ? ay : 0);
+        const { ax, ay, k, disBoy } = kolonPay(ag, c, katKx, katKy), A = ax * ay; // kolon düzeni değiştiyse gerçek yerlerle
         const oz = b / 1000 * hh / 1000 * g.H / 1000 * GAMMA_BA;
         const G1 = A * yk.g * k + disBoy * gg.duvarDis + oz, Q1 = A * yk.q * k;
         return { G1, Q1, iz: [`Kat başına: alan payı ${tr(A)} m² × süreklilik ${tr(k, 3)}; G = ${tr(A * yk.g * k)} + dış duvar ${tr(disBoy * gg.duvarDis)} + öz ağırlık ${tr(oz)} = ${tr(G1)} kN; Q ${tr(Q1)} kN`] };
@@ -487,7 +496,8 @@ export function zincirHesap(g) {
   // Notlar
   if (rd.subasmanlar.length) notlar.push('Su basman perdelerinin öz ağırlığı radye ön hesabına eklendi. Toprak ve su basıncı, donatı ve temel bağlantısı ayrıca hesaplanmalı.');
   if (elle.length) notlar.push(`Elle verilen boyutlar (araç büyütmedi, bütün koşullar bu boyutlarla denetlendi): ${elle.join('; ')}.`);
-  if (kr.kalkma.length) notlar.push(`${kr.kalkma.join(', ')}: kısa uç açıklığında sürekli kiriş ucu kalkıyor (negatif tepki); kolon yükü alan payıyla alındı.`);
+  if (kr.kalkma.length && !kr.izgara) notlar.push(`${kr.kalkma.join(', ')}: kısa uç açıklığında sürekli kiriş ucu kalkıyor (negatif tepki); kolon yükü alan payıyla alındı.`);
+  const dz = duzenSonuc(ag, kirissiz ? null : kr, kolonlar, { kirissiz }); notlar.unshift(...dz.notlar); // kolon düzeni (kolonduzen.js)
   if ((tur === 'disli' || tur === 'kaset') && !(g.dolgu > 0)) notlar.push('Dolgu (asmolen) ağırlığı 0 girildi: TS 500 ve TS 498 değer vermiyor (TS ISO 9194); kullanılacak bloğun ağırlığını girin.');
   if (tur === 'disli') notlar.push(perdeler.some(p => !p.kismi && p.tur === 'perde') ? 'Tek doğrultulu dişli döşemeli çerçeve süneklik düzeyi yüksek perdelerle birlikte (karma sistem) DTS 1–2\'de de kullanılabilir; perdeler deprem hesabında bu sistemi sağlamalı (TBDY 4.3.4.3, Tablo 4.1).'
     : 'Perde içermeyen tek doğrultulu dişli döşemeli çerçeve yalnız DTS 3–4\'te kullanılabilir (TBDY 4.3.4.3).');
@@ -512,6 +522,6 @@ export function zincirHesap(g) {
     const k = n - i, NG = c.NG / n * k, NQ = c.Q1Ham * k * beta(g.kullanim, k);
     return { kat: i + 1, ad: c.ad, aks: c.aks, NG, NQ, Nd: 1.4 * NG + 1.6 * NQ };
   })).flat();
-  return { ag, tur, katSayisi: n, beta: bt, h: dos.h, tabla: dos.tabla, katYukAlan: katYuk / plan,
+  return { ag, tur, katSayisi: n, beta: bt, h: dos.h, tabla: dos.tabla, katYukAlan: katYuk / plan, duzen: dz.duzen,
     dosemeler, seritler, zimbD, kirisler: kr.kirisler, kolonlar, katKolonYukleri, perdeler, yanal, radye: rd.radye, radyeSerit: rd.seritler, radyeZimb: rd.zimb, radyePerde: rd.perde, subasmanlar: rd.subasmanlar, notlar };
 }

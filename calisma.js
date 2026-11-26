@@ -1,9 +1,10 @@
 // Ortak çalışma kitabı (sira.html ve tablo.html): proje durumu (localStorage), Girdiler sayfası, zincir sayfaları, düzenlenebilir
 // sonuç hücreleri (elle boyut), Excel'e aktarma. Yüklenirken DOM'a dokunmaz; saf işlevleri Node testleri de kullanır.
 import { BETON, sayiOku, KULLANIM, DUVAR, tabloSatiri } from './kurallar.js';
-import { zincirHesap, girdiDenetle, CELIK, AKS_MIN, AKS_MAX } from './zincir.js';
+import { zincirHesap, girdiDenetle, CELIK, AKS_MIN, AKS_MAX } from './zincir.js'; // tarayıcıda zincirHesap işçide (hesap-isci.js); burada yedek yol
 import { perdeOku, perdeYaz, perdeKirp, perdeBoyHatasi, PERDE_BOY_SINIR } from './perde.js';
 import { xlsxYap, indir } from './xlsx.js';
+import { kolonDuzenOku, kolonDuzenYaz, kolonDuzenKirp } from './kolonduzen.js';
 
 export const tr = (x, d = 2) => Number.isFinite(x) ? x.toLocaleString('tr-TR', { maximumFractionDigits: d }) : '—';
 const kacis = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -31,7 +32,7 @@ const sonucDuz = e => e.gecti ? 'Uygun' + (uyariVar(e) ? ' · not' : '') : 'Uygu
 export const ANAHTAR = 'kesit.sira.v3'; // v3: döşeme türü; kalınlık ve kesitler araçta bulunur (elle verilebilir)
 export const VARSAYILAN = { ax: '4 5 4', ay: '5 4,5', kat: '5', H: '3000', katYukseklikleri: '', beton: 'C30', celik: 'B420C', dosemeTuru: 'plak', disAralik: '500', disGen: '120',
   dolgu: '0', g: '2', q: '2', kullanim: 'konut', duvarDisTur: 'elle', duvarDis: '6', duvarIcTur: 'elle', duvarIc: '3', sds: '1', kDeprem: '1', zemin: '400',
-  Df: '1,5', tasma: '0,75', perdeler: '', perdeKal: '250', subasman: '', subasmanH: '900', subasmanBw: '200' };
+  Df: '1,5', tasma: '0,75', perdeler: '', perdeKal: '250', subasman: '', subasmanH: '900', subasmanBw: '200', kolonDuzen: '' };
 export const ALANLAR = Object.keys(VARSAYILAN);
 export const liste = v => v.trim() ? v.trim().split(/[\s;/]+/).map(sayiOku) : [];
 export const yeniDurum = () => ({ form: { ...VARSAYILAN }, duvar: true, tutulu: false, ozel: {}, ozelNx: liste(VARSAYILAN.ax).length,
@@ -62,7 +63,7 @@ export function durumYukle(depo = globalThis.localStorage, temizle = true) {
   let k = null;
   try { k = JSON.parse(depo?.getItem(ANAHTAR) ?? 'null'); } catch {}
   for (const a of ALANLAR) { const v = k?.form?.[a];
-    if (typeof v === 'string' && (!SECENEK[a] || SECENEK[a].some(([x]) => x === v))) d.form[a] = v.slice(0, a === 'subasman' ? 4000 : a === 'perdeler' ? 600 : a === 'katYukseklikleri' ? 400 : a === 'ax' || a === 'ay' ? 240 : 120); }
+    if (typeof v === 'string' && (!SECENEK[a] || SECENEK[a].some(([x]) => x === v))) d.form[a] = v.slice(0, a === 'subasman' || a === 'kolonDuzen' ? 4000 : a === 'perdeler' ? 600 : a === 'katYukseklikleri' ? 400 : a === 'ax' || a === 'ay' ? 240 : 120); }
   if (typeof k?.duvar === 'boolean') d.duvar = k.duvar;
   if (typeof k?.tutulu === 'boolean') d.tutulu = k.tutulu;
   d.ozelNx = liste(d.form.ax).length;
@@ -90,7 +91,7 @@ export function girdiOku(d) {
     gKaplama: n('g'), q: n('q'), kullanim: F.kullanim, duvarDisTur: F.duvarDisTur, duvarDis: n('duvarDis'), duvarIcTur: F.duvarIcTur, duvarIc: n('duvarIc'),
     sds: n('sds'), kDeprem: n('kDeprem'), zemin: n('zemin'), Df: n('Df'), tasma: n('tasma'), yanalTutulu: d.tutulu || undefined,
     perdeler: F.perdeler, perdeKal: F.perdeKal.trim() ? n('perdeKal') : undefined,
-    subasman: F.subasman, subasmanH: n('subasmanH'), subasmanBw: n('subasmanBw') };
+    subasman: F.subasman, subasmanH: n('subasmanH'), subasmanBw: n('subasmanBw'), kolonDuzen: F.kolonDuzen };
   g.kolonOzel = g.ax.length === d.ozelNx ? d.ozel : {};
   if (d.dosemeOzel?.tur === F.dosemeTuru) { const { tur, ...o } = d.dosemeOzel; g.dosemeOzel = o; }
   return Object.assign(g, { kirisOzel: d.kirisOzel, perdeOzel: d.perdeOzel, perdeBoyOzel: d.perdeBoyOzel, radyeOzel: d.radyeOzel });
@@ -127,6 +128,25 @@ function perdeKirpD(d, alan) {
   if (k === perdeYaz(r.liste)) return false;
   d.form[alan] = k; return true;
 }
+// Kolon düzeni aks adıyla yazılır: aks sayısı azalınca planda kalmayan kolonlar düşer (geçerli aks girdisinde)
+function kolonDuzenKirpD(d) {
+  const r = kolonDuzenOku(d.form.kolonDuzen), g = girdiOku(d), h = girdiDenetle(g);
+  if (r.hata.length || !Object.keys(r.duzen).length || h.ax || h.ay) return false;
+  const t = kolonDuzenYaz(kolonDuzenKirp(r.duzen, g.ax.length, g.ay.length));
+  if (t === kolonDuzenYaz(r.duzen)) return false;
+  d.form.kolonDuzen = t; return true;
+}
+// Yerleşim panelinden tek kolon: deger { sil: true } | { dx } | { dy } | null (geri al). Deneme durumunda denetlenir; hata varsa uygulanmaz.
+export function kolonDuzenDegistir(d, aks, deger) {
+  const r = kolonDuzenOku(d.form.kolonDuzen);
+  if (r.hata.length) return { hata: 'Önce Girdiler sayfasındaki kolon düzeni yazım hatasını düzelt.' };
+  const yeni = { ...r.duzen }; delete yeni[aks];
+  if (deger && (deger.sil || deger.dx || deger.dy)) yeni[aks] = deger;
+  const metin = kolonDuzenYaz(yeni), h = girdiDenetle(girdiOku({ ...d, form: { ...d.form, kolonDuzen: metin } }));
+  if (h.kolonDuzen) return { hata: h.kolonDuzen.replace(/^Kolon düzeni: /, '') };
+  if (metin === d.form.kolonDuzen) return { degisen: new Set() };
+  d.form.kolonDuzen = metin; return { degisen: new Set(['kolonDuzen']) };
+}
 // Bir girdiyi yaz (form alanı ya da Girdiler hücresi). kesin: değişiklik bitti (change); aks/perde/tür temizliği o zaman yapılır.
 // Dönüş: kendisi dışında değişen alanlar ('ozel': elle değerler düştü) — sayfa onları da yeniden yazar, hemen hesaplar.
 export function girdiYaz(d, k, v, kesin = true) {
@@ -138,8 +158,11 @@ export function girdiYaz(d, k, v, kesin = true) {
       const r = perdeOku(d.form[k]), t = perdeYaz(r.liste);
       if (!r.hata.length && t !== d.form[k]) { d.form[k] = t; ek.add(k); }
     }
-    if (k === 'ax' || k === 'ay') for (const alan of ['perdeler', 'subasman'])
-      if (perdeKirpD(d, alan)) ek.add(alan);
+    if (k === 'kolonDuzen') { const r = kolonDuzenOku(d.form.kolonDuzen), t = kolonDuzenYaz(r.duzen); if (!r.hata.length && t !== d.form.kolonDuzen) { d.form.kolonDuzen = t; ek.add(k); } }
+    if (k === 'ax' || k === 'ay') {
+      for (const alan of ['perdeler', 'subasman']) if (perdeKirpD(d, alan)) ek.add(alan);
+      if (kolonDuzenKirpD(d)) ek.add('kolonDuzen');
+    }
     if (ozelTemizle(d)) ek.add('ozel');
   }
   return ek;
@@ -171,8 +194,8 @@ export function yerlesimKaydir(d, kaymalar) {
       return boy.toString().replace('.', ',');
     }).join(' ');
   }
-  if (Object.keys(d.perdeBoyOzel).length && Object.keys(yeni).length) {
-    const hata = girdiDenetle(girdiOku({ ...d, form: { ...d.form, ...yeni } })).perdeBoyOzel;
+  if ((Object.keys(d.perdeBoyOzel).length || d.form.kolonDuzen.trim()) && Object.keys(yeni).length) {
+    const h = girdiDenetle(girdiOku({ ...d, form: { ...d.form, ...yeni } })), hata = h.perdeBoyOzel ?? h.kolonDuzen;
     if (hata) return { hata };
   }
   // İki yöndeki kaydırma birlikte doğrulanır. Aks kimlikleri ve sırası korunur.
@@ -222,6 +245,7 @@ export const GIRDILER = [
   { k: 'kat', ad: 'Kat sayısı', birim: 'kat', hata: 'katSayisi' },
   { k: 'H', ad: 'Kat yüksekliği', birim: 'mm', not: 'Kat yükseklikleri boş bırakılırsa tüm katlarda kullanılır' },
   { k: 'katYukseklikleri', ad: 'Kat yükseklikleri', birim: 'mm', metin: 1, not: 'Katları ayrı hesaplamak için tabandan başlayarak her kat için bir değer gir: 3000 3200 3000. Boşsa ortak kesit hesabı yapılır.' },
+  { k: 'kolonDuzen', ad: 'Kolon düzeni', birim: 'm', metin: 1, not: 'Tek kolon, bütün katlarda: 2B kaldırıldı; 3A X +0,40 m (aks kesişiminden; X sağa, Y yukarı, kendi kiriş aksı boyunca). Planda: Yerleşimi düzenle → kolonu seç. Kirişler ızgara olarak çözülür.' },
   'Perdeler',
   { k: 'perdeler', ad: 'Perdeli açıklıklar', birim: '', metin: 1, not: 'A/1–2: A aksında 1–2 arası; 3/A–B: 3 aksında A–B arası; noktalı virgülle ayır' },
   { k: 'perdeKal', ad: 'Perde kalınlığı b_w', birim: 'mm', not: 'Başlangıç değeri; TBDY 7.6.1 sağlanana dek büyür. Perde sayfasında kalınlık ve toplam uzunluk ayrı ayrı girilebilir' },
@@ -422,15 +446,60 @@ const IPUCU = {
 const duvarYaz = (tur, w) => DUVAR[tur] ? `${DUVAR[tur].ad.toLowerCase()} ${tr(DUVAR[tur].q)} kN/m² (net yükseklikle)` : `${tr(w)} kN/m`;
 export function girdiOzet(d, r) {
   const g = girdiOku(d), y = yon => `${yon.toUpperCase()} ${r.yanal[yon].tutulu ? 'önlenmiş' : 'önlenmemiş'}${r.yanal[yon].phi != null ? ` (φ ${tr(r.yanal[yon].phi, 3)})` : ''}`;
-  return `Aks aralıkları X: ${g.ax.map(v => tr(v)).join(' · ')} m; Y: ${g.ay.map(v => tr(v)).join(' · ')} m · ${tr(g.katSayisi, 0)} kat, H ${g.katYukseklikleri ? g.katYukseklikleri.map(v => tr(v, 0)).join(' · ') : tr(g.H, 0)} mm · ${g.beton}, ${g.celik} · ${(TUR_AD[g.dosemeTuru] ?? '').toLowerCase()} döşeme${r ? `, h ${r.h} mm` : ''}${disMi(d.form) ? ` (diş aralığı ${tr(g.disAralik, 0)} mm, diş genişliği ${tr(g.disGen, 0)} mm, dolgu ${tr(g.dolgu)} kN/m²)` : ''}, bölme duvar ${g.dosemeDuvar ? 'var (sehim ℓ<sub>n</sub>/480)' : 'yok (ℓ<sub>n</sub>/360)'} · kullanım: ${secimYazi('kullanim', g.kullanim)}${r ? ` (β ${tr(r.beta)})` : ''} · g ${tr(g.gKaplama)} kN/m², q ${tr(g.q)} kN/m² · duvar dış ${duvarYaz(g.duvarDisTur, g.duvarDis)}, iç ${duvarYaz(g.duvarIcTur, g.duvarIc)} · S<sub>DS</sub> ${tr(g.sds)}, deprem katsayısı ${tr(g.kDeprem)}${g.yanalTutulu ? ', yanal ötelenme elle önlenmiş sayıldı' : ''}${r?.perdeler.length ? ` · perdeler: ${r.perdeler.map(p => `${p.ad} ${p.aks.replace(' / ', '/')} (b<sub>w</sub> ${p.bw} mm, ℓ<sub>w</sub> ${tr(p.lw, 3)} mm)`).join(', ')}; yanal ötelenme ${['x', 'y'].map(y).join(', ')}` : ''} · zemin q<sub>k</sub> ${tr(g.zemin, 0)} kN/m² (q<sub>t</sub> = q<sub>k</sub>/1,4), temel derinliği ${tr(g.Df)} m, radye taşması ≥ ${tr(g.tasma)} m.`;
+  return `Aks aralıkları X: ${g.ax.map(v => tr(v)).join(' · ')} m; Y: ${g.ay.map(v => tr(v)).join(' · ')} m · ${tr(g.katSayisi, 0)} kat, H ${g.katYukseklikleri ? g.katYukseklikleri.map(v => tr(v, 0)).join(' · ') : tr(g.H, 0)} mm · ${g.beton}, ${g.celik} · ${(TUR_AD[g.dosemeTuru] ?? '').toLowerCase()} döşeme${r ? `, h ${r.h} mm` : ''}${disMi(d.form) ? ` (diş aralığı ${tr(g.disAralik, 0)} mm, diş genişliği ${tr(g.disGen, 0)} mm, dolgu ${tr(g.dolgu)} kN/m²)` : ''}, bölme duvar ${g.dosemeDuvar ? 'var (sehim ℓ<sub>n</sub>/480)' : 'yok (ℓ<sub>n</sub>/360)'} · kullanım: ${secimYazi('kullanim', g.kullanim)}${r ? ` (β ${tr(r.beta)})` : ''} · g ${tr(g.gKaplama)} kN/m², q ${tr(g.q)} kN/m² · duvar dış ${duvarYaz(g.duvarDisTur, g.duvarDis)}, iç ${duvarYaz(g.duvarIcTur, g.duvarIc)} · S<sub>DS</sub> ${tr(g.sds)}, deprem katsayısı ${tr(g.kDeprem)}${g.yanalTutulu ? ', yanal ötelenme elle önlenmiş sayıldı' : ''}${g.kolonDuzen?.trim() ? ` · kolon düzeni: ${kacis(g.kolonDuzen)}` : ''}${r?.perdeler.length ? ` · perdeler: ${r.perdeler.map(p => `${p.ad} ${p.aks.replace(' / ', '/')} (b<sub>w</sub> ${p.bw} mm, ℓ<sub>w</sub> ${tr(p.lw, 3)} mm)`).join(', ')}; yanal ötelenme ${['x', 'y'].map(y).join(', ')}` : ''} · zemin q<sub>k</sub> ${tr(g.zemin, 0)} kN/m² (q<sub>t</sub> = q<sub>k</sub>/1,4), temel derinliği ${tr(g.Df)} m, radye taşması ≥ ${tr(g.tasma)} m.`;
+}
+
+// ── Hesap işçisi (hesap-isci.js): motor ana iş parçacığını kilitlemesin. Aynı anda tek istek; başka girdi istenince süren hesap durdurulur
+// (işçi yeniden kurulur), yalnız son istenen girdinin yanıtı (sıra no) kabul edilir. İşçi kurulamaz ya da yüklenemezse hesap eşzamanlı.
+function isciKur(bitti) {
+  let isci = null, yok = typeof Worker === 'undefined', ucusta = null, sira = 0;
+  const kapat = () => { isci?.terminate(); isci = null; };
+  const kur = () => {
+    try { isci = new Worker(new URL('./hesap-isci.js', import.meta.url), { type: 'module' }); } catch { yok = true; return null; }
+    const w = isci;
+    w.onmessage = ({ data }) => { if (w !== isci || data.id !== ucusta?.id) return; const u = ucusta; ucusta = null; bitti(u, data); };
+    w.onerror = w.onmessageerror = e => { // modül işçisi yok (eski tarayıcı) ya da yüklenemedi: bekleyen istek burada, sonrakiler eşzamanlı
+      e.preventDefault?.(); if (w !== isci) return;
+      yok = true; kapat(); const u = ucusta; ucusta = null; if (u) bitti(u, { sonuc: zincirHesap(u.g) });
+    };
+    return w;
+  };
+  return {
+    get anahtar() { return ucusta?.anahtar; },
+    iste(g, anahtar) { // false: işçi yok, eşzamanlı hesapla
+      if (ucusta?.anahtar === anahtar) return true;
+      if (yok) return false;
+      if (ucusta) { ucusta = null; kapat(); } // eski girdinin hesabı boşa sürmesin
+      const w = isci ?? kur(); if (!w) return false;
+      ucusta = { id: ++sira, g, anahtar }; w.postMessage({ id: ucusta.id, g }); return true;
+    },
+    birak() { if (ucusta) { ucusta = null; kapat(); } },
+  };
 }
 
 // ── Kitap denetçisi: sayfa tablosu, sekmeler, formül çubuğu, durum çubuğu, ayrıntı. Her iki sayfa kendi öğeleriyle kurar.
 // el: { sayfa, kap, sekmeler: [kap…], ad, formul, durumSol, durumSag, ayrinti, ayrintiBaslik, ayrintiNot, iz }
 // yenile(): sayfanın tam hesap + çizimi; secildi(): seçim değişti (plan vurgusu); girdiYazildi(k, ek): Girdiler hücresi formu güncellesin
+// Hesap işçide sürerken (k.hesapta) önceki sonuç görünür, durum çubuğunda «Hesaplanıyor…»; yanıt gelince yenile() yeniden çağrılır.
+// Taze sonuç gerekenler: k.hazir() (söz; Excel, Yazdır düğmesi, panel iletileri), k.kesinlestir() (eşzamanlı; beforeprint).
 export function kitapKur(el, { yenile, secildi = () => {}, katDegisti = () => {}, girdiYazildi = () => {} }) {
   const $s = s => el.sayfa.querySelector(s);
-  const k = { d: durumYukle(), g: null, hata: {}, sonuc: null, tumSonuc: null, kat: 1, sayfaAd: 'girdi', secili: null, bekle: 0 };
+  const k = { d: durumYukle(), g: null, hata: {}, sonuc: null, tumSonuc: null, kat: 1, sayfaAd: 'girdi', secili: null, bekle: 0, anahtar: null, hesapta: false };
+  let zorla = false, gZaman = 0;
+  const bekleyenler = [], yazilan = new Map(); // yazilan: sonucu henüz gelmemiş elle hücre değerleri (seçici → metin)
+  const isci = isciKur((u, { sonuc, hata }) => {
+    if (hata) console.error(hata); // motor hatası (eşzamanlı yolda da sayfada istisna olurdu)
+    k.tumSonuc = sonuc ?? null; k.anahtar = u.anahtar; yenile();
+  });
+  const gosterge = document.createElement('span');
+  gosterge.className = 'hesap-gosterge'; gosterge.setAttribute('role', 'status'); el.durumSol.after(gosterge);
+  const gostergeCiz = () => { // kısa hesapta görünmesin: 150 ms sonra (gZaman −1: göründü). html[data-hesap]: önceki sonuç soluk (calisma.css)
+    if (!k.hesapta) { clearTimeout(gZaman); gZaman = 0; }
+    else if (!gZaman) gZaman = setTimeout(() => { gZaman = -1; gostergeCiz(); }, 150);
+    const goster = gZaman === -1, yazi = goster ? 'Hesaplanıyor…' : '';
+    if (gosterge.textContent !== yazi) gosterge.textContent = yazi;
+    if (goster) document.documentElement.dataset.hesap = ''; else delete document.documentElement.dataset.hesap;
+  };
   const boySifirla = document.createElement('button');
   boySifirla.type = 'button'; boySifirla.className = 'dugme perde-boy-sifirla'; boySifirla.hidden = true;
   boySifirla.textContent = 'Geçersiz perde uzunluklarını otomatiğe al';
@@ -450,31 +519,54 @@ export function kitapKur(el, { yenile, secildi = () => {}, katDegisti = () => {}
   katSecici.addEventListener('change', () => { k.kat = Number(katSecici.value); k.sonuc = katGorunumu(k.tumSonuc, k.kat); k.secili = null; katDegisti(); });
   k.gorunur = () => gorunur(k.d, k.tumSonuc);
   k.aktif = () => SAYFALAR.find(s => s.ad === k.sayfaAd);
-  k.hesap = () => { const h = hesap(k.d); k.g = h.g; k.hata = h.hata; k.tumSonuc = h.sonuc;
+  // Girdi denetimi eşzamanlı (ucuz); motor işçide. Sonuç girdi anahtarıyla (JSON) saklanır: yanıt gelince yenile() aynı anahtarı bulur.
+  k.hesap = () => { const g = girdiOku(k.d), hata = girdiDenetle(g), anahtar = JSON.stringify(g); k.g = g; k.hata = hata;
+    if (Object.keys(hata).length) { isci.birak(); k.tumSonuc = null; k.anahtar = anahtar; }
+    else if (anahtar === k.anahtar) isci.birak(); // geri alınan girdi: süren hesap gereksiz
+    else if (zorla || !isci.iste(g, anahtar)) { isci.birak(); k.tumSonuc = zincirHesap(g); k.anahtar = anahtar; }
+    k.hesapta = anahtar !== k.anahtar; // işçi hesaplıyor: önceki sonuç görünür
+    if (!k.hesapta) yazilan.clear();
     const katlar = k.tumSonuc?.katlar ?? []; if (katlar.length && !katlar.some(x => x.kat === k.kat)) k.kat = katlar[0].kat;
     k.sonuc = katGorunumu(k.tumSonuc, k.kat); katAlan.hidden = !katlar.length;
     boySifirla.hidden = !k.hata.perdeBoyOzel;
     katSecici.innerHTML = katlar.map(x => `<option value="${x.kat}">${x.kat}. kat${x.H != null ? ` · ${tr(x.H, 0)} mm` : ''}</option>`).join('');
-    katSecici.value = String(k.kat); durumKaydet(k.d); };
-  // yazarken her tuşta değil, 150 ms durunca hesapla (büyük ağda hesap 0,1–0,5 s)
+    katSecici.value = String(k.kat); durumKaydet(k.d); gostergeCiz();
+    if (!k.hesapta) for (const f of bekleyenler.splice(0)) f(); // bekleyenler sayfa çizimi bittikten sonra sürer (söz)
+  };
+  // yazarken her tuşta değil, 150 ms durunca hesapla (hesap işçide; yalnız son girdi hesaplanır)
   k.geciktir = () => { clearTimeout(k.bekle); k.bekle = setTimeout(() => { k.bekle = 0; yenile(); }, 150); };
   k.simdi = () => { clearTimeout(k.bekle); k.bekle = 0; yenile(); };
   k.bekleyeni = () => { if (k.bekle) k.simdi(); };
+  k.guncel = () => !k.bekle && !k.hesapta && JSON.stringify(girdiOku(k.d)) === k.anahtar; // gösterilen sonuç şimdiki girdinin
+  // Şimdiki girdinin sonucu hazır olunca çözülen söz (bekleyen gecikme hemen işlenir). Girdi hatasında sonuç null ile hemen çözülür.
+  k.hazir = () => {
+    if (k.bekle || JSON.stringify(girdiOku(k.d)) !== (isci.anahtar ?? k.anahtar)) k.simdi();
+    return k.hesapta ? new Promise(r => bekleyenler.push(r)) : Promise.resolve();
+  };
+  // Eşzamanlı: sonuç şimdiki girdiye ait değilse burada hesaplanır (işçi durur), sayfa yeniden çizilir. beforeprint söz bekleyemez.
+  k.kesinlestir = () => { clearTimeout(k.bekle); k.bekle = 0; zorla = true; try { yenile(); } finally { zorla = false; } };
+  // Ctrl/⌘+P hesap sürerken: sonucu bekle, sonra yazdır (beforeprint'te eşzamanlı hesap gerekmesin)
+  addEventListener('keydown', e => {
+    if (!(e.ctrlKey || e.metaKey) || e.altKey || e.key.toLowerCase() !== 'p' || k.guncel()) return;
+    e.preventDefault(); k.hazir().then(() => print());
+  });
   k.sekmeCiz = (ek = [], sec = k.sayfaAd) => { // ek: sayfanın kendi sekmeleri (tablo.html: kolon listesi)
     const h = [...k.gorunur(), ...ek].map(s => `<button type="button" role="tab" aria-controls="${s.kontrol ?? el.sayfa.id}" data-sayfa="${s.ad}" aria-selected="${s.ad === sec}" tabindex="${s.ad === sec ? 0 : -1}">${s.baslik}</button>`).join('');
     for (const x of el.sekmeler) x.innerHTML = h;
   };
-  // Yeniden çizimde odak ve imleç korunur (Girdiler'e yazarken hesap araya girer; Enter'la geçilen hücre yerinde kalır)
+  // Yeniden çizimde odak ve imleç korunur (Girdiler'e yazarken hesap araya girer; Enter'la geçilen hücre yerinde kalır).
+  // Hesap sürerken: yazılıp sonucu gelmemiş hücre o değeri gösterir; yazılmakta olan (henüz change olmamış) hücrenin metni korunur.
   k.sayfaCiz = () => {
     const t = el.sayfa, a = document.activeElement, icinde = t.contains(a);
-    const odak = icinde && a.dataset.k ? { ad: a.dataset.ad, k: a.dataset.k, s: a.selectionStart, e: a.selectionEnd } : null;
+    const odak = icinde && a.dataset.k ? { ad: a.dataset.ad, k: a.dataset.k, s: a.selectionStart, e: a.selectionEnd, v: a.dataset.tip && a.value !== a.defaultValue ? a.value : null } : null;
     const sf = k.aktif();
     if (sf.girdi) { t.style.width = `max(100%, ${(44 + GSUT.reduce((x, s) => x + s[1], 0)) / 16}rem)`; t.innerHTML = girdiHtml(k.d, k.hata); }
     else if (!k.sonuc) t.innerHTML = '';
-    else { t.style.width = `max(100%, ${(44 + sf.spec(k.sonuc).reduce((x, s) => x + s[1], 0)) / 16}rem)`; t.innerHTML = tabloHtml(sf, k.sonuc, k.d); }
+    else { t.style.width = `max(100%, ${(44 + sf.spec(k.sonuc).reduce((x, s) => x + s[1], 0)) / 16}rem)`; t.innerHTML = tabloHtml(sf, k.sonuc, k.d);
+      if (k.hesapta) for (const [s, v] of yazilan) { const x = $s(s); if (x) { x.defaultValue = v; x.classList.toggle('ozel', !!v.trim()); } } }
     t.setAttribute('role', 'grid'); t.setAttribute('aria-label', `${sf.baslik} sayfası`); t.classList.toggle('girdi', !!sf.girdi); // satırlarda aria-selected var
     const el2 = odak && $s(`[data-ad="${odak.ad}"][data-k="${odak.k}"]`);
-    if (el2) { el2.focus({ preventScroll: true }); if (odak.s != null) try { el2.setSelectionRange(odak.s, odak.e); } catch {} }
+    if (el2) { if (odak.v != null) el2.value = odak.v; el2.focus({ preventScroll: true }); if (odak.s != null) try { el2.setSelectionRange(odak.s, odak.e); } catch {} }
     else if (icinde && document.activeElement === document.body) $s(`tr[data-ad="${k.secili}"]`)?.focus({ preventScroll: true });
   };
   k.durumCiz = () => {
@@ -482,7 +574,7 @@ export function kitapKur(el, { yenile, secildi = () => {}, katDegisti = () => {}
     if (sf.girdi) {
       const n = girdiGorunur(k.d).filter(x => typeof x !== 'string'), bad = n.filter(x => girdiHata(k.hata, x)).length;
       el.durumSol.innerHTML = `Girdiler <b>${n.length}</b> · Hatalı <b>${bad}</b>${IPUCU.girdi}`;
-    } else if (!r) { el.durumSol.textContent = 'Girdi hatası'; el.durumSag.textContent = ''; return; }
+    } else if (!r) { el.durumSol.textContent = k.hesapta ? '' : 'Girdi hatası'; el.durumSag.textContent = ''; return; } // ilk hesap: gösterge
     else {
       const l = sf.dizi(r), bad = l.filter(e => !e.gecti).length, ip = IPUCU[sf.ad];
       const yanal = sf.ad === 'perde' && r.yanal ? ' · yanal ötelenme ' + ['x', 'y'].map(y => `${y.toUpperCase()} <b>${r.yanal[y].tutulu ? 'önlenmiş' : 'önlenmemiş'}</b>${r.yanal[y].phi != null ? ` (φ ${tr(r.yanal[y].phi, 3)})` : ''}`).join(', ') : '';
@@ -511,7 +603,7 @@ export function kitapKur(el, { yenile, secildi = () => {}, katDegisti = () => {}
       el.formul.innerHTML = b ? `${b.ad}: ${simge(deger(b))}, ${simge(b.sinir)} <span class="soluk">· ${b.kaynak}</span>` : '';
       el.ayrintiBaslik.textContent = e ? `${sf.baslik} ${e.ad} · ${e.aks} · koşullar` : 'Koşullar';
       el.ayrintiNot.textContent = e ? (e.gecti ? 'Uygun' : 'Uygun değil') : '';
-      el.ayrinti.innerHTML = e ? maddeTablosu(e) : `<p>${k.sonuc ? 'Bu sayfada satır yok.' : 'Girdi hatasını düzelt (Girdiler sayfası).'}</p>`;
+      el.ayrinti.innerHTML = e ? maddeTablosu(e) : `<p>${k.sonuc ? 'Bu sayfada satır yok.' : k.hesapta ? '' : 'Girdi hatasını düzelt (Girdiler sayfası).'}</p>`;
       el.iz.innerHTML = (e?.iz ?? []).map(x => `<li>${simge(x)}</li>`).join('');
     }
     secildi();
@@ -563,6 +655,7 @@ export function kitapKur(el, { yenile, secildi = () => {}, katDegisti = () => {}
     if (!x.dataset.tip || !k.sonuc) return;
     const h = ozelDegistir(k.d, k.sonuc, x.dataset.tip, x.dataset.ad, x.dataset.k, x.value);
     if (h) { x.value = x.defaultValue; x.select(); el.durumSol.innerHTML = simge(h); return; } // reddedilen değer hücrede kalmasın; hesaptaki değer geri gelir
+    yazilan.set(`[data-tip="${x.dataset.tip}"][data-ad="${x.dataset.ad}"][data-k="${x.dataset.k}"]`, x.value); // sonuç gelene dek bu değer görünür
     setTimeout(k.simdi); // odak yeni hücreye geçtikten sonra yeniden çiz (sayfaCiz odağı aynı hücreye geri koyar)
   });
   t.addEventListener('keydown', e => {

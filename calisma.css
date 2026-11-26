@@ -68,6 +68,13 @@
 .notlar:empty { display: none; }
 .sonuc-hucre.uyari { color: var(--turuncu); }
 .hata-kutu { padding: 1rem 1.25rem; border: 1px solid var(--kirmizi); border-radius: var(--r); color: var(--murekkep); background: rgb(255 92 87 / .08); }
+/* Hesap işçide sürerken (calisma.js, 150 ms sonra): durum çubuğunda «Hesaplanıyor…», önceki sonuç (sayfa, plan, adım özetleri) soluk */
+.hesap-gosterge { margin-inline-end: auto; color: var(--murekkep); }
+.hesap-gosterge:not(:empty)::before { content: ''; display: inline-block; width: .4375rem; height: .4375rem; margin-inline-end: .4375rem; border-radius: 50%; background: var(--turuncu); vertical-align: .0625rem; animation: hesap-nabiz 1.4s ease-in-out infinite; }
+@keyframes hesap-nabiz { 50% { opacity: .35; } }
+html[data-hesap] :is(.sayfa.zincir:not(.girdi) tbody, #plan, .adimlar [id^="ozet-"]) { opacity: .55; transition: opacity .2s; }
+@media (prefers-reduced-motion: reduce) { .hesap-gosterge::before { animation: none; } }
+[data-hareket="az"] .hesap-gosterge::before { animation: none; }
 
 @media print {
   .baski-sayfa { margin-top: 5mm; }

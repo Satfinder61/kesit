@@ -8,10 +8,10 @@
 import { kontrol } from './kurallar.js';
 import { alan, CAP, dosemeCubuk, kolonYuzMax } from './donati.js';
 import { kolonMr } from './kolon.js';
+import { bicim } from './bicim.js';
 
 const TOL = 1e-9, ORTU = 25, GAMMA_BA = 25, DP = ORTU + Math.max(...CAP.perdeEtriye) + Math.max(...CAP.perde) / 2;
-const NF = {}; // Intl biçimleyici her çağrıda kurulursa hesap süresinin çoğunu yer: ondalık sayısına göre önbellek
-const tr = (x, d = 2) => (NF[d] ??= new Intl.NumberFormat('tr-TR', { maximumFractionDigits: d })).format(x);
+const tr = (x, d = 2) => bicim(x, d); // bicim.js: biçimleyici ve sonuç önbellekte
 const yukari = (x, adim) => Math.ceil(x / adim - TOL) * adim;
 const harf = j => String.fromCharCode(65 + j);
 const madde = (e, ad, deger, sinir, gecti, kaynak, kullanim = null, uyari = false) => e.maddeler.push({ ad, deger, sinir, gecti, kaynak, kullanim, uyari });

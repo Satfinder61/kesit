@@ -205,6 +205,27 @@ h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -.015em; text-wrap: ba
 .yerlesim-satir > .alan { flex: 1 1 7rem; min-width: 0; }
 .yerlesim-satir > .alan:first-child { flex-basis: 13rem; }
 #yerlesim-hata { color: var(--kirmizi); }
+/* Tek kolon: kaldırma / kaydırma (kolonduzen.js). Kaldırılan kolon soluk kesikli × ; kaydırılan kolonun aks kesişimine ince ölçü çizgisi;
+   kolonsuz kesişim (kirişler birbirine oturur) küçük halka; konsol kirişin serbest ucu kesikli */
+.tek-kolon { margin: .75rem 0 0; padding: .625rem 0 0; border: 0; border-top: 1px dashed var(--cizgi-2); min-width: 0; }
+.tek-kolon legend { padding: 0; margin-bottom: .5rem; font: 600 .8125rem var(--yazi); }
+.tek-kolon[hidden], #kolon-geri[hidden], #kolon-sil[hidden], #kolon-kaydir[hidden] { display: none; }
+.tek-kolon .dugme { min-height: 36px; }
+/* Uzun açıklık uyarısı (bilgi, denetim değil): kolon kaldırınca oluşan uzun birleşik açıklık ya da konsol (kolonduzen.js uzunAciklik) */
+.kolon-uyari { margin: .5rem 0 0; padding: .5rem .75rem; border-left: 3px solid var(--turuncu); border-radius: 0 6px 6px 0; background: color-mix(in srgb, var(--turuncu) 9%, transparent); color: var(--murekkep); font-size: .8125rem; line-height: 1.45; white-space: pre-line; overflow-wrap: anywhere; }
+.kolon-uyari[hidden] { display: none; }
+#plan .kolon-sil rect { fill: none; stroke: var(--soluk); stroke-width: 1; stroke-dasharray: 3 2; }
+#plan .kolon-sil path { stroke: var(--soluk); stroke-width: 1.25; fill: none; }
+#plan .kolon-sil { opacity: .8; cursor: pointer; }
+#plan[data-yerlesim] .kolon-sil:hover rect { stroke: var(--turuncu); }
+#plan .kolon-sil.secili rect { stroke: var(--turuncu); stroke-width: 2; }
+#plan .kayma { stroke: var(--turuncu); stroke-width: .9; fill: none; stroke-dasharray: 2 2; pointer-events: none; }
+#plan .kayma-ucu { fill: var(--turuncu); pointer-events: none; }
+#plan .kesisim { fill: none; stroke: var(--turuncu); stroke-width: 1.5; }
+#plan .kiris.konsol { stroke: var(--turuncu); stroke-width: 1; stroke-dasharray: 4 2; }
+.lejant .l-sil { border-style: dashed; background: linear-gradient(45deg, transparent 45%, var(--soluk) 45% 55%, transparent 55%); }
+.lejant .l-kesisim { width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid var(--turuncu); }
+.lejant .l-konsol { border: 1px dashed var(--turuncu); background: var(--kiris); }
 #yerlesim-uygula:disabled { opacity: .45; cursor: not-allowed; }
 
 /* Çalışma kitabı (Excel tarzı) */
@@ -461,16 +482,28 @@ h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -.015em; text-wrap: ba
           <button type="button" class="perde-dugme" id="subasman-dugme" aria-pressed="false" hidden>Su basman ekle/kaldır</button>
           <span class="perde-ipucu" id="perde-mod-ipucu" role="status" hidden>Açıklığa tıkla · Esc bitir</span>
         </div>
-        <div class="lejant"><span><i></i>Kiriş</span><span id="lejant-perde" hidden><i class="l-perde"></i>Perde</span><span id="lejant-subasman" hidden><i class="l-subasman"></i>Su basman</span><span><i class="l-degil"></i>Uygun değil</span><span><i class="l-secili"></i>Seçili</span></div></div>
+        <div class="lejant"><span><i></i>Kiriş</span><span id="lejant-perde" hidden><i class="l-perde"></i>Perde</span><span id="lejant-sil" hidden><i class="l-sil"></i>Kaldırılan kolon</span><span id="lejant-kesisim" hidden><i class="l-kesisim"></i>Kolonsuz kesişim</span><span id="lejant-konsol" hidden><i class="l-konsol"></i>Konsol</span><span id="lejant-subasman" hidden><i class="l-subasman"></i>Su basman</span><span><i class="l-degil"></i>Uygun değil</span><span><i class="l-secili"></i>Seçili</span></div></div>
       <form id="yerlesim" aria-label="Yerleşimi düzenle" hidden>
-        <p class="ipucu">Planda veya listede bir kolon ya da kiriş seç. Aks üzerindeki bağlı elemanlar tüm katlarda birlikte taşınır.</p>
+        <p class="ipucu">Planda veya listede bir kolon ya da kiriş seç. Aks kaydırma: aks üzerindeki bağlı elemanlar tüm katlarda birlikte taşınır.</p>
         <div class="yerlesim-satir">
           <label class="alan">Eleman <select id="yerlesim-eleman"></select></label>
-          <label class="alan" id="yerlesim-x-alan">X kaydırma <span class="kutu"><input id="yerlesim-x" type="text" inputmode="decimal" value="0" aria-describedby="yerlesim-bilgi"><span>m</span></span></label>
-          <label class="alan" id="yerlesim-y-alan">Y kaydırma <span class="kutu"><input id="yerlesim-y" type="text" inputmode="decimal" value="0" aria-describedby="yerlesim-bilgi"><span>m</span></span></label>
-          <button type="submit" class="dugme ana" id="yerlesim-uygula">Uygula</button>
+          <label class="alan" id="yerlesim-x-alan">Aks X kaydırma <span class="kutu"><input id="yerlesim-x" type="text" inputmode="decimal" value="0" aria-describedby="yerlesim-bilgi"><span>m</span></span></label>
+          <label class="alan" id="yerlesim-y-alan">Aks Y kaydırma <span class="kutu"><input id="yerlesim-y" type="text" inputmode="decimal" value="0" aria-describedby="yerlesim-bilgi"><span>m</span></span></label>
+          <button type="submit" class="dugme ana" id="yerlesim-uygula">Aksı kaydır</button>
         </div>
         <p class="ipucu" id="yerlesim-bilgi" role="status"></p>
+        <fieldset class="tek-kolon" id="tek-kolon" hidden>
+          <legend>Yalnız bu kolon <span class="soluk">· bütün katlarda, kendi kiriş aksı boyunca</span></legend>
+          <div class="yerlesim-satir">
+            <label class="alan" id="kolon-dx-alan">X <span class="kutu"><input id="kolon-dx" type="text" inputmode="decimal" value="0" aria-describedby="kolon-bilgi"><span>m</span></span></label>
+            <label class="alan" id="kolon-dy-alan">Y <span class="kutu"><input id="kolon-dy" type="text" inputmode="decimal" value="0" aria-describedby="kolon-bilgi"><span>m</span></span></label>
+            <button type="button" class="dugme" id="kolon-kaydir">Yalnız bu kolonu kaydır</button>
+            <button type="button" class="dugme" id="kolon-sil">Bu kolonu kaldır</button>
+            <button type="button" class="dugme" id="kolon-geri" hidden>Geri al</button>
+          </div>
+          <p class="ipucu" id="kolon-bilgi" role="status"></p>
+          <p class="kolon-uyari" id="kolon-uyari" role="status" hidden></p>
+        </fieldset>
         <p class="ipucu" id="yerlesim-hata" role="alert" hidden></p>
       </form>
       <div class="plan-alan"><svg id="plan" role="img" aria-labelledby="plan-baslik"></svg></div>

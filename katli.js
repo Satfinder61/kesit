@@ -9,8 +9,11 @@ import { radyeBul } from './radye.js';
 import { perdeOku, perdeDisari, perdeAg, perdeDugumOlcu, perdeKismiDenetle, perdeTasarla, perdeYaz, duraylilikKatli } from './perde.js';
 import { katKirissiz, katSeritRijitligi } from './katli-kirissiz.js';
 import { EC } from './sehim.js';
+import { kolonDuzenOku, kolonDuzenUygula, duzenSonuc, duzenKolonMadde } from './kolonduzen.js';
+import { kolonPay } from './doseme.js';
+import { bicim } from './bicim.js';
 
-const fmt = (n, d = 1) => new Intl.NumberFormat('tr-TR', { maximumFractionDigits: d }).format(n);
+const fmt = (n, d = 1) => bicim(n, d); // bicim.js: biçimleyici ve sonuç önbellekte
 const madde = (e, ad, deger, sinir, gecti, kaynak, kullanim = null) => e.maddeler.push({ ad, deger, sinir, gecti, kaynak, kullanim, uyari: false });
 const sonla = e => {
   e.belirleyici = e.maddeler.filter(m => !m.uyari).reduce((a, m) => (m.kullanim ?? -1) > (a?.kullanim ?? -1) ? m : a, null);
@@ -26,11 +29,11 @@ export function katliHesap(g, mz) {
   const perde = perdeOku(g.perdeler);
   if (!['plak', 'disli', 'kaset', 'kirissiz'].includes(g.dosemeTuru) || perde.hata.length)
     throw new RangeError('Katlı hesap için geçerli perde ve döşeme türü girilmeli');
-  const ag = agKur(g.ax, g.ay), n = g.katSayisi, H = g.katYukseklikleri, katlar = H.map((h, i) => ({ kat: i + 1, H: h }));
+  const ag = kolonDuzenUygula(agKur(g.ax, g.ay), kolonDuzenOku(g.kolonDuzen).duzen), n = g.katSayisi, H = g.katYukseklikleri, katlar = H.map((h, i) => ({ kat: i + 1, H: h }));
   if (perdeDisari(perde.liste, ag.nx, ag.ny).length) throw new RangeError('Perde açıklığı aks ağının dışında');
   const kirissiz = g.dosemeTuru === 'kirissiz';
   const plan = ag.xs.at(-1) * ag.ys.at(-1), ozel = g.kolonOzel ?? {}, fck = mz.fck;
-  const pd = perdeAg(ag, perde.liste, g.perdeBoyOzel), kolonListe = ag.kolonlar.filter(c => !pd.dugum.has(c.ad));
+  const pd = perdeAg(ag, perde.liste, g.perdeBoyOzel), kolonListe = ag.kolonlar.filter(c => !pd.dugum.has(c.ad) && !c.sil); // kolon düzeni bütün katlarda aynı
   const pElle = p => g.perdeOzel?.[perdeYaz([p])], pkal = new Map(pd.perdeler.map(p => [p.ad, pElle(p) ?? g.perdeKal ?? 250]));
   const duvarOlcu = ad => perdeDugumOlcu(pd.perdeler, ad, p => pkal.get(p.ad));
   const boyut = H.map(() => new Map(kolonListe.map(c => [c.ad, { b: ozel[c.ad]?.b ?? 300, h: ozel[c.ad]?.h ?? 300 }])));
@@ -38,17 +41,15 @@ export function katliHesap(g, mz) {
   const hEk = H.map(() => new Map());
   let yanal = { x: { tutulu: g.yanalTutulu === true }, y: { tutulu: g.yanalTutulu === true } };
   const hatX = j => ag.hatlar.findIndex(t => t.yon === 'x' && t.no === j), hatY = i => ag.hatlar.findIndex(t => t.yon === 'y' && t.no === i);
-  const kirisAt = (k, c, yon) => {
-    if (k < 0 || k >= n) return [];
-    const hi = yon === 'x' ? hatX(c.j) : hatY(c.i), u = yon === 'x' ? c.i : c.j;
-    return [u - 1, u].map(p => katlar[k].kirisler.find(e => e.hat === hi && e.k === p) ?? null);
-  };
+  const kirisAt = (k, c, yon) => k < 0 || k >= n ? [] : katlar[k].kolonKiris?.get(c.ad)[yon] ?? [null, null]; // kolona birleşen kirişler (kiris.js)
   const moment = (k, c, yon) => {
     const [a, b] = kirisAt(k, c, yon), mr = (e, t) => e ? kirisMr(t === 'u' ? e.AsUst : e.AsAlt, e.b, e.h - 50, mz) : 0;
     return Math.max(mr(a, 'u') + mr(b, 'a'), mr(a, 'a') + mr(b, 'u'));
   };
-  const rijit = (k, c, yon) => kirissiz ? katSeritRijitligi(ag, katlar[k].h, c, yon)
-    : kirisAt(k, c, yon).filter(Boolean).reduce((a, e) => a + 0.5 * e.b * e.h ** 3 / 12 / (e.L * 1000), 0);
+  // Kolon düzeni değişince kirişi birleşmeyen doğrultuda döşemenin kolon şeridi kiriş sayılır (TS 500 7.6.2.2, yorum; zincir.js ile aynı)
+  const rijit = (k, c, yon) => { const ks = kirissiz ? [] : kirisAt(k, c, yon).filter(Boolean);
+    return kirissiz || (!ks.length && ag.duzen) ? katSeritRijitligi(ag, kirissiz ? katlar[k].h : katlar[k].tabla ?? katlar[k].h, c, yon)
+      : ks.reduce((a, e) => a + 0.5 * e.b * e.h ** 3 / 12 / (e.L * 1000), 0); };
   const atalet = (o, yon) => yon === 'x' ? o.h * o.b ** 3 / 12 : o.b * o.h ** 3 / 12;
   const alfa = (k, c, yon, alt) => {
     const node = alt ? k - 1 : k;
@@ -70,17 +71,18 @@ export function katliHesap(g, mz) {
         Vmax: (kus ? 1.7 : 1) * bj * hj * Math.sqrt(fck) / 1000 };
     });
   });
+  const dosOnb = [], onb = new Map(); // kat → döşeme (girdisi turlarda değişmez: bir kez boyutlanır); kiriş ve kirişsiz döşeme boyutlandırma önbelleği
   const hesapKirisler = () => katlar.forEach((kat, k) => {
     if (kirissiz) {
       const d = katKirissiz(ag, g, mz, H[k], c => {
         const alt = olcu(k, c), ust = k + 1 < n ? olcu(k + 1, c) : alt;
         return { b: Math.min(alt.b, ust.b), h: Math.min(alt.h, ust.h) };
-      }, pd.dugum);
+      }, pd.dugum, onb);
       Object.assign(kat, { h: d.h, tabla: undefined, dosemeler: d.dosemeler, seritler: d.seritler, zimbD: d.zimbD,
         kirisler: [], kalkma: [], flatYukler: d.yukler, perdeYuk: new Map() });
       return;
     }
-    const kg = { ...g, H: H[k] }, d = dosemeBul(ag, kg, mz, 250);
+    const kg = { ...g, H: H[k] }, d = dosOnb[k] ??= dosemeBul(ag, kg, mz, 250);
     kat.h = d.h; kat.tabla = d.panolar[0].t; kat.dosemeler = d.panolar;
     if (g.dosemeOzel?.h != null || g.dosemeOzel?.t != null) for (const e of kat.dosemeler) e.ozel = { h: g.dosemeOzel.h != null, t: g.dosemeOzel.t != null };
     const dos = { h: d.h, tabla: kat.tabla, gAlan: d.panolar[0].gAlan, qAlan: d.panolar[0].qAlan };
@@ -88,8 +90,8 @@ export function katliHesap(g, mz) {
     const kr = kirisBul(ag, kg, mz, dos, c => {
       const alt = olcu(k, c), ust = k + 1 < n ? olcu(k + 1, c) : alt;
       return { b: Math.min(alt.b, ust.b), h: Math.min(alt.h, ust.h) };
-    }, { perde: pd.bay, ozel: g.kirisOzel, hEk: hEk[k] });
-    kat.kirisler = kr.kirisler; kat.tepki = kr.tepki; kat.kalkma = kr.kalkma; kat.perdeYuk = kr.perdeYuk;
+    }, { perde: pd.bay, ozel: g.kirisOzel, hEk: hEk[k], onb });
+    kat.kirisler = kr.kirisler; kat.tepki = kr.tepki; kat.kalkma = kr.kalkma; kat.perdeYuk = kr.perdeYuk; kat.kolonKiris = kr.kolonKiris; kat.izgara = kr.izgara;
   });
   const yuk = () => {
     for (let k = n - 1; k >= 0; k--) {
@@ -139,7 +141,7 @@ export function katliHesap(g, mz) {
     const kat = katlar[k], eski = boyut[k].get(c.ad), sabit = ozel[c.ad] != null, y = kat.yukler.get(c.ad);
     const bt = beta(g.kullanim, n - k), Q = y.Q * bt;
     const beamH = Math.max(0, ...['x', 'y'].flatMap(yon => kirisAt(k, c, yon)).filter(Boolean).map(e => e.h));
-    const kirissizL = kirissiz ? Math.max(...[g.ax[c.i - 1], g.ax[c.i], g.ay[c.j - 1], g.ay[c.j]].filter(Boolean)) * 1000 : null;
+    const kirissizL = kirissiz ? Math.max(...kolonPay(ag, c).acik.filter(Boolean)) * 1000 : null;
     const ln = H[k]; // ponytail: tam kat yüksekliği kullanılır; kiriş altında azaltılmamış boy narinlik için güvenli yandadır.
     let b = eski.b, h = eski.h, e, narEn = null, narBos = 0;
     for (let step = 0; step < 30; step++) {
@@ -268,10 +270,12 @@ export function katliHesap(g, mz) {
       gecti: brl.every(x => x.Ve <= x.Vmax + 1e-9), kullanim: belirleyen.Ve / belirleyen.Vmax });
     sonla(e);
   }));
-  katlar.forEach(kat => {
+  let kayYaz = [];
+  katlar.forEach((kat, k) => {
     for (const p of kat.perdeler) perdeKismiDenetle(p, ag, c => kat.kolonlar.find(e => e.ad === c.ad) ?? duvarOlcu(c.ad));
     if (!yakin) for (const e of [...kat.kolonlar, ...kat.kirisler, ...kat.dosemeler, ...kat.perdeler, ...(kat.seritler ?? []), ...(kat.zimbD ?? [])]) { madde(e, 'Yakınsama', 'sağlanmadı', 'Kat boyutları ve yükleri yakınsamalı', false, 'hesap'); sonla(e); }
     kat.seritler ??= []; kat.zimbD ??= [];
+    if (ag.duzen) { const y = duzenKolonMadde(ag, kat.kolonKiris, kat.kolonlar, kirissiz); if (!k) kayYaz = y; } // kaydırılan kolonun dışmerkezlik maddesi, her katta
     delete kat.tepki; delete kat.yukler; delete kat.perdeYuk; delete kat.perdeHamQ; delete kat.flatYukler;
   });
   const taban = katlar[0], rd = radyeBul(ag, g, mz, taban.kolonlar.map(c => ({ ...ag.kolonlar.find(a => a.ad === c.ad), b: c.b, h: c.h, Nd: c.Nd })), taban.perdeler);
@@ -286,10 +290,13 @@ export function katliHesap(g, mz) {
   if (kirissiz && pd.bay.size) notlar.push('Perde açıklıklarında döşeme şerit ve sehim hesabı yaklaşık olarak kolon şeridi yöntemiyle yapıldı; perde çizgisel mesnet kabulü kesin hesapta denetlenmeli.');
   const kisaPerdeler = pd.perdeler.filter(p => p.kismi);
   if (kisaPerdeler.length) notlar.push(`Kısa perdeler (${kisaPerdeler.map(p => p.ad).join(', ')}): çerçeve korunarak yalnız perde öz ağırlığı radyeye eklendi. Perde ile kiriş ve döşeme arasındaki yük aktarımı ve yanal rijitlik ayrıca çözülmeli.`);
-  for (const kat of katlar) if (kat.kalkma.length) notlar.push(`${kat.kat}. kat ${kat.kalkma.join(', ')}: kısa uç açıklığında mesnet kalkıyor; kolon yükü alan payıyla alındı.`);
+  for (const kat of katlar) if (kat.kalkma.length && !kat.izgara) notlar.push(`${kat.kat}. kat ${kat.kalkma.join(', ')}: kısa uç açıklığında mesnet kalkıyor; kolon yükü alan payıyla alındı.`);
+  const dz = duzenSonuc(ag, kirissiz ? null : { ...taban, kolonKiris: taban.kolonKiris }, null, { kirissiz }); notlar.unshift(...dz.notlar, ...(kayYaz.length ? [`Kaydırılan kolonlar (taban kat): ${kayYaz.join('; ')}.`] : [])); // kolon düzeni, taban katın ızgarasıyla
+  for (const kat of katlar.slice(1)) if (kat.izgara && kat.kalkma.length) notlar.push(`${kat.kat}. kat ${kat.kalkma.join(', ')}: ızgara tepkisi en elverişsiz yerleşimde çekmeye dönüyor (kalkma); kolon yükü alan payıyla alttan sınırlandı.`);
+  for (const kat of katlar) { delete kat.kolonKiris; delete kat.izgara; }
   const katKolonYukleri = katlar.flatMap(kat => kat.kolonlar.map(c => ({ kat: kat.kat, ad: c.ad, aks: c.aks, NG: c.NG, NQ: c.NQ, Nd: c.Nd })));
   return { ag, tur: g.dosemeTuru, katSayisi: n, beta: beta(g.kullanim, n), h: taban.h, tabla: taban.tabla, katYukAlan: ort, katKolonYukleri,
     dosemeler: taban.dosemeler, seritler: taban.seritler, zimbD: taban.zimbD, kirisler: taban.kirisler, kolonlar: taban.kolonlar, perdeler: taban.perdeler,
     radye: rd.radye, radyeSerit: rd.seritler, radyeZimb: rd.zimb, radyePerde: rd.perde, subasmanlar: rd.subasmanlar, katlar, notlar,
-    yanal };
+    yanal, duzen: dz.duzen };
 }

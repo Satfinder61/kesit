@@ -5,27 +5,30 @@
 // ponytail: detay kuralları her zaman süneklik düzeyi yüksek (DTS 1–2) — DTS 3–4 için de güvenli yan.
 import { kolonCubuk, kolonYuzMax, alan, CAP } from './donati.js';
 import { EC } from './sehim.js';
+import { bicim } from './bicim.js';
 
 const ES = 2e5, ECU = 0.003, ORTU = 25;
 const ETR = Math.max(...CAP.kolonEtriye), DP = ORTU + ETR + 8; // donatı ağırlık merkezi: örtü + en büyük etriye (φ12) + φ16/2
-const NF = {}; // Intl biçimleyici her çağrıda kurulursa hesap süresinin çoğunu yer: ondalık sayısına göre önbellek
-const tr = (x, d = 2) => (NF[d] ??= new Intl.NumberFormat('tr-TR', { maximumFractionDigits: d })).format(x);
+const tr = (x, d = 2) => bicim(x, d); // bicim.js: biçimleyici ve sonuç önbellekte
 
 // N (kN, basınç +) altında moment kapasitesi (kNm). Kesit b (genişlik) × h (eğilme doğrultusu),
 // iki yüzde simetrik AsYuz (yan yüz çubukları güvenli yanda ihmal), dp: donatı ağırlık merkezinin yüze uzaklığı.
 export function kolonMr(b, h, AsYuz, dp, N, mz) {
-  const d = h - dp;
-  const ic = c => {
-    const a = Math.min(mz.k1 * c, h), Cc = 0.85 * mz.fcd * b * a;
-    const s1 = Math.max(-mz.fyd, Math.min(mz.fyd, ES * ECU * (c - dp) / c)); // basınç donatısı (basınç +)
-    const s2 = Math.max(-mz.fyd, Math.min(mz.fyd, ES * ECU * (d - c) / c));  // çekme donatısı (çekme +)
-    return { F: Cc + AsYuz * s1 - AsYuz * s2, M: Cc * (h / 2 - a / 2) + AsYuz * s1 * (h / 2 - dp) + AsYuz * s2 * (d - h / 2) };
-  };
-  const Nn = N * 1000;
-  if (ic(50 * h).F < Nn) return 0;                     // eksenel kapasite aşıldı
-  let lo = 1e-6, hi = 50 * h;
-  for (let k = 0; k < 80; k++) { const m = (lo + hi) / 2; if (ic(m).F > Nn) hi = m; else lo = m; }
-  return Math.max(0, ic((lo + hi) / 2).M / 1e6);
+  // ikiye bölme satır içi (ara nesne ve kapanış yok); aralık daha bölünemeyince (m = lo ya da hi) kalan adımlar sonucu değiştirmez
+  const d = h - dp, k1 = mz.k1, fyd = mz.fyd, fc = 0.85 * mz.fcd * b, Nn = N * 1000;
+  const s1 = c => Math.max(-fyd, Math.min(fyd, ES * ECU * (c - dp) / c)); // basınç donatısı (basınç +)
+  const s2 = c => Math.max(-fyd, Math.min(fyd, ES * ECU * (d - c) / c));  // çekme donatısı (çekme +)
+  const c0 = 50 * h;
+  if (fc * Math.min(k1 * c0, h) + AsYuz * s1(c0) - AsYuz * s2(c0) < Nn) return 0; // eksenel kapasite aşıldı
+  let lo = 1e-6, hi = c0;
+  for (let k = 0; k < 80; k++) {
+    const m = (lo + hi) / 2;
+    if (m === lo || m === hi) break;
+    const t1 = Math.max(-fyd, Math.min(fyd, ES * ECU * (m - dp) / m)), t2 = Math.max(-fyd, Math.min(fyd, ES * ECU * (d - m) / m));
+    if (fc * Math.min(k1 * m, h) + AsYuz * t1 - AsYuz * t2 > Nn) hi = m; else lo = m;
+  }
+  const c = (lo + hi) / 2, a = Math.min(k1 * c, h), Cc = fc * a;
+  return Math.max(0, (Cc * (h / 2 - a / 2) + AsYuz * s1(c) * (h / 2 - dp) + AsYuz * s2(c) * (d - h / 2)) / 1e6);
 }
 // Kiriş kesitinin taşıma gücü momenti (tek donatılı), kNm
 export const kirisMr = (As, b, d, mz) => { const a = As * mz.fyd / (0.85 * mz.fcd * b); return As * mz.fyd * (d - a / 2) / 1e6; };
@@ -50,7 +53,7 @@ export function boyunaDonati(b, h, Nd, mz, gucluX, gucluY, bX = 1, bY = 1) {
   const Ac = b * h, dp = DP;
   const eX = 15 + 0.03 * b, eY = 15 + 0.03 * h;         // TS 500 6.3.10 (b: X doğrultusundaki boyut)
   // Güçlü kolon her düğümde: M_ra (alttaki kolon, N_alt) + M_rü (üstteki, N_üst); en küçüğü belirler (TBDY 7.3.5.1–2)
-  const gEn = (gl, MrN) => (gl?.dugum ?? []).reduce((m, [Na, Nu], i) => { const v = MrN(Na) + MrN(Nu); return v < m.v ? { v, i } : m; }, { v: Infinity, i: -1 });
+  const gEn = (gl, MrN) => (gl?.dugum ?? []).reduce((m, [Na, Nu], i) => { const a = MrN(Na), v = a + (Nu === Na ? a : MrN(Nu)); return v < m.v ? { v, i } : m; }, { v: Infinity, i: -1 }); // N_alt = N_üst: bir kez
   for (let As = 0.01 * Ac; As <= 0.04 * Ac + 1e-6; As += 0.0025 * Ac) {
     const adaylar = CAP.kolon.map(phi => kolonCubuk(As, { caplar: [phi] })).sort((x, y) => x.As - y.As); // en az çelik önce
     if (adaylar[0].As > 0.04 * Ac) return null;

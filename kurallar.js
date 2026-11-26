@@ -2,6 +2,7 @@
 // Öncelik: 1 Mart kararnamesi > TBDY 2018 > TS 500. TS 500 ile TBDY çakışırsa TBDY esas;
 // çakışmayan TS 500 koşulları (ör. Denk. 7.7) ayrıca uygulanır.
 // Birimler: boyut mm, kuvvet kN, alan m², yük kN/m², fck MPa (N/mm²).
+import { bicim } from './bicim.js';
 
 export const KOLON_ORAN_MAX = 1.5; // 1 Mart kararnamesi (TBDY Bölüm 7'de üst sınır yok; 17.4.1.1'deki ≤ 2 yalnız Bölüm 17 tasarımında)
 export const PERDE_ORAN_MIN = 6;   // TBDY 7.6.1.2 (TS 500 12.2'deki 7 yerine)
@@ -98,8 +99,7 @@ export function yukHesap({ alan, katSayisi, g, q, kullanim = 'konut', kDeprem = 
 
 // k yüzde olarak tam sayı tutulur (40, 35, 60): 0.35*45 gibi kayan nokta hatası sınırda yanlış sonuç veriyordu.
 const gerekliAlan = (N, fck, kYuzde) => (N * 1000 * 100) / (kYuzde * fck); // mm²
-const NF = {}; // Intl biçimleyici her çağrıda kurulursa hesap süresinin çoğunu yer: ondalık sayısına göre önbellek
-const tr = (x, d = 2) => (NF[d] ??= new Intl.NumberFormat('tr-TR', { maximumFractionDigits: d })).format(x);
+const tr = (x, d = 2) => bicim(x, d); // bicim.js: biçimleyici ve sonuç önbellekte
 
 export function sinifla(b, h) {
   const oran = Math.max(b, h) / Math.min(b, h);

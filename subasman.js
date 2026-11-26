@@ -34,8 +34,10 @@ export function subasmanBul(ag, g, olcu, normalPerdeler) {
     const { yon, no, k } = p, x = yon === 'x', koordinatlar = x ? ag.xs : ag.ys;
     const uc = u => ag.kolonlar[x ? no * (ag.nx + 1) + u : u * (ag.nx + 1) + no];
     const yonOlcusu = x ? 'b' : 'h';
-    const bas = koordinatlar[k] + olcu(uc(k))[yonOlcusu] / 2000;
-    const son = koordinatlar[k + 1] - olcu(uc(k + 1))[yonOlcusu] / 2000;
+    // Kolon düzeni: hat boyunca kaydırılan kolon gerçek yerinde; kaldırılan ya da hattan kaçan kolonda perde aksa dek sürer (ölçü 0)
+    const yer = u => { const c = uc(u), kay = x ? c.dx : c.dy, kac = c.sil || (x ? c.dy : c.dx);
+      return [kay ? (x ? c.x : c.y) : koordinatlar[u], kac ? 0 : olcu(c)[yonOlcusu] / 2000]; };
+    const [s0, y0] = yer(k), [s1, y1] = yer(k + 1), bas = s0 + y0, son = s1 - y1;
     const net = son - bas, gecerli = net > TOL, L = gecerli ? net : 0;
     const hacim = L * (bw / 1000) * (h / 1000), NG = hacim * GAMMA_BA, Nd = 1.4 * NG;
     const geometri = { ad: 'Net açıklık', deger: `${tr(net)} m`, sinir: 'Uçların yüzleri arasında açıklık > 0 m', kaynak: 'geometri', gecti: gecerli, kullanim: gecerli ? null : 2 };

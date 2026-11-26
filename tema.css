@@ -145,6 +145,11 @@ html { scrollbar-color: var(--kaydirac) var(--zemin); }
 .tema-sifirla { flex: none; height: 30px; padding: 0 .875rem; border-radius: 999px; border: 1px solid var(--cizgi-2); background: transparent; color: var(--murekkep); font: 600 .8125rem var(--yazi); cursor: pointer; transition: border-color var(--hizli); }
 .tema-sifirla:hover { border-color: var(--murekkep); }
 
+/* Üst çubuk dar masaüstünde tek satır kalsın: menü yazıları kırılmaz, alt başlık yer açmak için gizlenir */
+@media (min-width: 961px) { .ust nav a, .ust .dugme, .marka { white-space: nowrap; } } /* telefonda eski düzen */
+@media (min-width: 961px) and (max-width: 1240px) { .marka small { display: none; } }
+@media (min-width: 961px) and (max-width: 1600px) { html[data-olcek="110"] .marka small, html[data-olcek="120"] .marka small { display: none; } } /* büyük yazıda daha geniş ekranda da */
+@media (min-width: 961px) and (max-width: 1060px) { .ust nav { gap: 1rem; } }
 @media (max-width: 960px) {
   .ust .tema { margin-left: auto; }
   .ust .tema + .dugme { margin-left: 0; }

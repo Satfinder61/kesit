@@ -5,6 +5,11 @@
 /* Üst çubuk: Excel düğmesi tema düğmesiyle Yazdır arasında, aralıklar .75rem */
 .ust #excel { margin-right: -1.25rem; }
 @media (max-width: 960px) { .ust #excel + .dugme { margin-left: 0; } }
+/* Dar masaüstünde Excel düğmesi yalnız simge (menü kırılmasın; genel kurallar tema.css'te) */
+@media (min-width: 961px) and (max-width: 1120px) {
+  .ust #excel { width: 40px; padding: 0; justify-content: center; }
+  .ust #excel span { display: none; }
+}
 @media (max-width: 640px) {
   .ust #excel { margin: 0 -.5rem 0 -.25rem; width: 40px; padding: 0; justify-content: center; } /* telefonda yalnız simge; üç düğme tek satıra sığar */
   .ust #excel span { display: none; }

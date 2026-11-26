@@ -517,6 +517,10 @@ export function kitapKur(el, { yenile, secildi = () => {}, katDegisti = () => {}
   katAlan.hidden = true; katAlan.className = 'alan'; katAlan.textContent = 'Kat ';
   const katSecici = document.createElement('select'); katSecici.setAttribute('aria-label', 'Gösterilen kat'); katAlan.append(katSecici); el.kap.before(katAlan);
   katSecici.addEventListener('change', () => { k.kat = Number(katSecici.value); k.sonuc = katGorunumu(k.tumSonuc, k.kat); k.secili = null; katDegisti(); });
+  k.katSec = n => { // dışarıdan (3B görünümde tıklanan eleman) gösterilen katı değiştir
+    if (n === k.kat || !k.tumSonuc?.katlar?.some(x => x.kat === n)) return;
+    k.kat = n; katSecici.value = String(n); k.sonuc = katGorunumu(k.tumSonuc, n); k.secili = null; katDegisti();
+  };
   k.gorunur = () => gorunur(k.d, k.tumSonuc);
   k.aktif = () => SAYFALAR.find(s => s.ad === k.sayfaAd);
   // Girdi denetimi eşzamanlı (ucuz); motor işçide. Sonuç girdi anahtarıyla (JSON) saklanır: yanıt gelince yenile() aynı anahtarı bulur.

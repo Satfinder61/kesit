@@ -1,0 +1,60 @@
+/* 3B bina görünümü (bina3b.js): sira.html «Plan | 3B» ve bina.html. Renkler tema belirteçlerinden; çizim alanı plan levhasıyla aynı zemin. */
+.b3 { position: relative; overflow: hidden; background: var(--levha); color: var(--murekkep); font-family: var(--yazi); isolation: isolate; }
+.b3:fullscreen { width: 100vw; height: 100vh; }
+.b3-tuval { position: absolute; inset: 0; display: block; width: 100%; height: 100%; cursor: grab; outline: none; }
+.b3-tuval:active { cursor: grabbing; }
+.b3-tuval:focus-visible { box-shadow: inset 0 0 0 2px var(--turuncu); }
+.b3-tuval[hidden] { display: none; }
+
+.b3-ust { position: absolute; z-index: 2; top: .75rem; left: .75rem; right: .75rem; display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; pointer-events: none; }
+.b3-ust > * { pointer-events: auto; }
+.b3-ust[hidden], .b3-alt[hidden] { display: none; }
+.b3-dugme, .b3-alan { display: inline-flex; align-items: center; gap: .375rem; min-height: 32px; padding: 0 .875rem; border: 1px solid var(--cizgi-2); border-radius: 999px;
+  background: color-mix(in srgb, var(--panel) 90%, transparent); color: var(--murekkep); font: 600 .8125rem var(--yazi); white-space: nowrap; text-decoration: none; cursor: pointer;
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); transition: border-color var(--hizli, 180ms), background var(--hizli, 180ms); }
+.b3-dugme:hover, .b3-alan:hover { border-color: var(--murekkep); }
+.b3-dugme[aria-pressed="true"] { background: var(--turuncu); border-color: var(--turuncu); color: var(--turuncu-ustu, #140c08); }
+.b3-alan { padding-right: .375rem; cursor: default; }
+.b3-alan select { min-height: 26px; padding: 0 .25rem; border: 0; border-radius: 999px; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+.b3-alan select option { background: var(--panel); color: var(--murekkep); }
+
+.b3-akslar { position: absolute; z-index: 1; inset: 0; pointer-events: none; }
+.b3-balon { position: absolute; left: 0; top: 0; display: grid; place-items: center; width: 22px; height: 22px; border: 1px solid var(--soluk); border-radius: 50%;
+  background: var(--levha); color: var(--murekkep); font: 600 11px/1 var(--yazi); will-change: transform; }
+
+.b3-alt { position: absolute; z-index: 2; left: .75rem; bottom: .625rem; max-width: calc(100% - 1.5rem); display: grid; gap: .25rem; justify-items: start; pointer-events: none; font-size: .75rem; color: var(--soluk); }
+.b3-alt > * { margin: 0; padding: .1875rem .5rem; border-radius: var(--r, 3px); background: color-mix(in srgb, var(--levha) 82%, transparent); }
+.b3-lejant { display: flex; flex-wrap: wrap; gap: .25rem .875rem; }
+.b3-lejant i { display: inline-block; width: 14px; height: 8px; margin-right: .375rem; vertical-align: middle; border: 1px solid var(--soluk); }
+.b3-lejant .b3-tarali { border-color: var(--kirmizi); background: repeating-linear-gradient(45deg, var(--kirmizi) 0 2px, transparent 2px 4px); }
+.b3-sayac { color: var(--murekkep); font-weight: 600; font-variant-numeric: tabular-nums; }
+.b3-sayac.degil { color: var(--kirmizi); }
+.b3-sayac.degil::before { content: "✕ "; }
+.b3-sayac:not(.degil)::before { content: "✓ "; color: var(--nane); }
+
+.b3-kart { position: absolute; z-index: 3; top: 3.5rem; right: .75rem; width: min(330px, calc(100% - 1.5rem)); max-height: calc(100% - 4.5rem); overflow: auto; padding: .75rem 1rem .875rem;
+  border: 1px solid var(--cizgi-2); border-radius: var(--r, 3px); background: color-mix(in srgb, var(--panel) 95%, transparent); box-shadow: var(--acilir-golge, 0 16px 40px -12px rgb(0 0 0 / .6)); font-size: .8125rem; }
+.b3-kart[hidden] { display: none; }
+.b3-kart-bas { display: flex; align-items: center; gap: .625rem; }
+.b3-kart h3 { font-size: 1.0625rem; }
+.b3-durum { padding: .0625rem .5rem; border-radius: 999px; font-size: .75rem; font-weight: 600; }
+.b3-durum.uygun { color: var(--nane); background: color-mix(in srgb, var(--nane) 14%, transparent); }
+.b3-durum.degil { color: var(--kirmizi); background: color-mix(in srgb, var(--kirmizi) 14%, transparent); }
+.b3-kapat { margin-left: auto; width: 28px; height: 28px; border: 0; border-radius: 50%; background: transparent; color: var(--soluk); font-size: 1.25rem; line-height: 1; cursor: pointer; }
+.b3-kapat:hover { color: var(--murekkep); background: color-mix(in srgb, var(--murekkep) 8%, transparent); }
+.b3-kart-alt { margin: .125rem 0 .5rem; color: var(--soluk); }
+.b3-kart dl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: .25rem .75rem; margin: 0; }
+.b3-kart dt { color: var(--soluk); }
+.b3-kart dd { margin: 0; font-family: var(--olcu); font-size: .78rem; overflow-wrap: anywhere; }
+.b3-kosul { margin: .625rem 0 0; padding-top: .5rem; border-top: 1px solid var(--cizgi); }
+.b3-not { margin: .5rem 0 0; color: var(--soluk); font-size: .75rem; }
+
+.b3-yok { position: absolute; inset: 0; z-index: 4; display: grid; place-items: center; margin: 0; padding: 2rem; text-align: center; color: var(--soluk); }
+.b3-yok[hidden] { display: none; }
+
+@media (max-width: 640px) {
+  .b3-kart { top: auto; bottom: .5rem; left: .5rem; right: .5rem; width: auto; max-height: 48%; }
+  .b3-ipucu { display: none; }
+  .b3-ust { gap: .375rem; }
+}
+@media print { .b3 { display: none !important; } }

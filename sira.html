@@ -192,6 +192,13 @@ h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -.015em; text-wrap: ba
 #plan[data-yerlesim] :is(.kiris, .kolon):hover { stroke: var(--turuncu); stroke-width: 2; }
 #plan[data-yerlesim] .aks.aks-secili { stroke: var(--turuncu); stroke-width: 1.5; opacity: 1; }
 .lejant .l-perde { background: repeating-linear-gradient(45deg, var(--murekkep) 0 1.5px, transparent 1.5px 4px); }
+.gorunum { display: inline-flex; border: 1px solid var(--cizgi-2); border-radius: 999px; padding: 2px; }
+.gorunum button { min-height: 28px; padding: 0 .875rem; border: 0; border-radius: 999px; background: transparent; color: var(--soluk); font: 600 .8125rem var(--yazi); cursor: pointer; }
+.gorunum button:hover { color: var(--murekkep); }
+.gorunum button[aria-pressed="true"] { background: var(--murekkep); color: var(--zemin); }
+.plan-3b { height: clamp(380px, 64vh, 720px); border-top: 0; }
+@media screen { .plan[data-gorunum="3b"] :is(.plan-alan, .plan-araclar, .lejant, #yerlesim) { display: none !important; } }
+.baski-3b { display: none; }
 .plan-araclar { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; }
 .plan-araclar:not(:has(button:not([hidden]))) { display: none; }
 .perde-dugme { min-height: 32px; padding: 0 .875rem; border-radius: 999px; border: 1px solid var(--cizgi-2); background: transparent; color: var(--murekkep); font: 600 .8125rem var(--yazi); cursor: pointer; white-space: nowrap; transition: background var(--hizli), border-color var(--hizli); }
@@ -326,6 +333,10 @@ h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -.015em; text-wrap: ba
   .plan { border-color: #777; break-inside: avoid; }
   .plan-alan { background: #fff; }
   #plan { max-height: 120mm; }
+  .gorunum { display: none !important; }
+  .plan:has(.baski-3b:not([hidden])) { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); align-items: center; }
+  .plan:has(.baski-3b:not([hidden])) > :is(.bas, .notlar) { grid-column: 1 / -1; }
+  .baski-3b:not([hidden]) { display: block; width: 100%; max-height: 120mm; object-fit: contain; }
   #plan .kiris { fill: #ddd; stroke: #111; }
   #plan .kolon { fill: #111; }
   #plan .subasman { fill: #ddd; stroke: #111; }
@@ -343,6 +354,7 @@ h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -.015em; text-wrap: ba
 @media (prefers-reduced-motion: no-preference) { @view-transition { navigation: auto; } }
 </style>
 <link rel="stylesheet" href="calisma.css">
+<link rel="stylesheet" href="bina3b.css">
 <link rel="stylesheet" href="gecis.css">
 <link rel="stylesheet" href="tema.css">
 <script type="module" src="tema.js"></script>
@@ -357,6 +369,7 @@ h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -.015em; text-wrap: ba
     <a href="sira.html" aria-current="page">Döşemeden temele</a>
     <a href="hesap.html">Kolon / perde</a>
     <a href="tablo.html">Tablo</a>
+    <a href="bina.html">3B Bina</a>
     <a href="hesap.html#kurallar">Kurallar</a>
   </nav>
   <button class="dugme" type="button" id="excel" aria-label="Excel'e aktar" title="Girdiler, bütün sayfalar ve koşullar .xlsx olarak">
@@ -476,6 +489,7 @@ h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -.015em; text-wrap: ba
     <div id="hata" class="hata-kutu" role="alert" hidden></div>
     <div class="plan">
       <div class="bas"><h2 id="plan-baslik">Kat planı</h2>
+        <div class="gorunum" role="group" aria-label="Görünüm"><button type="button" data-gorunum="plan" aria-pressed="true">Plan</button><button type="button" data-gorunum="3b" aria-pressed="false">3B</button></div>
         <div class="plan-araclar">
           <button type="button" class="perde-dugme" id="yerlesim-dugme" aria-expanded="false" aria-controls="yerlesim" hidden>Yerleşimi düzenle</button>
           <button type="button" class="perde-dugme" id="perde-dugme" aria-pressed="false" title="Açıklığa tıkla: perde ekle ya da kaldır (Esc: bitir). Alt/Shift + tık her zaman çalışır." hidden>Perde ekle/kaldır</button>
@@ -507,6 +521,8 @@ h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -.015em; text-wrap: ba
         <p class="ipucu" id="yerlesim-hata" role="alert" hidden></p>
       </form>
       <div class="plan-alan"><svg id="plan" role="img" aria-labelledby="plan-baslik"></svg></div>
+      <div class="plan-3b" id="bina3b" hidden></div>
+      <img class="baski-3b" id="baski-3b" alt="Binanın 3B görünümü" hidden>
       <ul class="notlar" id="notlar"></ul>
     </div>
 

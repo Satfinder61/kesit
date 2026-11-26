@@ -28,7 +28,7 @@ let yerlesimImza = '', tekImza = '';
 const sayfa = $('#sayfa');
 const K = kitapKur({ sayfa, kap: $('.kap'), sekmeler: [$('.sekmeler-alt')], ad: $('#ad-kutusu'), formul: $('#formul'), durumSol: $('#durum-sol'), durumSag: $('#durum-sag'),
   ayrinti: $('#ayrinti'), ayrintiBaslik: $('#ayrinti-baslik'), ayrintiNot: $('#ayrinti-not'), iz: $('#iz') },
-  { yenile: () => hesapla(), secildi: () => planSecim(), katDegisti: () => { ozetCiz(); ciz(); }, girdiYazildi: (k, ek) => formaYaz([k, ...ek]) });
+  { yenile: () => hesapla(), secildi: () => { planSecim(); b3Sec(); }, katDegisti: () => { ozetCiz(); ciz(); }, girdiYazildi: (k, ek) => formaYaz([k, ...ek]) });
 K.sayfaAd = 'doseme';
 
 const aciklikAnahtar = a => `${a.yon}:${a.no}:${a.k}`;
@@ -53,7 +53,7 @@ function hesapla() {
   if (!K.gorunur().some(s => s.ad === K.sayfaAd)) { // ör. Kiriş adımındayken kirişsiz seçildi: aynı adımın başka sayfası, yoksa döşeme
     K.sayfaAd = K.gorunur().find(s => s.adim === adim)?.ad ?? 'doseme'; adim = K.aktif().adim ?? adim; adimCiz();
   }
-  ozetCiz(); ciz();
+  ozetCiz(); ciz(); b3Ciz();
 }
 function adimCiz() {
   for (const b of document.querySelectorAll('.adimlar [data-adim]')) {
@@ -75,7 +75,57 @@ function adimCiz() {
   ipucu.hidden = !perdeMod && !subasmanMod;
   ipucu.textContent = 'Açıklığa tıkla · Esc bitir';
 }
-const ciz = () => { $('#plan-baslik').textContent = `${K.sonuc?.aktifKat && adim !== 'temel' ? `${K.sonuc.aktifKat}. kat · ` : ''}${PLAN_BASLIK[adim]}`; K.sekmeCiz(); yerlesimCiz(); planCiz(); K.sayfaCiz(); K.durumCiz(); K.secimCiz(); };
+const baslikYaz = (plan = gorunum !== '3b') => { $('#plan-baslik').textContent = plan ? `${K.sonuc?.aktifKat && adim !== 'temel' ? `${K.sonuc.aktifKat}. kat · ` : ''}${PLAN_BASLIK[adim]}` : '3B görünüm · bütün bina'; }; // baskıda hep plan
+const ciz = () => { baslikYaz(); K.sekmeCiz(); yerlesimCiz(); planCiz(); K.sayfaCiz(); K.durumCiz(); K.secimCiz(); };
+
+// ── 3B görünüm (bina3b.js, three.js ile; yalnız 3B seçilince yüklenir). Seçim tabloyla iki yönlü: tablo satırı → 3B vurgu, 3B tık → sayfa ve satır.
+// Sonuç ve girdi eşleşsin diye girdi sonucun anahtarından (K.anahtar) okunur; işçi hesaplarken eski sonuç kalır.
+let gorunum = 'plan', b3 = null, b3Mod = null, b3Kur = null, b3Son, b3Yanki = false; // b3Yanki: 3B tıklaması sayfaya işlenirken tablo seçimi 3B'ye geri yansımasın
+const b3Kap = $('#bina3b');
+const b3Yukle = async () => b3Mod ??= await import('./bina3b.js');
+const b3Ad = ad => !ad ? null : /^[ZT]\d/.test(ad) ? 'S' + ad.slice(1) : /^RP\d/.test(ad) ? ad.slice(1) : /^R[XY]/.test(ad) ? 'Radye' : ad;
+function b3Sec() { // katlıda kat: temel elemanları (radye, su basman) 0. katta; radye zımbalama (T) ve radye perde (RP) satırları zemin katın kolonu/perdesi
+  if (!b3 || gorunum !== '3b' || b3Yanki) return;
+  const ad = b3Ad(K.secili), kat = !K.tumSonuc?.katlar?.length || !ad ? null : ad === 'Radye' || /^SB\d/.test(ad) ? 0 : /^(T|RP)\d/.test(K.secili) ? 1 : K.kat;
+  b3.sec(ad, kat);
+}
+function b3Ciz() {
+  if (!b3 || gorunum !== '3b' || K.hesapta) return;
+  if (!K.tumSonuc) { b3Son = null; b3.hata(Object.keys(K.hata).length ? 'Girdi hatası: 3B görünüm için önce girdileri düzelt.' : 'Hesap bekleniyor…'); return; }
+  if (b3Son !== K.tumSonuc) { b3Son = K.tumSonuc; b3.guncelle(K.tumSonuc, JSON.parse(K.anahtar)); }
+  b3Sec();
+}
+async function b3Secildi(s) { // 3B'de tıklanan eleman: katlıda kat, sonra sayfa ve satır (plan tıklamasıyla aynı yol)
+  if (!s) return;
+  const sf = /^SB\d/.test(s.ad) ? 'subasman' : s.ad === 'Radye' ? 'radye' : ONEK[s.ad[0]];
+  if (!sf || !K.gorunur().some(x => x.ad === sf)) return;
+  b3Yanki = true;
+  try {
+    if (s.kat && K.tumSonuc?.katlar?.length) K.katSec(s.kat);
+    if (sf !== K.sayfaAd) await sayfaSec(sf, s.ad); else { K.secili = s.ad; K.secimCiz(); K.satiraKaydir(); }
+  } finally { b3Yanki = false; }
+}
+async function gorunumSec(g) {
+  gorunum = g; $('.plan').dataset.gorunum = g; b3Kap.hidden = g !== '3b';
+  for (const b of document.querySelectorAll('.gorunum [data-gorunum]')) b.setAttribute('aria-pressed', b.dataset.gorunum === g);
+  if (g === '3b') {
+    if (yerlesimMod) yerlesimKipi(false); if (perdeMod) perdeKipi(false); if (subasmanMod) subasmanKipi(false);
+    b3 ??= await (b3Kur ??= b3Yukle().then(m => { // modül yüklenirken yeniden 3B'ye geçilirse ikinci kez kurulmasın
+      const sunum = Object.assign(document.createElement('a'), { className: 'b3-dugme', href: 'bina.html', target: '_blank', rel: 'noopener', textContent: 'Sunumda aç ↗' });
+      return m.kur(b3Kap, { secildi: b3Secildi, ekDugmeler: [sunum] });
+    }));
+    if (gorunum === '3b') b3Ciz();
+  }
+  ciz();
+}
+$('.gorunum').addEventListener('click', e => { const b = e.target.closest('[data-gorunum]'); if (b && b.dataset.gorunum !== gorunum) gorunumSec(b.dataset.gorunum); });
+// Yazdırma resmi: planın yanında sabit açıdan 3B (modül yüklüyse; Yazdır düğmesi yükler). Aynı sonuç için bir kez çizilir.
+let resimSonuc;
+function baskiResmi() {
+  const img = $('#baski-3b');
+  if (!b3Mod || !K.tumSonuc) { img.hidden = true; return; }
+  if (resimSonuc !== K.tumSonuc) { resimSonuc = K.tumSonuc; const url = b3Mod.binaResmi(K.tumSonuc, JSON.parse(K.anahtar)); img.hidden = !url; if (url) img.src = url; }
+}
 
 function ozetCiz() {
   const sonuc = K.sonuc;
@@ -474,7 +524,7 @@ f.addEventListener('change', e => { if (!e.target.name) return; const ek = girdi
 // Başka sekmede (Tablo sayfası) aynı proje değişince
 addEventListener('storage', e => { if (e.key === ANAHTAR) { K.d = durumYukle(undefined, false); formaYaz(); K.simdi(); } });
 
-$('#yazdir').addEventListener('click', async () => { await K.hazir(); print(); }); // hesap sürüyorsa önce sonuç
+$('#yazdir').addEventListener('click', async () => { await K.hazir(); await b3Yukle().catch(() => null); baskiResmi(); print(); }); // hesap sürüyorsa önce sonuç; 3B resim için modül
 // Excel'e aktar: düzenlenen hücre ve bekleyen hesap önce işlenir (işçideki hesap beklenir)
 $('#excel').addEventListener('click', async () => { if (sayfa.contains(document.activeElement) || f.contains(document.activeElement)) document.activeElement.blur(); await K.hazir(); excelIndir(K.d, K.tumSonuc); });
 addEventListener('beforeprint', () => {
@@ -483,11 +533,13 @@ addEventListener('beforeprint', () => {
   document.querySelectorAll('#plan .secili, #plan .aks-secili').forEach(x => x.classList.remove('secili', 'aks-secili')); // raporda seçim vurgusu olmasın (afterprint → planOlc geri koyar)
   $('#tarih').textContent = new Date().toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
   $('#girdi-ozet').innerHTML = girdiOzet(K.d, K.sonuc);
+  baslikYaz(true); // 3B açıkken de çıktıda 2B plan var
+  baskiResmi(); // tarayıcı menüsünden yazdırmada 3B modülü yüklenmemişse resim yok (ponytail: Yazdır düğmesi yükler)
   $('#baski').innerHTML = K.sonuc ? K.gorunur().filter(s => !s.girdi).map((s, i) => `<section class="baski-sayfa"><h2>${i + 1}. ${s.baslik}${K.sonuc.aktifKat && s.adim !== 'temel' ? ` · ${K.sonuc.aktifKat}. kat` : ''}</h2>${tabloHtml(s, K.sonuc, K.d, true)}</section>`).join('') : '';
 });
 
 const planOlc = () => { planCiz(); K.secimCiz(); }; // plan ekrandaki genişliğe göre çizilir
-addEventListener('afterprint', planOlc);
+addEventListener('afterprint', () => { planOlc(); baslikYaz(); });
 new ResizeObserver(planOlc).observe($('.plan-alan'));
 formaYaz();
 hesapla();

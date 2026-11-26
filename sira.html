@@ -174,6 +174,12 @@ h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -.015em; text-wrap: ba
 /* Perde: taralı dikdörtgen (kirişten ve dolu kolondan ayrı); renkler tema belirteçleriyle */
 #plan .perde { fill: url(#tarama); stroke: var(--murekkep); stroke-width: 1; cursor: pointer; }
 #plan .perde.degil { fill: url(#tarama-k); stroke: var(--kirmizi); }
+#plan .subasman { fill: color-mix(in srgb, var(--turuncu) 30%, var(--levha)); stroke: var(--turuncu); stroke-width: 1.5; stroke-dasharray: 4 2; cursor: pointer; }
+#plan .subasman.degil { stroke: var(--kirmizi); }
+#plan .aciklik.engelli { cursor: not-allowed; }
+#plan .aciklik.engelli:hover { fill: color-mix(in srgb, var(--kirmizi) 25%, transparent); }
+#plan[data-perde] .subasman { pointer-events: none; }
+.lejant .l-subasman { background: transparent; border: 1px dashed var(--turuncu); }
 #plan .tarama rect { fill: var(--levha); }
 #plan .tarama line { stroke: var(--murekkep); stroke-width: 1.5; }
 #plan .tarama.k line { stroke: var(--kirmizi); }
@@ -181,13 +187,25 @@ h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -.015em; text-wrap: ba
 #plan .aciklik:hover { fill: color-mix(in srgb, var(--turuncu) 30%, transparent); }
 #plan .aciklik.var { cursor: not-allowed; }
 #plan .aciklik.var:hover { fill: color-mix(in srgb, var(--kirmizi) 30%, transparent); }
-#plan[data-perde] :is(.pano, .kiris, .kolon, .perde) { pointer-events: none; }
+#plan[data-perde] :is(.pano, .kiris, .kolon, .perde),
+#plan[data-yerlesim] :is(.pano, .perde) { pointer-events: none; }
+#plan[data-yerlesim] :is(.kiris, .kolon):hover { stroke: var(--turuncu); stroke-width: 2; }
+#plan[data-yerlesim] .aks.aks-secili { stroke: var(--turuncu); stroke-width: 1.5; opacity: 1; }
 .lejant .l-perde { background: repeating-linear-gradient(45deg, var(--murekkep) 0 1.5px, transparent 1.5px 4px); }
-.perde-dugme { height: 30px; padding: 0 .875rem; margin-right: auto; border-radius: 999px; border: 1px solid var(--cizgi-2); background: transparent; color: var(--murekkep); font: 600 .8125rem var(--yazi); cursor: pointer; white-space: nowrap; transition: background var(--hizli), border-color var(--hizli); }
+.plan-araclar { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; }
+.plan-araclar:not(:has(button:not([hidden]))) { display: none; }
+.perde-dugme { min-height: 32px; padding: 0 .875rem; border-radius: 999px; border: 1px solid var(--cizgi-2); background: transparent; color: var(--murekkep); font: 600 .8125rem var(--yazi); cursor: pointer; white-space: nowrap; transition: background var(--hizli), border-color var(--hizli); }
 .perde-dugme:hover { border-color: var(--murekkep); }
-.perde-dugme[aria-pressed="true"] { margin-right: 0; background: var(--turuncu); border-color: var(--turuncu); color: var(--turuncu-ustu, #140c08); }
+.perde-dugme:is([aria-pressed="true"], [aria-expanded="true"]) { background: var(--turuncu); border-color: var(--turuncu); color: var(--turuncu-ustu, #140c08); }
 .perde-dugme[hidden], .perde-ipucu[hidden] { display: none; }
-.perde-ipucu { margin-right: auto; font-size: .75rem; color: var(--turuncu); }
+.perde-ipucu { font-size: .75rem; color: var(--turuncu); }
+#yerlesim { padding: .75rem 1.25rem; border-bottom: 1px solid var(--cizgi); }
+#yerlesim > .ipucu:first-child { margin: 0 0 .75rem; }
+.yerlesim-satir { display: flex; flex-wrap: wrap; align-items: end; gap: .625rem; }
+.yerlesim-satir > .alan { flex: 1 1 7rem; min-width: 0; }
+.yerlesim-satir > .alan:first-child { flex-basis: 13rem; }
+#yerlesim-hata { color: var(--kirmizi); }
+#yerlesim-uygula:disabled { opacity: .45; cursor: not-allowed; }
 
 /* Çalışma kitabı (Excel tarzı) */
 .kitap { border: 1px solid var(--cizgi-2); border-radius: var(--r); background: var(--panel); overflow: hidden; }
@@ -277,7 +295,7 @@ h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -.015em; text-wrap: ba
   @page { size: A4 landscape; margin: 10mm 12mm; }
   :root { color-scheme: light; --zemin: #fff; --panel: #fff; --alan: #fff; --levha: #fff; --murekkep: #111; --soluk: #555; --cizgi: #bbb; --cizgi-2: #777; --nane: #111; --kirmizi: #111; --turuncu: #111; }
   body { font-size: 9pt; }
-  .ust, .baslik, .adimlar, .giris, .kitap, .ayrinti, .plan .bas .lejant, .perde-dugme, .perde-ipucu { display: none !important; }
+  .ust, .baslik, .adimlar, .giris, .kitap, .ayrinti, .plan .bas .lejant, .plan-araclar, #yerlesim { display: none !important; }
   .yalniz-baski { display: block; }
   .rapor-bas { display: flex; justify-content: space-between; align-items: baseline; gap: 6mm; padding-bottom: 2.5mm; border-bottom: 1.5pt solid #111; margin-bottom: 2.5mm; }
   .rapor-bas h1 { font-size: 14pt; }
@@ -289,6 +307,7 @@ h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -.015em; text-wrap: ba
   #plan { max-height: 120mm; }
   #plan .kiris { fill: #ddd; stroke: #111; }
   #plan .kolon { fill: #111; }
+  #plan .subasman { fill: #ddd; stroke: #111; }
   .baski-sayfa { margin-top: 5mm; }
   .baski-sayfa h2 { font-size: 11pt; margin: 0 0 2mm; break-after: avoid; }
   .baski-sayfa table { width: 100%; border-collapse: collapse; font-size: 7.5pt; }
@@ -364,9 +383,18 @@ h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -.015em; text-wrap: ba
       <legend>Perdeler</legend>
       <label class="alan">Perdeli açıklıklar <span class="kutu"><input name="perdeler" type="text" spellcheck="false" placeholder="A/1–2; 3/A–B" aria-describedby="perde-ipucu"></span></label>
       <label class="alan"><span>Perde kalınlığı b<sub>w</sub></span> <span class="kutu"><input name="perdeKal" type="text" inputmode="decimal" value="250"><span>mm</span></span></label>
-      <p class="ipucu" id="perde-ipucu">Aks / açıklık yaz: <span class="olcu">A/1–2</span> A aksında 1–2 arası, <span class="olcu">3/A–B</span> 3 aksında A–B arası; noktalı virgülle ayır. Ya da planda <b>Perde ekle/kaldır</b> ile açıklığa tıkla (Alt/Shift + tık da olur). Perde açıklığı eksenden eksene kaplar, uç kolonları uç bölgesi olur; kalınlık TBDY 7.6.1'i sağlayana dek büyür.</p>
+      <p class="ipucu" id="perde-ipucu">Aks / açıklık yaz: <span class="olcu">A/1–2</span> A aksında 1–2 arası, <span class="olcu">3/A–B</span> 3 aksında A–B arası; noktalı virgülle ayır. Ya da planda <b>Perde ekle/kaldır</b> ile açıklığa tıkla (Alt/Shift + tık da olur). Otomatik perde açıklığı kaplar. Perde sekmesinde ℓw hücresine toplam uzunluğu mm olarak yazabilirsin. Kısa perde açıklığın ortasına yerleşir.</p>
       <label class="secim"><input name="yanalTutulu" type="checkbox"> <span>Yanal ötelenme önlenmiş say (plana çizilmeyen perdeler var)</span></label>
       <p class="ipucu">Kolon narinliğinde yanal ötelenme her doğrultuda o doğrultudaki perdelerin rijitliğinden denetlenir (TS 500 7.6.2.1, Denk. 7.13 φ ≤ 0,05). Kutu işaretliyse iki doğrultuda da önlenmiş sayılır.</p>
+    </fieldset>
+    <fieldset class="grup">
+      <legend>Su basman perdeleri</legend>
+      <label class="alan">Su basman açıklıkları <span class="kutu"><input name="subasman" type="text" spellcheck="false" placeholder="A/1–2; 3/A–B" aria-describedby="subasman-ipucu"></span></label>
+      <div class="satir">
+        <label class="alan">Perde yüksekliği <span class="kutu"><input name="subasmanH" type="text" inputmode="decimal" value="900"><span>mm</span></span></label>
+        <label class="alan">Perde kalınlığı <span class="kutu"><input name="subasmanBw" type="text" inputmode="decimal" value="200"><span>mm</span></span></label>
+      </div>
+      <p class="ipucu" id="subasman-ipucu">Açıklıkları yazabilir veya Temel planından seçebilirsin. Ölçüler tüm su basman perdelerine uygulanır. Kolonlar ve kirişler korunur. Radyeye perde öz ağırlığı eklenir.</p>
     </fieldset>
     <fieldset class="grup">
       <legend>Malzeme</legend>
@@ -427,9 +455,24 @@ h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -.015em; text-wrap: ba
     <div id="hata" class="hata-kutu" role="alert" hidden></div>
     <div class="plan">
       <div class="bas"><h2 id="plan-baslik">Kat planı</h2>
-        <button type="button" class="perde-dugme" id="perde-dugme" aria-pressed="false" title="Açıklığa tıkla: perde ekle ya da kaldır (Esc: bitir). Alt/Shift + tık her zaman çalışır." hidden>Perde ekle/kaldır</button>
-        <span class="perde-ipucu" id="perde-mod-ipucu" hidden>Açıklığa tıkla · Esc bitir</span>
-        <div class="lejant"><span><i></i>Kiriş</span><span id="lejant-perde" hidden><i class="l-perde"></i>Perde</span><span><i class="l-degil"></i>Uygun değil</span><span><i class="l-secili"></i>Seçili</span></div></div>
+        <div class="plan-araclar">
+          <button type="button" class="perde-dugme" id="yerlesim-dugme" aria-expanded="false" aria-controls="yerlesim" hidden>Yerleşimi düzenle</button>
+          <button type="button" class="perde-dugme" id="perde-dugme" aria-pressed="false" title="Açıklığa tıkla: perde ekle ya da kaldır (Esc: bitir). Alt/Shift + tık her zaman çalışır." hidden>Perde ekle/kaldır</button>
+          <button type="button" class="perde-dugme" id="subasman-dugme" aria-pressed="false" hidden>Su basman ekle/kaldır</button>
+          <span class="perde-ipucu" id="perde-mod-ipucu" role="status" hidden>Açıklığa tıkla · Esc bitir</span>
+        </div>
+        <div class="lejant"><span><i></i>Kiriş</span><span id="lejant-perde" hidden><i class="l-perde"></i>Perde</span><span id="lejant-subasman" hidden><i class="l-subasman"></i>Su basman</span><span><i class="l-degil"></i>Uygun değil</span><span><i class="l-secili"></i>Seçili</span></div></div>
+      <form id="yerlesim" aria-label="Yerleşimi düzenle" hidden>
+        <p class="ipucu">Planda veya listede bir kolon ya da kiriş seç. Aks üzerindeki bağlı elemanlar tüm katlarda birlikte taşınır.</p>
+        <div class="yerlesim-satir">
+          <label class="alan">Eleman <select id="yerlesim-eleman"></select></label>
+          <label class="alan" id="yerlesim-x-alan">X kaydırma <span class="kutu"><input id="yerlesim-x" type="text" inputmode="decimal" value="0" aria-describedby="yerlesim-bilgi"><span>m</span></span></label>
+          <label class="alan" id="yerlesim-y-alan">Y kaydırma <span class="kutu"><input id="yerlesim-y" type="text" inputmode="decimal" value="0" aria-describedby="yerlesim-bilgi"><span>m</span></span></label>
+          <button type="submit" class="dugme ana" id="yerlesim-uygula">Uygula</button>
+        </div>
+        <p class="ipucu" id="yerlesim-bilgi" role="status"></p>
+        <p class="ipucu" id="yerlesim-hata" role="alert" hidden></p>
+      </form>
       <div class="plan-alan"><svg id="plan" role="img" aria-labelledby="plan-baslik"></svg></div>
       <ul class="notlar" id="notlar"></ul>
     </div>

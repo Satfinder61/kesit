@@ -1,6 +1,8 @@
 // Çalıştır: node hesap/zincir.test.mjs
 import assert from 'node:assert/strict';
-import { surekliKiris, kenarParcasi, parcaToplam, parcaAnkastre, agKur, zarf, desenler, zincirHesap, girdiDenetle } from './zincir.js';
+import { surekliKiris, kenarParcasi, parcaToplam, parcaAnkastre, agKur, zarf, desenler, zincirHesap, girdiDenetle, malzeme } from './zincir.js';
+
+import { kirisBul } from './kiris.js';
 
 const yakin = (a, b, tol = 1e-3) => assert.ok(Math.abs(a - b) <= tol * Math.max(1, Math.abs(b)), `${a} ≠ ${b}`);
 const duz = w => ({ w, a: 0 });
@@ -32,6 +34,7 @@ for (const [v, beklenen] of [[z[0].MdSolUst, 0], [z[0].MdSagUst, 50], [z[1].MdSo
 const zUclar = zarf([4, 4, 4], [[], [], []], [[duz(10)], [], []]);
 yakin(zUclar[1].MdSolUst, 1.6 * 32 / 3); yakin(zUclar[1].MdSagAlt, 1.6 * 8 / 3);
 yakin(zUclar[2].MdSolAlt, zUclar[1].MdSagAlt);
+yakin(zUclar[1].MdOrtaUst, 6.4); // yüksüz açıklıkta ortadaki moment, iki ucun aritmetik ortalaması
 const zAnk = zarf([5], [[duz(10)]], [[]], [true, true]);
 yakin(zAnk[0].MdSolUst, 1.4 * 10 * 25 / 12); yakin(zAnk[0].MdSagUst, zAnk[0].MdSolUst);
 assert.deepEqual(desenler(4).slice(3), [[true, true, false, true], [false, true, true, false], [true, false, true, true]]);
@@ -98,6 +101,30 @@ for (const [b, h, major, minor] of [[300, 350, '2φ16/yüz (kısa yüz)', '3φ16
 for (const e of zr.kirisler) yakin(e.sehim.sinir, e.ln * 1000 / 480);
 // Kirişte donatı ≥ en küçük oran; mesnet altı ≥ 0,5·üst (TBDY 7.4.2)
 for (const e of zr.kirisler) assert.ok(e.AsAlt >= 0.5 * e.AsUst - 1e-6 && e.AsUst >= 0.8 * (0.35 * Math.sqrt(30) / 1.5) / (420 / 1.15) * e.b * (e.h - 75) - 1e-6);
+// Asimetrik mesnette ilaveler yalnız gerektiği uçta; moment ortada tersine dönerse sürekli üst donatı karşılar.
+const detayKiris = (ax, h = 450, b = 300) => kirisBul(agKur(ax, [5]), G0, malzeme(30, 420),
+  { h: 120, gAlan: 5, qAlan: 2 }, () => ({ b: 350, h: 350 }), { ozel: { A: { b, h } } })
+  .kirisler.find(e => e.hat === 0 && e.L === Math.min(...ax));
+const as = metin => {
+  if (metin === 0) return 0;
+  const [, n, phi] = String(metin).match(/^(\d+)φ(\d+)/);
+  return Number(n) * alan(Number(phi));
+};
+const sagEk = detayKiris([2, 7]), solEk = detayKiris([7, 2]);
+assert.deepEqual([sagEk.solUstEk, sagEk.solAltEk, solEk.sagUstEk, solEk.sagAltEk], [0, 0, 0, 0]);
+assert.match(sagEk.sagUstEk, /^[1-9]\d*φ/);
+assert.match(sagEk.sagAltEk, /^[1-9]\d*φ/);
+assert.deepEqual([solEk.solUstEk, solEk.solAltEk, solEk.govde], [sagEk.sagUstEk, sagEk.sagAltEk, sagEk.govde]);
+assert.equal(sagEk.orta, `${sagEk.montaj} / ${sagEk.duz}`);
+const mesnetUst = as(sagEk.montaj) + as(sagEk.sagUstEk), mesnetAlt = as(sagEk.duz) + as(sagEk.sagAltEk);
+assert.ok(mesnetAlt >= mesnetUst / 2 && as(sagEk.montaj) >= mesnetUst / 4);
+assert.match(sagEk.govde, /^[1-9]\d*φ(?:12|14|16)\/yüz$/);
+assert.ok(2 * as(sagEk.govde) >= 0.30 * (mesnetUst + mesnetAlt));
+assert.equal(detayKiris([4, 5]).govde, 0);
+assert.ok(2 * as(detayKiris([5], 750).govde) >= 0.001 * 300 * (750 - 50)); // TS 500 tek başına devrede
+const yuksekKiris = detayKiris([1], 650);
+assert.equal(yuksekKiris.govde, 'Özel hesap gerekli'); assert.equal(yuksekKiris.gecti, false);
+assert.equal(detayKiris([2, 7], 450, 200).sagUstEk, 'Sığmıyor');
 // Kalkma uyarısı: G altında pozitif, 1,4G + 1,6Q (yalnız uzun açıklık yüklü) altında negatif uç tepki
 assert.ok(zincirHesap({ ...G0, ax: [4.2, 8], ay: [5] }).notlar.some(n => n.includes('kalkıyor')));
 const kisa = zincirHesap({ ...G0, ax: [2, 8], ay: [5] });
@@ -114,7 +141,7 @@ const r104 = zincirHesap({ ...G0, dosemeTuru: 'kaset', disGen: 104 });
 assert.ok(r104.dosemeler.every(d => d.h === r104.h && !d.maddeler.find(m => m.ad === 'Diş genişliği').gecti));
 // F1 — TS 500 9.5.2: kolon boyuna çubukları yüze tek sırada sığar (net ≥ max(1,5φ; 40 mm)); 8 m açıklıkta 66φ14 sığmıyordu.
 // %1 bile sığmayan kesitte büyüme durur (sınırsız büyüme yok).
-import { kolonYuzMax } from './donati.js';
+import { alan, kolonYuzMax } from './donati.js';
 import { boyunaDonati } from './kolon.js';
 for (const c of zincirHesap({ ...G0, katSayisi: 3, ax: [8, 8, 8], ay: [8, 8] }).kolonlar) {
   const [n, phi] = c.boyuna.split('φ').map(Number);

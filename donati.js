@@ -48,13 +48,13 @@ export function dosemeCubuk(As, sMax, { caplar = CAP.doseme, sAlt = 100 } = {}) 
 export const sKod = (phi, dmax = 22) => Math.ceil((phi + Math.max(25, phi, 4 / 3 * dmax)) / 10 - 1e-9) * 10;
 
 // Kiriş: gereken As için tek sırada sığan, en az çelik veren çap/adet (en az 2 çubuk, TBDY 7.4.2.2).
-// Sığma: 2·(örtü + etriye) + n·φ + (n − 1)·max(25, φ) ≤ bw (TS 500 9.5.2 net aralık ≥ 25 mm ve ≥ φ).
+// Sığma: 2·(örtü + etriye) + n·φ + (n − 1)·max(net, φ) ≤ bw (net: kullanılan asgari net aralık).
 // Seçim: sığan düzenlerden en az çeliği verenin %10 yakınındakiler arasında en az çubuklu olanı (uygulamada az çubuk tercih edilir).
-// sira: 2 ise çubuklar iki sıraya bölünür (sıra başına ⌈n/2⌉; TS 500 9.5.2 sıralar arası net ≥ 25 mm, aynı düşey eksende).
-export function kirisCubuk(As, bw, { caplar = CAP.kiris, ortu = 25, etriye = 8, enAz = 2, sira = 1 } = {}) {
+// sira: 2 ise çubuklar iki sıraya bölünür (sıra başına ⌈n/2⌉; TS 500 9.5.2 sıralar arası asgari net aralık ve aynı düşey eksende).
+export function kirisCubuk(As, bw, { caplar = CAP.kiris, ortu = 25, etriye = 8, enAz = 2, sira = 1, net = 25 } = {}) {
   const adaylar = caplar.map(phi => {
     const n = Math.max(enAz, Math.ceil(As / alan(phi) - 1e-9)), m = Math.ceil(n / sira);
-    return { n, phi, sira, As: n * alan(phi), sigar: 2 * (ortu + etriye) + m * phi + (m - 1) * Math.max(25, phi) <= bw };
+    return { n, phi, sira, As: n * alan(phi), sigar: 2 * (ortu + etriye) + m * phi + (m - 1) * Math.max(net, phi) <= bw };
   });
   const sigan = adaylar.filter(a => a.sigar);
   if (!sigan.length) return { ...adaylar.at(-1), sigar: false };

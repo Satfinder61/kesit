@@ -3,6 +3,7 @@
 // Perde bir aks çizgisinde bir ya da ardışık açıklıkları eksenden eksene kaplar; uç düğümlerdeki kolonlar perdenin uç bölgesi olur
 // (kolon olarak ayrıca tasarlanmaz), aradaki düğümler gövdeye katılır. ℓw = eksen boyu + bw: uçlar aks dışına bw/2 taşar (dik
 // doğrultudaki aynı kalınlıklı perde ya da kirişle yüz yüze; TBDY ℓw'yi 'perdenin plandaki uzunluğu' diye tanımlar).
+// Elle ℓw, seçilen açıklığın ortasına yerleşir. Akslara ulaşmayan perde mevcut mesnetleri değiştirmez.
 // Deprem kuvvetleri (M_d, V_e; TBDY 7.6.6), göreli kat ötelemesi (4.9.1) ve burulma düzensizliği (3.6.2.1) deprem çözümlemesi ister.
 import { kontrol } from './kurallar.js';
 import { alan, CAP, dosemeCubuk, kolonYuzMax } from './donati.js';
@@ -64,21 +65,61 @@ export const perdeDisari = (liste, nx, ny) => liste.filter(p => p.yon === 'x' ? 
 // Aralık içinde kalan açıklıklar (aks sayısı değişince girdi kırpılır)
 export const perdeKirp = (liste, nx, ny) => perdeBirlestir(perdeAciklik(liste).filter(a => a.yon === 'x' ? a.no <= ny && a.k <= nx - 1 : a.no <= nx && a.k <= ny - 1));
 
+export const PERDE_BOY_SINIR = [150, 181500]; // mm, en çok 12 × 15 m açıklık + 1.500 mm
+const perdeEksenBoy = (ag, p) => (p.yon === 'x' ? ag.ax : ag.ay).slice(p.k0, p.k1 + 1).reduce((a, b) => a + b, 0);
+export function perdeBoyHatasi(ag, p, lw) {
+  if (!Number.isFinite(lw) || lw < PERDE_BOY_SINIR[0] || lw > PERDE_BOY_SINIR[1]) return 'uzunluk 150–181.500 mm olmalı';
+  if (perdeDisari([p], ag.ax.length, ag.ay.length).length) return 'seçilen perde açıklığı aks ağının dışında';
+  const eksen = 1000 * perdeEksenBoy(ag, p);
+  if (lw > eksen + 1500 + TOL) return `uzunluk ${tr(eksen + 1500, 3)} mm'yi geçemez (akslar arası boy + 1.500 mm)`;
+  if (lw < eksen - TOL && p.k0 !== p.k1) return 'akslar arası boydan kısa perde için tek açıklık seç';
+  return null;
+}
+export function perdeBoyHatalari(ag, liste, ozel) {
+  if (ozel == null) return [];
+  if (typeof ozel !== 'object' || Array.isArray(ozel)) return ['uzunluklar perde açıklıklarına göre verilmelidir'];
+  const secili = new Map(liste.map(p => [perdeYaz([p]), p])), hatalar = [];
+  for (const [ad, lw] of Object.entries(ozel)) {
+    const p = secili.get(ad), hata = p ? perdeBoyHatasi(ag, p, lw) : 'eşleşen perde yok';
+    if (hata) hatalar.push(`${ad}: ${hata}`);
+  }
+  return hatalar;
+}
+
+// Uç aksın dışına taşan miktarın iki katı. Varsayılan perdede her uçta b_w/2.
+export const perdeUzatma = (p, bw = p.bw) => p.lwElle == null ? bw : Math.max(0, p.lwElle - 1000 * p.L);
+export function perdeDugumOlcu(perdeler, ad, kalinlik = p => p.bw) {
+  let b = 0, h = 0;
+  for (const p of perdeler) {
+    if (!p.dugumler.includes(ad)) continue;
+    const bw = kalinlik(p), boy = p.uclar.includes(ad) ? perdeUzatma(p, bw) : bw;
+    b = Math.max(b, p.yon === 'x' ? boy : bw);
+    h = Math.max(h, p.yon === 'y' ? boy : bw);
+  }
+  return { b, h };
+}
+
 // ── Ağ üzerinde perdeler: ad P1, P2… (X hatları önce), hat sırası, düğümler (yutulan kolon adları). Bir düğüm birden çok perdede ise
 // (köşe) düğüme gelen kiriş tepkisi ve alan payı yalnız ilk perdeye yazılır (sahip). ikiUcTutulu: iki uç da dik perdede (7.6.1.2(c)).
-export function perdeAg(ag, liste) {
+export function perdeAg(ag, liste, boyOzel = {}) {
+  const hatalar = perdeBoyHatalari(ag, liste, boyOzel);
+  if (hatalar.length) throw new RangeError(hatalar.join(' · '));
   const bay = new Set(), dugum = new Map();
   const perdeler = liste.map((p, i) => {
-    const hi = ag.hatlar.findIndex(h => h.yon === p.yon && h.no === p.no), hat = ag.hatlar[hi], dugumler = [];
-    for (let u = p.k0; u <= p.k1 + 1; u++) dugumler.push(ag.kolonlar.find(c => p.yon === 'x' ? c.i === u && c.j === p.no : c.i === p.no && c.j === u).ad);
-    for (let k = p.k0; k <= p.k1; k++) bay.add(`${hi}:${k}`);
-    return { ad: `P${i + 1}`, yon: p.yon, no: p.no, hi, k0: p.k0, k1: p.k1, L: hat.L.slice(p.k0, p.k1 + 1).reduce((a, b) => a + b, 0),
-      aks: perdeYaz([p]).replace('/', ' / '), dugumler, uclar: [dugumler[0], dugumler.at(-1)] };
+    const hi = ag.hatlar.findIndex(h => h.yon === p.yon && h.no === p.no), dugumler = [], ad = perdeYaz([p]);
+    const L = perdeEksenBoy(ag, p), lwElle = boyOzel?.[ad], kismi = lwElle != null && lwElle < L * 1000 - TOL;
+    if (!kismi) {
+      for (let u = p.k0; u <= p.k1 + 1; u++)
+        dugumler.push(ag.kolonlar.find(c => p.yon === 'x' ? c.i === u && c.j === p.no : c.i === p.no && c.j === u).ad);
+      for (let k = p.k0; k <= p.k1; k++) bay.add(`${hi}:${k}`);
+    }
+    return { ad: `P${i + 1}`, yon: p.yon, no: p.no, hi, k0: p.k0, k1: p.k1, L, lwElle, kismi,
+      aks: ad.replace('/', ' / '), dugumler, uclar: kismi ? [] : [dugumler[0], dugumler.at(-1)] };
   });
   for (const p of perdeler) for (const ad of p.dugumler) if (!dugum.has(ad)) dugum.set(ad, p.ad);
   for (const p of perdeler) {
     p.sahip = p.dugumler.filter(ad => dugum.get(ad) === p.ad);
-    p.ikiUcTutulu = p.uclar.every(ad => perdeler.some(q => q.yon !== p.yon && q.dugumler.includes(ad)));
+    p.ikiUcTutulu = !p.kismi && p.uclar.every(ad => perdeler.some(q => q.yon !== p.yon && q.dugumler.includes(ad)));
   }
   return { perdeler, bay, dugum };
 }
@@ -95,9 +136,9 @@ export function perdeTasarla({ p, bw, bwGirdi = bw, n, H, G1, Q1, bt, mz, sds, k
   let e;
   for (let adim = 0; ; adim++) {
     e = perdeKesit({ p, bw, n, H, G1, Q1, bt, mz, sds, kDeprem, iz, katYuk });
-    if (sabit) { e.ozel = { bw: true }; e.iz.splice(iz.length, 0, `b_w = ${bw} mm elle verildi: araç kalınlığı büyütmedi, koşullar bu kalınlıkla denetlendi`); return e; }
+    if (sabit) { e.ozel = { ...e.ozel, bw: true }; e.iz.splice(iz.length, 0, `b_w = ${bw} mm elle verildi: araç kalınlığı büyütmedi, koşullar bu kalınlıkla denetlendi`); return e; }
     if (!e.maddeler.some(m => !m.gecti && (m.ad === 'Perde kalınlığı' || m.ad === 'Net kesit alanı'))) break;
-    if (adim >= 20 || (p.L * 1000 + bw + 50) / (bw + 50) < 6 - TOL) {
+    if (adim >= 20 || (p.lwElle ?? (p.L * 1000 + bw + 50)) / (bw + 50) < 6 - TOL) {
       e.iz.push(`Kalınlık ${bw} mm'de durduruldu: ${adim >= 20 ? 'büyütme sınırı (20 adım)' : 'daha kalın perdede ℓw/bw < 6 olur, eleman perde sayılmaz (TBDY 7.6.1.2)'}; sağlanamayan koşullar yukarıda`);
       break;
     }
@@ -108,21 +149,28 @@ export function perdeTasarla({ p, bw, bwGirdi = bw, n, H, G1, Q1, bt, mz, sds, k
 }
 
 function perdeKesit({ p, bw, n, H, G1, Q1, bt, mz, sds, kDeprem, iz, katYuk }) {
-  const fck = mz.fck, lw = p.L * 1000 + bw, Hw = katYuk?.Hw ?? n * H, Ac = bw * lw;
+  const fck = mz.fck, lw = p.lwElle ?? (p.L * 1000 + bw), Hw = katYuk?.Hw ?? n * H, Ac = bw * lw;
   const oz = bw / 1000 * lw / 1000 * H / 1000 * GAMMA_BA;
   const G = katYuk ? katYuk.Gdiger + oz : n * (G1 + oz), Q = katYuk ? katYuk.Qham * bt : n * Q1 * bt;
   const Ndm = (G + Q + 0.2 * sds * G) * kDeprem, Nd = 1.4 * G + 1.6 * Q;
   const yuksek = Hw > 70000; // TBDY Tablo 3.3: H_N > 70 m → BYS = 1 (DTS 1–2 varsayımı) → 13.1.6 perde ≥ 300 mm
   const ara = p.dugumler.slice(1, -1);
-  const e = { ad: p.ad, aks: p.aks, yon: p.yon, no: p.no, hi: p.hi, k0: p.k0, k1: p.k1, L: p.L, bw, lw, Hw, NG: G, NQ: Q, Ndm, Nd, Nk: G + Q,
+  const e = { ad: p.ad, aks: p.aks, yon: p.yon, no: p.no, hi: p.hi, k0: p.k0, k1: p.k1, L: p.L, bw, lw, lwElle: p.lwElle, kismi: p.kismi, Hw, NG: G, NQ: Q, Ndm, Nd, Nk: G + Q,
     uclar: p.uclar, dugumler: p.dugumler, maddeler: [], iz: [...iz,
       `Kat başına öz ağırlık b_w·ℓw·H·γ = ${tr(bw / 1000, 3)}·${tr(lw / 1000, 3)}·${tr(H / 1000)}·${GAMMA_BA} = ${tr(oz)} kN`,
       `${n} kat: G = ${tr(G, 0)} kN, βQ = ${tr(bt)}·${katYuk ? tr(katYuk.Qham) : `${n}·${tr(Q1)}`} = ${tr(Q, 0)} kN; N_dm = (G + βQ + 0,2·S_DS·G)·k = ${tr(Ndm, 0)} kN; N_d = 1,4G + 1,6βQ = ${tr(Nd, 0)} kN`] };
+  const geometri = p.lwElle == null ? `ℓw = eksen ${tr(p.L)} m + b_w = ${tr(lw, 3)} mm (uçlar aks dışına b_w/2)`
+    : `ℓw = ${tr(lw, 3)} mm elle verildi (seçilen açıklığın ortasında)`;
+  if (p.lwElle != null) e.ozel = { lw: true };
+  if (p.kismi) {
+    madde(e, 'Kısa perde yük aktarımı', 'Model dışında', 'Kiriş ve döşeme ile yük aktarımı ve yatay taşıyıcı sistem etkisi ayrıca çözülmeli', false, 'hesap kapsamı', 2);
+    e.iz.push('Kolonlar ve kiriş korunur. Perdenin yalnız öz ağırlığı radyeye eklenir; yanal rijitliği hesaba katılmaz.');
+  }
   const r = kontrol({ b: bw, h: lw, fck, Ndm, katYuksekligi: H, ikiUcTutulu: p.ikiUcTutulu, yuksekBina: yuksek });
   e.tur = r.tur;
   if (r.tur !== 'perde') {
     madde(e, 'Perde tanımı', `ℓw/b_w = ${tr(lw)}/${tr(bw)} = ${tr(lw / bw)}`, '≥ 6 (TBDY 7.6.1.2); değilse eleman kolondur: açıklığı büyüt, kalınlığı küçült ya da kolon olarak bırak', false, 'TBDY 7.6.1.2', 6 / (lw / bw));
-    e.iz.push(`ℓw = eksen ${tr(p.L)} m + b_w = ${tr(lw, 0)} mm; ℓw/b_w < 6: perde tanımına girmiyor, donatı seçilmedi`);
+    e.iz.push(`${geometri}; ℓw/b_w < 6: perde tanımına girmiyor, donatı seçilmedi`);
     return sonla(e);
   }
   for (const m of r.maddeler) e.maddeler.push({ ...m, uyari: false }); // uzun kenar/kalınlık, kalınlık (7.6.1.2), net kesit (7.6.1.1)
@@ -131,10 +179,10 @@ function perdeKesit({ p, bw, n, H, G1, Q1, bt, mz, sds, kDeprem, iz, katYuk }) {
   const luMin = Math.max(0.2 * lw, 2 * bw), lu = yukari(luMin, 50), luUst = Math.max(0.1 * lw, bw);
   madde(e, 'Uç bölgesi boyu', `${tr(lu, 0)} mm`, `H_cr boyunca ≥ max(0,2·ℓw; 2·b_w) = ${tr(luMin, 0)} mm, üstünde ≥ max(0,1·ℓw; b_w) = ${tr(luUst, 0)} mm`,
     lu >= luMin - TOL && 2 * lu <= lw + TOL, 'TBDY 7.6.2.1–7.6.2.3', luMin / lu);
-  e.iz.push(`Geometri: ℓw = eksen ${tr(p.L)} m + b_w = ${tr(lw, 0)} mm (uçlar aks dışına b_w/2); H_w = ${katYuk ? 'ΣH' : 'n·H'} = ${tr(Hw, 0)} mm, H_w/ℓw = ${tr(Hw / lw)} ` +
+  e.iz.push(`Geometri: ${geometri}; H_w = ${katYuk ? 'ΣH' : 'n·H'} = ${tr(Hw, 0)} mm, H_w/ℓw = ${tr(Hw / lw)} ` +
     (ucGerek ? '> 2: uç bölgeleri zorunlu (7.6.2.1)' : '≤ 2: uç bölgesi zorunlu değil, güvenli yanda yine oluşturuldu; gövde donatısı tüm kesitte (7.6.3.1)') +
     `; H_cr = min(max(ℓw; H_w/6); 2ℓw) = ${tr(Hcr, 0)} mm (Denk. 7.15); uç bölgesi ℓu = ${tr(lu, 0)} mm`,
-    `Uç bölgeleri ${p.uclar.join(' ve ')} kolonlarının yerinde: bu kolonlar kolon olarak ayrıca tasarlanmadı${ara.length ? `; ${ara.join(', ')} perde gövdesine katıldı` : ''}`);
+    p.kismi ? 'Perde uç bölgeleri seçilen açıklığın içinde kalır; çerçeve ile birleşim bu modelin dışındadır.' : `Uç bölgeleri ${p.uclar.join(' ve ')} kolonlarının yerinde: bu kolonlar kolon olarak ayrıca tasarlanmadı${ara.length ? `; ${ara.join(', ')} perde gövdesine katıldı` : ''}`);
   // Gövde (7.6.3.1): her doğrultuda iki yüz toplamı ρ ≥ 0,0025, aralık ≤ 250 mm (0,002 / 300 mm indirimi Denk. 7.14 ister: uygulanmadı)
   const AsM = 0.0025 * bw * 1000 / 2, gD = dosemeCubuk(AsM, 250, { caplar: CAP.perde, sAlt: 100 }), gY = gD;
   const rhoG = 2 * gD.As / (bw * 1000), lGovde = ucGerek ? Math.max(0, lw - 2 * lu) : lw, AsGovde = 2 * gD.As * lGovde / 1000;
@@ -200,6 +248,20 @@ function perdeKesit({ p, bw, n, H, G1, Q1, bt, mz, sds, kDeprem, iz, katYuk }) {
       'V_e deprem çözümlemesiyle (7.6.6.3) bulunur',
     'Perde eksenel kuvveti yalnız düşey yükten. Deprem eğilme momenti ve kesmesi (TBDY 7.6.6), perdede güçlü kolon (7.6.6.2), göreli kat ötelemesi (4.9.1) ve burulma düzensizliği (3.6.2.1, Tablo 3.6 A1) kesin hesapta denetlenmeli');
   return sonla(e);
+}
+
+// Son oluşan kolon boyutları ile, ortalanan kısa perdenin eksen doğrultusunda boşluğu.
+export function perdeKismiDenetle(e, ag, olcu) {
+  if (!e.kismi) return;
+  const bosluk = (1000 * e.L - e.lw) / 2;
+  for (const i of [e.k0, e.k1 + 1]) {
+    const dugum = ag.kolonlar.find(c => e.yon === 'x' ? c.i === i && c.j === e.no : c.i === e.no && c.j === i);
+    const o = olcu(dugum), yari = (e.yon === 'x' ? o.b : o.h) / 2;
+    if (bosluk < yari - TOL) {
+      madde(e, 'Kısa perde uç boşluğu', `${dugum.aks}: ${tr(bosluk, 3)} mm`, `mesnet yüzü en az ${tr(yari, 3)} mm uzakta kalmalı; perdeyi kısalt`, false, 'geometri', 3);
+    }
+  }
+  sonla(e);
 }
 
 // ── TS 500 7.6.2.1, Denk. 7.13 duraylılık göstergesi bir doğrultuda: φ_i = 1,5·ΣN_i·Δ_i/(V_i·ℓ_i) ≤ 0,05 ise o katta yanal ötelenme

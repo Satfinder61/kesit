@@ -6,7 +6,7 @@ import { kontrol, kolonOner, beta } from './kurallar.js';
 import { boyunaDonati, etriye, kirisMr, katNarinlik } from './kolon.js';
 import { alan, kolonYuzMax } from './donati.js';
 import { radyeBul } from './radye.js';
-import { perdeOku, perdeDisari, perdeAg, perdeTasarla, perdeYaz, duraylilikKatli } from './perde.js';
+import { perdeOku, perdeDisari, perdeAg, perdeDugumOlcu, perdeKismiDenetle, perdeTasarla, perdeYaz, duraylilikKatli } from './perde.js';
 import { katKirissiz, katSeritRijitligi } from './katli-kirissiz.js';
 import { EC } from './sehim.js';
 
@@ -30,9 +30,9 @@ export function katliHesap(g, mz) {
   if (perdeDisari(perde.liste, ag.nx, ag.ny).length) throw new RangeError('Perde açıklığı aks ağının dışında');
   const kirissiz = g.dosemeTuru === 'kirissiz';
   const plan = ag.xs.at(-1) * ag.ys.at(-1), ozel = g.kolonOzel ?? {}, fck = mz.fck;
-  const pd = perdeAg(ag, perde.liste), kolonListe = ag.kolonlar.filter(c => !pd.dugum.has(c.ad));
+  const pd = perdeAg(ag, perde.liste, g.perdeBoyOzel), kolonListe = ag.kolonlar.filter(c => !pd.dugum.has(c.ad));
   const pElle = p => g.perdeOzel?.[perdeYaz([p])], pkal = new Map(pd.perdeler.map(p => [p.ad, pElle(p) ?? g.perdeKal ?? 250]));
-  const duvarOlcu = ad => { const bw = Math.max(...pd.perdeler.filter(p => p.dugumler.includes(ad)).map(p => pkal.get(p.ad))); return { b: bw, h: bw }; };
+  const duvarOlcu = ad => perdeDugumOlcu(pd.perdeler, ad, p => pkal.get(p.ad));
   const boyut = H.map(() => new Map(kolonListe.map(c => [c.ad, { b: ozel[c.ad]?.b ?? 300, h: ozel[c.ad]?.h ?? 300 }])));
   const olcu = (k, c) => boyut[k].get(c.ad) ?? duvarOlcu(c.ad);
   const hEk = H.map(() => new Map());
@@ -104,7 +104,7 @@ export function katliHesap(g, mz) {
       kat.perdeHamQ = new Map();
       kat.perdeler = pd.perdeler.map(p => {
         let G1 = 0, Q1 = 0;
-        if (!kirissiz) for (let i = p.k0; i <= p.k1; i++) { const t = kat.perdeYuk.get(`${p.hi}:${i}`); G1 += t.G; Q1 += t.Q; }
+        if (!kirissiz && !p.kismi) for (let i = p.k0; i <= p.k1; i++) { const t = kat.perdeYuk.get(`${p.hi}:${i}`); G1 += t.G; Q1 += t.Q; }
         for (const ad of p.sahip) {
           if (kirissiz) { const y = kat.flatYukler.get(ad); G1 += y.G1; Q1 += y.Q1; }
           else { const c = ag.kolonlar.find(x => x.ad === ad), tx = kat.tepki.get(hatX(c.j)), ty = kat.tepki.get(hatY(c.i));
@@ -116,19 +116,19 @@ export function katliHesap(g, mz) {
         const e = perdeTasarla({ p, bw: pkal.get(p.ad), bwGirdi: pElle(p) ?? g.perdeKal ?? 250, n: n - k, H: H[k], G1, Q1,
           bt: beta(g.kullanim, n - k), mz, sds: g.sds, kDeprem: g.kDeprem, sabit: pElle(p) != null,
           katYuk: { Gdiger: G1 + (ust?.NG ?? 0), Qham, Hw: H.reduce((a, b) => a + b, 0) },
-          iz: [`${k + 1}. kat perdeye aktarılan düşey yük: G ${fmt(G1)} kN, Q ${fmt(Q1)} kN; üst kat yükleri ayrıca biriktirildi.`] });
+          iz: p.kismi ? [] : [`${k + 1}. kat perdeye aktarılan düşey yük: G ${fmt(G1)} kN, Q ${fmt(Q1)} kN; üst kat yükleri ayrıca biriktirildi.`] });
         pkal.set(p.ad, e.bw); return e;
       });
     }
   };
   const yanalBul = () => Object.fromEntries(['x', 'y'].map(yon => {
     if (g.yanalTutulu === true) return [yon, { tutulu: true, yazi: 'elle işaretlendi' }];
-    if (!pd.perdeler.some(p => p.yon === yon)) return [yon, { tutulu: false, yazi: `${yon.toUpperCase()} doğrultusunda perde yok` }];
+    if (!pd.perdeler.some(p => !p.kismi && p.yon === yon)) return [yon, { tutulu: false, yazi: `${yon.toUpperCase()} doğrultusunda perde yok` }];
     const veri = katlar.map((kat, k) => {
       const ust = katlar[k + 1], kolonW = [...kat.yukler.values()].reduce((s, y) => s + y.G1 + y.Q1, 0);
       const perdeW = kat.perdeler.reduce((s, p) => s + p.NG - (ust?.perdeler.find(x => x.ad === p.ad)?.NG ?? 0)
         + kat.perdeHamQ.get(p.ad) - (ust?.perdeHamQ.get(p.ad) ?? 0), 0);
-      return { H: H[k], W: kolonW + perdeW, perdeler: kat.perdeler.filter(p => p.yon === yon && p.tur === 'perde') };
+      return { H: H[k], W: kolonW + perdeW, perdeler: kat.perdeler.filter(p => !p.kismi && p.yon === yon && p.tur === 'perde') };
     });
     const r = duraylilikKatli({ katlar: veri, Ec: EC[fck] }), tutulu = r.phi <= 0.05 + 1e-9;
     return [yon, { tutulu, phi: r.phi, kat: r.kat, yazi: `φ = ${fmt(r.phi, 3)} (${r.kat}. kat; TS 500 Denk. 7.13)` }];
@@ -268,7 +268,8 @@ export function katliHesap(g, mz) {
       gecti: brl.every(x => x.Ve <= x.Vmax + 1e-9), kullanim: belirleyen.Ve / belirleyen.Vmax });
     sonla(e);
   }));
-  katlar.forEach((kat, k) => {
+  katlar.forEach(kat => {
+    for (const p of kat.perdeler) perdeKismiDenetle(p, ag, c => kat.kolonlar.find(e => e.ad === c.ad) ?? duvarOlcu(c.ad));
     if (!yakin) for (const e of [...kat.kolonlar, ...kat.kirisler, ...kat.dosemeler, ...kat.perdeler, ...(kat.seritler ?? []), ...(kat.zimbD ?? [])]) { madde(e, 'Yakınsama', 'sağlanmadı', 'Kat boyutları ve yükleri yakınsamalı', false, 'hesap'); sonla(e); }
     kat.seritler ??= []; kat.zimbD ??= [];
     delete kat.tepki; delete kat.yukler; delete kat.perdeYuk; delete kat.perdeHamQ; delete kat.flatYukler;
@@ -278,14 +279,17 @@ export function katliHesap(g, mz) {
   const notlar = ['Katlar ayrı yükseklik ve kesitlerle hesaplandı; kat yükleri üstten alta biriktirildi.',
     'Kolon kapasite kesmesinde eksenel kuvvetten bağımsız, güvenli yanda moment üst sınırı kullanıldı.',
     'Deprem etkileri, perde kesme dayanımı ve kesin taşıyıcı sistem analizi bu ön hesapta bulunmaz.'];
-  if (pd.perdeler.length && g.yanalTutulu !== true) notlar.push(`Perdeli katlı hesapta yanal ötelenme: X ${yanal.x.tutulu ? 'önlenmiş' : 'önlenmemiş'}, Y ${yanal.y.tutulu ? 'önlenmiş' : 'önlenmemiş'}; perde elastik konsol kabulü, deprem analiziyle ayrıca denetlenmeli.`);
+  if (rd.subasmanlar.length) notlar.push('Su basman perdelerinin öz ağırlığı radye ön hesabına eklendi. Toprak ve su basıncı, donatı ve temel bağlantısı ayrıca hesaplanmalı.');
+  if (pd.bay.size && g.yanalTutulu !== true) notlar.push(`Perdeli katlı hesapta yanal ötelenme: X ${yanal.x.tutulu ? 'önlenmiş' : 'önlenmemiş'}, Y ${yanal.y.tutulu ? 'önlenmiş' : 'önlenmemiş'}; perde elastik konsol kabulü, deprem analiziyle ayrıca denetlenmeli.`);
   if (kirissiz) notlar.push('Kirişsiz döşemede deprem etkilerinin perdelerle karşılanması ve kolon deprem kesmesi kesin hesapta denetlenmeli.');
   if (kirissiz && Math.min(ag.nx, ag.ny) < 3) notlar.push('Kirişsiz döşemede moment katsayıları en az üç açıklık ister; daha az açıklıkta çerçeve yöntemiyle kesin hesap yapılmalı.');
-  if (kirissiz && pd.perdeler.length) notlar.push('Perde açıklıklarında döşeme şerit ve sehim hesabı yaklaşık olarak kolon şeridi yöntemiyle yapıldı; perde çizgisel mesnet kabulü kesin hesapta denetlenmeli.');
+  if (kirissiz && pd.bay.size) notlar.push('Perde açıklıklarında döşeme şerit ve sehim hesabı yaklaşık olarak kolon şeridi yöntemiyle yapıldı; perde çizgisel mesnet kabulü kesin hesapta denetlenmeli.');
+  const kisaPerdeler = pd.perdeler.filter(p => p.kismi);
+  if (kisaPerdeler.length) notlar.push(`Kısa perdeler (${kisaPerdeler.map(p => p.ad).join(', ')}): çerçeve korunarak yalnız perde öz ağırlığı radyeye eklendi. Perde ile kiriş ve döşeme arasındaki yük aktarımı ve yanal rijitlik ayrıca çözülmeli.`);
   for (const kat of katlar) if (kat.kalkma.length) notlar.push(`${kat.kat}. kat ${kat.kalkma.join(', ')}: kısa uç açıklığında mesnet kalkıyor; kolon yükü alan payıyla alındı.`);
   const katKolonYukleri = katlar.flatMap(kat => kat.kolonlar.map(c => ({ kat: kat.kat, ad: c.ad, aks: c.aks, NG: c.NG, NQ: c.NQ, Nd: c.Nd })));
   return { ag, tur: g.dosemeTuru, katSayisi: n, beta: beta(g.kullanim, n), h: taban.h, tabla: taban.tabla, katYukAlan: ort, katKolonYukleri,
     dosemeler: taban.dosemeler, seritler: taban.seritler, zimbD: taban.zimbD, kirisler: taban.kirisler, kolonlar: taban.kolonlar, perdeler: taban.perdeler,
-    radye: rd.radye, radyeSerit: rd.seritler, radyeZimb: rd.zimb, radyePerde: rd.perde, katlar, notlar,
+    radye: rd.radye, radyeSerit: rd.seritler, radyeZimb: rd.zimb, radyePerde: rd.perde, subasmanlar: rd.subasmanlar, katlar, notlar,
     yanal };
 }

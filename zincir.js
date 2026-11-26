@@ -7,8 +7,9 @@ import { kirisBul } from './kiris.js';
 import { boyunaDonati, etriye, kirisMr, kolonVe, narinlik } from './kolon.js';
 import { CAP, alan, kolonYuzMax } from './donati.js';
 import { radyeBul } from './radye.js';
+import { subasmanGirdi } from './subasman.js';
 import { EC } from './sehim.js';
-import { perdeOku, perdeDisari, perdeYaz, perdeAg, perdeTasarla, duraylilik } from './perde.js';
+import { perdeOku, perdeDisari, perdeYaz, perdeAg, perdeBoyHatalari, perdeDugumOlcu, perdeKismiDenetle, perdeTasarla, duraylilik } from './perde.js';
 import { katliHesap } from './katli.js';
 export { parcaToplam, parcaAnkastre, parcaSiddet, kenarParcasi, surekliKiris, desenler, zarf, agKur, GAMMA_BA, perdeOku };
 
@@ -29,11 +30,12 @@ const sonla = e => {
   return e;
 };
 export const TURLER = TUR_ADI;
+export const AKS_MIN = 1, AKS_MAX = 15; // m
 
 export function girdiDenetle(g) {
   const h = {}, poz = x => Number.isFinite(x) && x > 0, sifir = x => Number.isFinite(x) && x >= 0;
-  for (const k of ['ax', 'ay']) if (!(g[k].length >= 1 && g[k].length <= 12 && g[k].every(x => x >= 1 && x <= 15)))
-    h[k] = `${k === 'ax' ? 'X' : 'Y'} aks aralıkları 1–12 adet, her biri 1–15 m olmalı`;
+  for (const k of ['ax', 'ay']) if (!(g[k].length >= 1 && g[k].length <= 12 && g[k].every(x => x >= AKS_MIN && x <= AKS_MAX)))
+    h[k] = `${k === 'ax' ? 'X' : 'Y'} aks aralıkları 1–12 adet, her biri ${AKS_MIN}–${AKS_MAX} m olmalı`;
   if (!(Number.isInteger(g.katSayisi) && g.katSayisi >= 1 && g.katSayisi <= 40)) h.katSayisi = 'Kat sayısı 1–40 arası tam sayı olmalı';
   if (!(g.H >= 2000 && g.H <= 8000)) h.H = 'Kat yüksekliği 2.000–8.000 mm olmalı';
   if (g.katYukseklikleri != null) {
@@ -63,6 +65,11 @@ export function girdiDenetle(g) {
   else if (!h.ax && !h.ay && perdeDisari(pr.liste, g.ax.length, g.ay.length).length)
     h.perdeler = `Perdeler: ${perdeYaz(perdeDisari(pr.liste, g.ax.length, g.ay.length))} planda yok (X aksları 1–${g.ax.length + 1}, Y aksları A–${String.fromCharCode(65 + g.ay.length)})`;
   if (pr.liste.length && g.perdeKal != null && !(g.perdeKal >= 150 && g.perdeKal <= 1500)) h.perdeKal = 'Perde kalınlığı 150–1.500 mm olmalı (TS 500 12.2: ≥ 150; TBDY 7.6.1.2 en az 250 ayrıca denetlenir)';
+  if (!h.ax && !h.ay && !h.perdeler) {
+    const boyHatalari = perdeBoyHatalari(g, pr.liste, g.perdeBoyOzel);
+    if (boyHatalari.length) h.perdeBoyOzel = `Perde uzunluğu: ${boyHatalari.join(' · ')}`;
+  }
+  if (!h.ax && !h.ay) Object.assign(h, subasmanGirdi(g, pr.liste).hata);
   // Elle verilen boyutlar (Excel hücreleri): yalnız aralık; yetip yetmediğini motor denetler (sağlanmayan madde)
   const ara = (v, a, b) => v == null || (Number.isFinite(v) && v >= a && v <= b), ozH = [];
   for (const [ad, o] of Object.entries(g.kolonOzel ?? {})) if (!ara(o?.b, 100, 10000) || !ara(o?.h, 100, 10000)) ozH.push(`${ad} kolonu b, h 100–10.000 mm`);
@@ -107,29 +114,28 @@ export function zincirHesap(g) {
   const kirissizDuvar = hs => { const d = duvarW(true, g.H - hs), i = duvarW(false, g.H - hs);
     Object.assign(gg, { duvarDisTur: 'elle', duvarIcTur: 'elle', duvarDis: d.w, duvarIc: i.w, duvarEsdeger: icBoy * i.w / plan, duvarYazi: [d.yazi, i.yazi] }); };
   const ozel = g.kolonOzel ?? {};
-  // Perdeler (perde.js): bir aks çizgisindeki açıklık(lar)ı eksenden eksene kaplar; uç ve ara düğümlerdeki kolonlar perdeye katılır,
-  // kolon olarak tasarlanmaz. Perde düğümü kiriş açıklığı (ℓn) ve şerit hesabında b_w × b_w kolon gibi görünür (uç aks dışına b_w/2).
+  // Tam açıklık perdesi aradaki kiriş ve kolonların yerini alır. Açıklık içinde kalan kısa perde mevcut mesnetleri değiştirmez.
   // Elle kalınlık: perdeOzel anahtarı perdenin yazımı ("A/1–2"); aks ağı ya da perde değişince eşleşmeyen anahtar yok sayılır
-  const pd = perdeAg(ag, perdeOku(g.perdeler).liste), pElle = p => g.perdeOzel?.[perdeYaz([p])];
+  const pd = perdeAg(ag, perdeOku(g.perdeler).liste, g.perdeBoyOzel), pElle = p => g.perdeOzel?.[perdeYaz([p])];
   const pkal = new Map(pd.perdeler.map(p => [p.ad, pElle(p) ?? g.perdeKal ?? 250]));
   const kolonListe = ag.kolonlar.filter(c => !pd.dugum.has(c.ad));
-  const dugumOlcu = ad => { const bw = Math.max(...pd.perdeler.filter(p => p.dugumler.includes(ad)).map(p => pkal.get(p.ad))); return { b: bw, h: bw }; };
+  const dugumOlcu = ad => perdeDugumOlcu(pd.perdeler, ad, p => pkal.get(p.ad));
   let olcu = new Map(kolonListe.map(c => [c.ad, { b: ozel[c.ad]?.b ?? 300, h: ozel[c.ad]?.h ?? 300 }]));
   const olcuF = c => olcu.get(c.ad) ?? dugumOlcu(c.ad);
   const ozKat = o => o.b / 1000 * o.h / 1000 * g.H / 1000 * GAMMA_BA, ozPerde = e => e.bw / 1000 * e.lw / 1000 * g.H / 1000 * GAMMA_BA; // kat başına öz ağırlık
   let perdeler = [], yanal = null;
   // Perde tasarımı: yukP(p) → kat başına G1, Q1 (öz ağırlık hariç); kalınlık turdan tura yalnız büyür (yakınsama)
   const perdeTasarlaHepsi = yukP => pd.perdeler.map(p => {
-    const y = yukP(p), e = perdeTasarla({ p, bw: pkal.get(p.ad), bwGirdi: g.perdeKal ?? 250, n, H: g.H, G1: y.G1, Q1: y.Q1, bt, mz, sds: g.sds, kDeprem: g.kDeprem, iz: y.iz, sabit: pElle(p) != null });
+    const y = p.kismi ? { G1: 0, Q1: 0, iz: [] } : yukP(p), e = perdeTasarla({ p, bw: pkal.get(p.ad), bwGirdi: g.perdeKal ?? 250, n, H: g.H, G1: y.G1, Q1: y.Q1, bt, mz, sds: g.sds, kDeprem: g.kDeprem, iz: y.iz, sabit: pElle(p) != null });
     pkal.set(p.ad, e.bw); return e;
   });
   // Yanal ötelenme (TS 500 7.6.2.1), doğrultu başına: elle işaretliyse önlenmiş; o doğrultuda perde varsa Denk. 7.13 duraylılık
   // göstergesi φ ≤ 0,05 (perde.js duraylilik; Wkat: kat başına G + Q); perde yoksa kirişlide önlenmemiş, kirişsizde önlenmiş kabul
   // (TBDY 4.3.4.4: deprem etkileri perdelerle karşılanır; 'yanalTutulu: false' ile kapatılır).
   const yanalBul = Wkat => Object.fromEntries(['x', 'y'].map(yon => {
-    const ps = perdeler.filter(e => e.yon === yon && e.tur === 'perde'), D = yon.toUpperCase();
+    const ps = perdeler.filter(e => !e.kismi && e.yon === yon && e.tur === 'perde'), D = yon.toUpperCase();
     if (g.yanalTutulu === true) return [yon, { tutulu: true, yazi: 'elle işaretlendi (plana çizilmeyen perdeler)' }];
-    if (!ps.length) { const t = kirissiz && g.yanalTutulu !== false;
+    if (!ps.length) { const t = kirissiz && g.yanalTutulu !== false && !perdeler.some(p => p.kismi);
       return [yon, { tutulu: t, yazi: `${D} doğrultusunda perde yok${t ? ': kirişsiz sistemde perde zorunlu (TBDY 4.3.4.4), önlenmiş kabul edildi' : ''}` }]; }
     const d = duraylilik({ perdeler: ps, n, H: g.H, W: Wkat, Ec: EC[fck] }), t = d.phi <= 0.05 + TOL;
     return [yon, { tutulu: t, phi: d.phi, kat: d.kat, yazi: `${ps.map(e => e.ad).join(', ')}: φ = 1,5·ΣN·Δ/(V·ℓ) = ${tr(d.phi, 3)} ${t ? '≤' : '>'} 0,05 (${d.kat}. kat; TS 500 Denk. 7.13)` }];
@@ -449,11 +455,11 @@ export function zincirHesap(g) {
     if (Math.min(ag.nx, ag.ny) < 3) notlar.push('TS 500 11.4.4.2 moment katsayıları en az 3 açıklık ister; bu planda yaklaşık kabul edildi, çerçeve yöntemiyle (11.4.4.1) kesin hesap yapılmalı.');
     const yY = yanal.x.tutulu === yanal.y.tutulu ? (yanal.x.tutulu ? 'önlenmiş' : 'önlenmemiş') : ['x', 'y'].map(y => `${y.toUpperCase()} ${yanal[y].tutulu ? 'önlenmiş' : 'önlenmemiş'}`).join(', ');
     notlar.push('Kirişsiz döşemeli sistemde deprem etkilerinin tamamı perdelerle karşılanmalıdır (TBDY 4.3.4.4); ' +
-      (pd.perdeler.length ? `${pd.perdeler.length} perde yerleştirildi (Perde sayfası; ${['x', 'y'].filter(y => !perdeler.some(e => e.yon === y)).map(y => `${y.toUpperCase()} doğrultusunda perde yok, eklenmeli`).join('; ') || 'iki doğrultuda da perde var'}). ` +
+      (pd.perdeler.length ? `${pd.perdeler.length} perde yerleştirildi (Perde sayfası; ${['x', 'y'].filter(y => !perdeler.some(e => !e.kismi && e.tur === 'perde' && e.yon === y)).map(y => `${y.toUpperCase()} doğrultusunda perde yok, eklenmeli`).join('; ') || 'iki doğrultuda da perde var'}). ` +
         'Perdelerin deprem kuvvetlerinin tamamını (birinci aşamada kolonlar iki ucu mafsallı) taşıdığı kesin hesapta gösterilmeli. '
         : 'plana perde yerleştirilmedi: Perdeler alanından ya da plandan ekle. ') +
       `Kolonlarda yanal ötelenme ${yY} sayıldı (TS 500 7.6.2.1); kolon kapasite kesmesi (TBDY 7.3.7) ve kiriş–kolon birleşimi (7.5) kirişsizde aranmadı, kolon kesmesi perdeli sistemin kesin hesabında denetlenmeli.`);
-    if (pd.perdeler.length) notlar.push('Kirişsiz döşeme şeritleri ve sehimi perde açıklıklarında da kolon şeridi gibi hesaplandı (perde döşemeyi çizgi boyunca taşır: yaklaşık); perde düğümlerinde döşeme zımbalaması aranmadı.');
+    if (pd.bay.size) notlar.push('Kirişsiz döşeme şeritleri ve sehimi perde açıklıklarında da kolon şeridi gibi hesaplandı (perde döşemeyi çizgi boyunca taşır: yaklaşık); perde düğümlerinde döşeme zımbalaması aranmadı.');
     if (g.duvarDisTur in DUVAR || g.duvarIcTur in DUVAR) notlar.push(`Duvar yükü (net yükseklik H − döşeme h): dış ${gg.duvarYazi[0]}, iç ${gg.duvarYazi[1]}.`);
   }
 
@@ -465,7 +471,10 @@ export function zincirHesap(g) {
   }
   if (kirissiz && dOz.h != null) for (const e of seritler) e.iz.push(`Döşeme h = ${dOz.h} mm elle verildi: araç kalınlığı boyutlandırmadı, koşullar bu kalınlıkla denetlendi`);
   for (const [a, o] of Object.entries(g.kirisOzel ?? {})) if (kr.kirisler.some(e => ag.hatlar[e.hat].aks === a)) elle.push(`${a} aksı kirişleri ${[o.b != null && `b = ${o.b}`, o.h != null && `h = ${o.h}`].filter(Boolean).join(', ')} mm`);
-  for (const e of perdeler) if (e.ozel) elle.push(`${e.ad} (${perdeYaz([e])}) b_w = ${e.bw} mm`);
+  for (const e of perdeler) {
+    perdeKismiDenetle(e, ag, c => kolonlar.find(k => k.ad === c.ad) ?? dugumOlcu(c.ad));
+    if (e.ozel) elle.push(`${e.ad} (${perdeYaz([e])}) ${[e.ozel.bw && `b_w = ${e.bw}`, e.ozel.lw && `ℓw = ${e.lw}`].filter(Boolean).join(', ')} mm`);
+  }
 
   // 4. Radye
   const rd = radyeBul(ag, g, mz, kolonlar.map(c => ({ ...ag.kolonlar.find(k => k.ad === c.ad), b: c.b, h: c.h, Nd: c.Nd })), perdeler);
@@ -476,16 +485,19 @@ export function zincirHesap(g) {
   if (kolonElle.length) elle.push(`kolon ${kolonElle.join(', ')} mm`);
 
   // Notlar
+  if (rd.subasmanlar.length) notlar.push('Su basman perdelerinin öz ağırlığı radye ön hesabına eklendi. Toprak ve su basıncı, donatı ve temel bağlantısı ayrıca hesaplanmalı.');
   if (elle.length) notlar.push(`Elle verilen boyutlar (araç büyütmedi, bütün koşullar bu boyutlarla denetlendi): ${elle.join('; ')}.`);
   if (kr.kalkma.length) notlar.push(`${kr.kalkma.join(', ')}: kısa uç açıklığında sürekli kiriş ucu kalkıyor (negatif tepki); kolon yükü alan payıyla alındı.`);
   if ((tur === 'disli' || tur === 'kaset') && !(g.dolgu > 0)) notlar.push('Dolgu (asmolen) ağırlığı 0 girildi: TS 500 ve TS 498 değer vermiyor (TS ISO 9194); kullanılacak bloğun ağırlığını girin.');
-  if (tur === 'disli') notlar.push(perdeler.length ? 'Tek doğrultulu dişli döşemeli çerçeve süneklik düzeyi yüksek perdelerle birlikte (karma sistem) DTS 1–2\'de de kullanılabilir; perdeler deprem hesabında bu sistemi sağlamalı (TBDY 4.3.4.3, Tablo 4.1).'
+  if (tur === 'disli') notlar.push(perdeler.some(p => !p.kismi && p.tur === 'perde') ? 'Tek doğrultulu dişli döşemeli çerçeve süneklik düzeyi yüksek perdelerle birlikte (karma sistem) DTS 1–2\'de de kullanılabilir; perdeler deprem hesabında bu sistemi sağlamalı (TBDY 4.3.4.3, Tablo 4.1).'
     : 'Perde içermeyen tek doğrultulu dişli döşemeli çerçeve yalnız DTS 3–4\'te kullanılabilir (TBDY 4.3.4.3).');
   notlar.push(`Kiriş${perdeler.length ? ', kolon ve perde' : ' ve kolon'} detayları süneklik düzeyi yüksek kurallarıyla (DTS 1–2) seçildi; DTS 3–4 binada da güvenli yandadır.`);
   if (perdeler.length || g.yanalTutulu === true) notlar.push(`Yanal ötelenme (kolon narinliği, TS 500 7.6.2.1): ${['x', 'y'].map(y => `${y.toUpperCase()} ${yanal[y].tutulu ? 'önlenmiş' : 'önlenmemiş'} (${yanal[y].yazi})`).join('; ')}. ` +
     'φ perdeler tabanda ankastre konsol, çatlamamış kesit, TBDY Denk. 4.22–4.23 yük dağılımıyla; çerçeve katkısı ihmal (güvenli yan).' +
     ['x', 'y'].filter(y => yanal[y].phi > 0.05).map(y => ` ${y.toUpperCase()} doğrultusundaki perdeler yanal ötelenmeyi önlemeye yetmiyor: perde ekle ya da uzat (φ ∝ 1/ΣE·I).`).join(''));
-  if (perdeler.length) notlar.push(`Perdeler (${perdeler.map(e => `${e.ad} ${e.aks.replace(' / ', '/')}`).join(', ')}) yalnız düşey yükle boyutlandı; uç kolonları uç bölgesi oldu, perde açıklığında kiriş yok. ` +
+  const tamPerdeler = perdeler.filter(p => !p.kismi), kisaPerdeler = perdeler.filter(p => p.kismi);
+  if (kisaPerdeler.length) notlar.push(`Kısa perdeler (${kisaPerdeler.map(p => p.ad).join(', ')}): çerçeve korunarak yalnız perde öz ağırlığı radyeye eklendi. Perde ile kiriş ve döşeme arasındaki yük aktarımı ve yanal rijitlik ayrıca çözülmeli.`);
+  if (tamPerdeler.length) notlar.push(`Tam açıklık perdeleri (${tamPerdeler.map(e => `${e.ad} ${e.aks.replace(' / ', '/')}`).join(', ')}) yalnız düşey yükle boyutlandı; uç kolonları uç bölgesi oldu, perde açıklığında kiriş yok. ` +
     'Deprem eğilme momenti ve kesmesi (TBDY 7.6.6), göreli kat ötelemesi (4.9.1) ve burulma düzensizliği (3.6.2.1; dış akslarda tek yanlı perde burulma doğurur) kesin hesapta denetlenmeli.');
   notlar.push('Deprem kuvvetleri (kolon ve birleşimde V_d, V_kol; TBDY 7.3.7.5, 7.5.2.1), ikinci mertebe göstergesi (TBDY 4.9.2) ve göreli kat ötelemesi kesin hesapta denetlenmeli; kolon kesmesi ve birleşim burada yalnız kapasite (kiriş/kolon donatısı) tarafından denetlendi.');
   const qMin = Q_MIN[g.kullanim];
@@ -501,5 +513,5 @@ export function zincirHesap(g) {
     return { kat: i + 1, ad: c.ad, aks: c.aks, NG, NQ, Nd: 1.4 * NG + 1.6 * NQ };
   })).flat();
   return { ag, tur, katSayisi: n, beta: bt, h: dos.h, tabla: dos.tabla, katYukAlan: katYuk / plan,
-    dosemeler, seritler, zimbD, kirisler: kr.kirisler, kolonlar, katKolonYukleri, perdeler, yanal, radye: rd.radye, radyeSerit: rd.seritler, radyeZimb: rd.zimb, radyePerde: rd.perde, notlar };
+    dosemeler, seritler, zimbD, kirisler: kr.kirisler, kolonlar, katKolonYukleri, perdeler, yanal, radye: rd.radye, radyeSerit: rd.seritler, radyeZimb: rd.zimb, radyePerde: rd.perde, subasmanlar: rd.subasmanlar, notlar };
 }

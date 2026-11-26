@@ -15,6 +15,9 @@
   .ust #excel span { display: none; }
 }
 
+.perde-boy-sifirla { margin: .5rem .75rem; white-space: normal; }
+.perde-boy-sifirla[hidden] { display: none; }
+
 /* Zincir sayfası */
 .sayfa.zincir th, .sayfa.zincir td { height: 32px; padding: 0 .625rem; }
 .sayfa.zincir .no, .sayfa.zincir .harfler th { padding: 0; }

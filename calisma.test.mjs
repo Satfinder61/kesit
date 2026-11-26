@@ -1,6 +1,6 @@
 // Çalıştır: node calisma.test.mjs — ortak kitap (calisma.js): durum, elle değerler ve temizliği, Excel'e aktarma verisi
 import assert from 'node:assert/strict';
-import { yeniDurum, girdiYaz, girdiOku, ozelDegistir, hesap, excelSayfalar, durumYukle, durumKaydet, dosyaAdi, tabloHtml, katGorunumu, SAYFALAR, GIRDILER, ALANLAR, ANAHTAR } from './calisma.js';
+import { yeniDurum, girdiYaz, girdiOku, yerlesimKaydir, ozelDegistir, hesap, excelSayfalar, durumYukle, durumKaydet, dosyaAdi, tabloHtml, katGorunumu, SAYFALAR, GIRDILER, ALANLAR, ANAHTAR } from './calisma.js';
 import { xlsxYap } from './xlsx.js';
 import { zincirHesap } from './zincir.js';
 
@@ -41,6 +41,24 @@ girdiYaz(d, 'dosemeTuru', 'disli', false); assert.ok(!girdiOku(d).dosemeOzel && 
 girdiYaz(d, 'dosemeTuru', 'disli', true); assert.equal(d.dosemeOzel, null);                         // kesinleşince düşer
 assert.ok(girdiYaz(d, 'kullanim', 'sinif', true).has('q') && d.form.q === '3,5');                   // TS 498 Çizelge 7
 
+// Plandan kolon taşımak iki aksı birlikte, kiriş taşımak yalnız kendi aksını değiştirir.
+const y = yeniDurum();
+y.form.kat = '2'; y.form.katYukseklikleri = '3000 3400'; y.form.perdeler = '4/A–B';
+y.ozel.S2 = { b: 350, h: 400 }; y.kirisOzel.A = { b: 300 }; y.perdeOzel['4/A–B'] = 300;
+const once = hesap(y).sonuc;
+assert.match(yerlesimKaydir(y, { ax: { indeks: 1, metin: '0,50' }, ay: { indeks: 0, metin: '6' } }).hata, /izin verilen/);
+assert.deepEqual([y.form.ax, y.form.ay], ['4 5 4', '5 4,5']); // geçersiz Y, X'i de değiştirmez
+assert.deepEqual([...yerlesimKaydir(y, { ax: { indeks: 1, metin: '0,50' }, ay: { indeks: 0, metin: '-0.25' } }).degisen], ['ax', 'ay']);
+assert.deepEqual([y.form.ax, y.form.ay], ['4,5 4,5 4', '5,25 4,5']);
+const sonra = hesap(y).sonuc;
+assert.equal(sonra.ag.xs[1], 4.5);
+assert.equal(sonra.ag.ys[1], 5.25);
+assert.ok(sonra.katlar.every(k => k.kirisler.find(e => e.ad === 'K1').L === 4.5));
+assert.ok(once.katlar.every(k => k.kirisler.find(e => e.ad === 'K1').L === 4));
+assert.deepEqual([y.ozel.S2, y.kirisOzel.A, y.form.perdeler, y.perdeOzel], [{ b: 350, h: 400 }, { b: 300 }, '4/A–B', { '4/A–B': 300 }]);
+assert.deepEqual([...yerlesimKaydir(y, { ay: { indeks: 2, metin: '+0,5' } }).degisen], ['ay']);
+assert.deepEqual([y.form.ax, y.form.ay], ['4,5 4,5 4', '5,25 5']);
+
 // Hücreye yazılan elle değer: aralık dışı saklanmaz; kiriş aks boyunca, döşeme kat boyunca, kolon öbür kenarı o anki değerle
 const d2 = yeniDurum(), r2 = hesap(d2).sonuc;
 assert.match(ozelDegistir(d2, r2, 'kiris', 'K1', 'h', '50'), /200–5\.000 mm/);
@@ -57,6 +75,70 @@ const dt = yeniDurum(); dt.form.dosemeTuru = 'kaset';
 assert.equal(ozelDegistir(dt, hesap(dt).sonuc, 'doseme', 'D1', 't', '80'), null);
 assert.match(ozelDegistir(dt, hesap(dt).sonuc, 'doseme', 'D1', 'h', '80'), /Tabla kalınlığı t/);   // t < h olmalı
 assert.deepEqual(dt.dosemeOzel, { tur: 'kaset', t: 80 });
+
+// Perde uzunluğu kalınlıktan ayrı saklanır ve kat yüksekliği seçicisinden bağımsızdır.
+const du = yeniDurum();
+Object.assign(du.form, { ax: '4', ay: '4', kat: '2', katYukseklikleri: '3000 3400', perdeler: 'A/1–2' });
+let ru = hesap(du).sonuc;
+assert.equal(ru.perdeler[0].lw, 4250);
+assert.match(ozelDegistir(du, ru, 'perde', 'P1', 'lw', '6000'), /geçemez/);
+assert.deepEqual(du.perdeBoyOzel, {});
+assert.equal(ozelDegistir(du, ru, 'perde', 'P1', 'lw', '4500'), null);
+assert.equal(ozelDegistir(du, ru, 'perde', 'P1', 'bw', '300'), null);
+ru = hesap(du).sonuc;
+assert.ok(ru.katlar.every(k => k.perdeler[0].lw === 4500 && k.perdeler[0].bw === 300 && k.kolonlar.length === 2));
+const ps = SAYFALAR.find(s => s.ad === 'perde');
+assert.match(tabloHtml(ps, katGorunumu(ru, 2), du), /data-tip="perde" data-ad="P1" data-k="lw" value="4500" class="ozel"/);
+const pe = excelSayfalar(du, ru).find(s => s.ad === 'Perde');
+const peBoy = pe.sutunlar.findIndex(s => s.baslik === 'ℓw (mm)');
+assert.ok(peBoy >= 0 && pe.satirlar.every(r => r[peBoy] === 4500));
+const uzunlukDepo = { veri: '', setItem(_, v) { this.veri = v; }, getItem() { return this.veri; } };
+durumKaydet(du, uzunlukDepo);
+assert.deepEqual(durumYukle(uzunlukDepo).perdeBoyOzel, { 'A/1–2': 4500 });
+assert.equal(ozelDegistir(du, ru, 'perde', 'P1', 'lw', '2500'), null);
+ru = hesap(du).sonuc;
+assert.ok(ru.katlar.every(k => k.perdeler[0].lw === 2500 && k.perdeler[0].kismi && !k.perdeler[0].gecti && k.kolonlar.length === 4 && k.kirisler.length === 4));
+assert.ok(Math.abs(ru.perdeler[0].NG - 0.3 * 2.5 * 6.4 * 25) < 1e-8 && ru.perdeler[0].NQ === 0);
+assert.equal(ru.radyePerde[0].l1, 2.5);
+assert.equal(ru.radye.gecti, false);
+assert.equal(ozelDegistir(du, ru, 'perde', 'P1', 'lw', ''), null);
+assert.equal(hesap(du).sonuc.perdeler[0].lw, 4300);
+girdiYaz(du, 'perdeler', '', true);
+assert.deepEqual([du.perdeOzel, du.perdeBoyOzel], [{}, {}]);
+
+// Su basman bir kat elemanı değildir: kolonlar, kirişler ve zımbalama aynıdır, öz ağırlık temele bir kez eklenir.
+const ds = yeniDurum();
+Object.assign(ds.form, { ax: '4', ay: '5', kat: '2', subasmanH: '1000', subasmanBw: '200' });
+ds.ozelNx = 1;
+ds.ozel = { S1: { b: 300, h: 350 }, S2: { b: 400, h: 350 } };
+ds.radyeOzel = { h: 600, a: 0.75 };
+for (const katBoylari of ['', '3000 3400']) {
+  ds.form.katYukseklikleri = katBoylari;
+  girdiYaz(ds, 'subasman', '');
+  const bos = hesap(ds).sonuc;
+  girdiYaz(ds, 'subasman', 'a/1-2');
+  const dolu = hesap(ds).sonuc, [sb] = dolu.subasmanlar;
+  assert.equal(ds.form.subasman, 'A/1–2');
+  assert.equal(sb.aks, 'A / 1–2');
+  const yakin = (a, b) => assert.ok(Math.abs(a - b) < 1e-8, `${a} ≠ ${b}`);
+  yakin(sb.bas, 0.15); yakin(sb.son, 3.8); yakin(sb.L, 3.65); yakin(sb.NG, 18.25);
+  yakin(dolu.radye.qo - bos.radye.qo, 1.4 * 18.25 / dolu.radye.A);
+  assert.equal(sb.gecti, false);
+  assert.ok(dolu.radye.maddeler.some(m => m.ad === 'Su basman bağlantısı' && !m.gecti));
+  assert.deepEqual(dolu.kolonlar, bos.kolonlar);
+  assert.deepEqual(dolu.kirisler, bos.kirisler);
+  assert.deepEqual(dolu.radyeZimb.map(e => [e.ad, e.Vpd]), bos.radyeZimb.map(e => [e.ad, e.Vpd]));
+  const rapor = excelSayfalar(ds, dolu).find(s => s.ad === 'Su basman');
+  assert.deepEqual(rapor.satirlar[0].slice(0, 2), ['SB1', 'A / 1–2']);
+}
+const sbDepo = { veri: '', setItem(_, v) { this.veri = v; }, getItem() { return this.veri; } };
+durumKaydet(ds, sbDepo);
+assert.equal(durumYukle(sbDepo).form.subasman, 'A/1–2');
+ds.form.subasmanH = '0'; assert.match(hesap(ds).hata.subasmanH, /yüksekliği/);
+ds.form.subasmanH = '1000'; ds.form.perdeler = 'A/1–2';
+assert.match(hesap(ds).hata.subasman, /aynı açıklık/);
+ds.form.perdeler = ''; ds.form.subasman = 'A/1–9';
+assert.match(hesap(ds).hata.subasman, /aks ağının dışında/);
 
 // Kayıt: aynı anahtar, gidiş-dönüş; eski (elle alanları olmayan) ve bozuk kayıt açılır, geçersiz değerler atılır
 const depo = { m: new Map(), getItem(k) { return this.m.get(k) ?? null; }, setItem(k, v) { this.m.set(k, String(v)); } };
@@ -82,8 +164,9 @@ assert.ok(sat('Kullanım (TS 498 Çizelge 7)')[2].startsWith('Konut') && sat('S<
 assert.deepEqual(gi.filter(x => x[0] === 'Elle verilen boyutlar').map(x => [x[1], x[2]]), [['Döşeme h', 150], ['S5 kolonu b', 450], ['S5 kolonu h', S5h], ['Radye h', 700], ['Radye taşması', 1.25]]);
 for (const x of s.slice(1, 6)) assert.ok(x.sutunlar.every(c => c.baslik && !/[<>]/.test(c.baslik)) && x.satirlar.every(r => r.length === x.sutunlar.length), x.ad);
 const ki = s[2], kc = b => ki.sutunlar.findIndex(c => c.baslik === b), K1 = ki.satirlar[0], e1 = r3.kirisler[0];
-const detay = [['Sol üst ek', 'solUstEk'], ['Sol alt ek', 'solAltEk'], ['Montaj', 'montaj'], ['Düz', 'duz'], ['Pilye', 'pilye'], ['Sağ üst ek', 'sagUstEk'], ['Sağ alt ek', 'sagAltEk'], ['Gövde', 'govde']];
-const ornek = Object.fromEntries(detay.map(([, alan], i) => [alan, i === 0 ? 0 : `${i}φ12`]));
+const detay = [['Orta (üst / alt)', 'orta'], ['Sol üst ek', 'solUstEk'], ['Sol alt ek', 'solAltEk'], ['Montaj (üst sürekli)', 'montaj'], ['Düz (alt sürekli)', 'duz'], ['Pilye', 'pilye'], ['Sağ üst ek', 'sagUstEk'], ['Sağ alt ek', 'sagAltEk'], ['Gövde', 'govde']];
+const ornek = Object.fromEntries(detay.map(([, alan], i) => [alan, alan === 'solUstEk' ? 0 : `${i + 1}φ12`]));
+ornek.orta = '2φ12 / 3φ14';
 const kd = excelSayfalar(d2, { ...r3, kirisler: [{ ...e1, ...ornek }] })[2];
 assert.ok(detay.every(([ad, alan]) => kc(ad) >= 0 && kd.satirlar[0][kc(ad)] === ornek[alan] && K1[kc(ad)] === (e1[alan] ?? 'Hesaplanmadı')));
 assert.deepEqual([K1[kc('Ad')], K1[kc('Aks')], K1[kc('ℓ (m)')], K1[kc('b (mm)')], K1[kc('h (mm)')], K1[kc('Md mesnet')], K1[kc('Ve (kN)')], K1[kc('Sehim (mm)')], K1[kc('Sehim sınırı (mm)')]],

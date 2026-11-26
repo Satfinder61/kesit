@@ -1,8 +1,8 @@
 // Ortak çalışma kitabı (sira.html ve tablo.html): proje durumu (localStorage), Girdiler sayfası, zincir sayfaları, düzenlenebilir
 // sonuç hücreleri (elle boyut), Excel'e aktarma. Yüklenirken DOM'a dokunmaz; saf işlevleri Node testleri de kullanır.
 import { BETON, sayiOku, KULLANIM, DUVAR, tabloSatiri } from './kurallar.js';
-import { zincirHesap, girdiDenetle, CELIK } from './zincir.js';
-import { perdeOku, perdeYaz, perdeKirp } from './perde.js';
+import { zincirHesap, girdiDenetle, CELIK, AKS_MIN, AKS_MAX } from './zincir.js';
+import { perdeOku, perdeYaz, perdeKirp, perdeBoyHatasi, PERDE_BOY_SINIR } from './perde.js';
 import { xlsxYap, indir } from './xlsx.js';
 
 export const tr = (x, d = 2) => Number.isFinite(x) ? x.toLocaleString('tr-TR', { maximumFractionDigits: d }) : '—';
@@ -31,11 +31,11 @@ const sonucDuz = e => e.gecti ? 'Uygun' + (uyariVar(e) ? ' · not' : '') : 'Uygu
 export const ANAHTAR = 'kesit.sira.v3'; // v3: döşeme türü; kalınlık ve kesitler araçta bulunur (elle verilebilir)
 export const VARSAYILAN = { ax: '4 5 4', ay: '5 4,5', kat: '5', H: '3000', katYukseklikleri: '', beton: 'C30', celik: 'B420C', dosemeTuru: 'plak', disAralik: '500', disGen: '120',
   dolgu: '0', g: '2', q: '2', kullanim: 'konut', duvarDisTur: 'elle', duvarDis: '6', duvarIcTur: 'elle', duvarIc: '3', sds: '1', kDeprem: '1', zemin: '400',
-  Df: '1,5', tasma: '0,75', perdeler: '', perdeKal: '250' };
+  Df: '1,5', tasma: '0,75', perdeler: '', perdeKal: '250', subasman: '', subasmanH: '900', subasmanBw: '200' };
 export const ALANLAR = Object.keys(VARSAYILAN);
 export const liste = v => v.trim() ? v.trim().split(/[\s;/]+/).map(sayiOku) : [];
 export const yeniDurum = () => ({ form: { ...VARSAYILAN }, duvar: true, tutulu: false, ozel: {}, ozelNx: liste(VARSAYILAN.ax).length,
-  kirisOzel: {}, perdeOzel: {}, dosemeOzel: null, radyeOzel: {} });
+  kirisOzel: {}, perdeOzel: {}, perdeBoyOzel: {}, dosemeOzel: null, radyeOzel: {} });
 // Seçim alanları [değer, yazı]; eski kayıtlar (konut, atolye, depo) aynı anahtarla açılır
 const BGRUP = { konut: 'β a) konut, büro', atolye: 'β b) atölye, mağaza' };
 const DUVAR_SEC = [['elle', 'Elle (kN/m)'], ...Object.entries(DUVAR).map(([a, d]) => [a, `${d.ad} · ${tr(d.q)} kN/m²`])];
@@ -52,7 +52,7 @@ export const kullanimNot = F => { const k = KULLANIM[F.kullanim]; if (!k) return
 
 // Elle değer sınırları (girdiDenetle ile aynı); hücreye yazılan değer aralık dışındaysa saklanmaz
 const SINIR = { kolon: { b: [100, 10000], h: [100, 10000] }, kiris: { b: [150, 3000], h: [200, 5000] }, doseme: { h: [60, 1500], t: [40, 300] },
-  perde: { bw: [150, 1500] }, radye: { h: [200, 3000], a: [0, 10] } };
+  perde: { bw: [150, 1500], lw: PERDE_BOY_SINIR }, radye: { h: [200, 3000], a: [0, 10] } };
 const sec = (o, s) => { const t = Object.fromEntries(Object.entries(s).filter(([x, [a, b]]) => o?.[x] != null && +o[x] >= a && +o[x] <= b).map(([x]) => [x, +o[x]]));
   return Object.keys(t).length ? t : null; };
 const nesne = x => x && typeof x === 'object' && !Array.isArray(x) ? x : {};
@@ -62,13 +62,14 @@ export function durumYukle(depo = globalThis.localStorage, temizle = true) {
   let k = null;
   try { k = JSON.parse(depo?.getItem(ANAHTAR) ?? 'null'); } catch {}
   for (const a of ALANLAR) { const v = k?.form?.[a];
-    if (typeof v === 'string' && (!SECENEK[a] || SECENEK[a].some(([x]) => x === v))) d.form[a] = v.slice(0, a === 'perdeler' ? 600 : a === 'katYukseklikleri' ? 400 : 120); }
+    if (typeof v === 'string' && (!SECENEK[a] || SECENEK[a].some(([x]) => x === v))) d.form[a] = v.slice(0, a === 'subasman' ? 4000 : a === 'perdeler' ? 600 : a === 'katYukseklikleri' ? 400 : a === 'ax' || a === 'ay' ? 240 : 120); }
   if (typeof k?.duvar === 'boolean') d.duvar = k.duvar;
   if (typeof k?.tutulu === 'boolean') d.tutulu = k.tutulu;
   d.ozelNx = liste(d.form.ax).length;
   if (k?.ozelNx === d.ozelNx) for (const [ad, o] of Object.entries(nesne(k.ozel))) { const t = sec(o, SINIR.kolon); if (/^S\d+$/.test(ad) && t) d.ozel[ad] = t; }
   for (const [a, o] of Object.entries(nesne(k?.kirisOzel))) { const t = sec(o, SINIR.kiris); if (/^([A-Z]|\d{1,2})$/.test(a) && t) d.kirisOzel[a] = t; }
   for (const [a, v] of Object.entries(nesne(k?.perdeOzel))) { const t = sec({ bw: v }, SINIR.perde); if (a.length <= 20 && t) d.perdeOzel[a] = t.bw; }
+  for (const [a, v] of Object.entries(nesne(k?.perdeBoyOzel))) { const t = sec({ lw: v }, SINIR.perde); if (a.length <= 20 && t) d.perdeBoyOzel[a] = t.lw; }
   const dz = k?.dosemeOzel, dt = sec(dz, SINIR.doseme);
   if (dt && TUR_AD[dz.tur] && !(dt.h != null && dt.t != null && dt.t >= dt.h)) d.dosemeOzel = { tur: dz.tur, ...dt };
   d.radyeOzel = sec(k?.radyeOzel, SINIR.radye) ?? {};
@@ -77,7 +78,7 @@ export function durumYukle(depo = globalThis.localStorage, temizle = true) {
 }
 export function durumKaydet(d, depo = globalThis.localStorage) {
   try { depo.setItem(ANAHTAR, JSON.stringify({ form: d.form, duvar: d.duvar, tutulu: d.tutulu, ozel: d.ozel, ozelNx: d.ozelNx,
-    kirisOzel: d.kirisOzel, perdeOzel: d.perdeOzel, dosemeOzel: d.dosemeOzel, radyeOzel: d.radyeOzel })); } catch {}
+    kirisOzel: d.kirisOzel, perdeOzel: d.perdeOzel, perdeBoyOzel: d.perdeBoyOzel, dosemeOzel: d.dosemeOzel, radyeOzel: d.radyeOzel })); } catch {}
 }
 
 // Durum → motor girdisi. Kolon adları X aks sayısına bağlı (S = j·(nx+1) + i + 1): X aks sayısı yazılırken eski adlar kaymasın diye
@@ -88,10 +89,11 @@ export function girdiOku(d) {
     dosemeTuru: F.dosemeTuru, disAralik: n('disAralik'), disGen: n('disGen'), dolgu: n('dolgu'), dosemeDuvar: d.duvar,
     gKaplama: n('g'), q: n('q'), kullanim: F.kullanim, duvarDisTur: F.duvarDisTur, duvarDis: n('duvarDis'), duvarIcTur: F.duvarIcTur, duvarIc: n('duvarIc'),
     sds: n('sds'), kDeprem: n('kDeprem'), zemin: n('zemin'), Df: n('Df'), tasma: n('tasma'), yanalTutulu: d.tutulu || undefined,
-    perdeler: F.perdeler, perdeKal: F.perdeKal.trim() ? n('perdeKal') : undefined };
+    perdeler: F.perdeler, perdeKal: F.perdeKal.trim() ? n('perdeKal') : undefined,
+    subasman: F.subasman, subasmanH: n('subasmanH'), subasmanBw: n('subasmanBw') };
   g.kolonOzel = g.ax.length === d.ozelNx ? d.ozel : {};
   if (d.dosemeOzel?.tur === F.dosemeTuru) { const { tur, ...o } = d.dosemeOzel; g.dosemeOzel = o; }
-  return Object.assign(g, { kirisOzel: d.kirisOzel, perdeOzel: d.perdeOzel, radyeOzel: d.radyeOzel });
+  return Object.assign(g, { kirisOzel: d.kirisOzel, perdeOzel: d.perdeOzel, perdeBoyOzel: d.perdeBoyOzel, radyeOzel: d.radyeOzel });
 }
 export function hesap(d) {
   const g = girdiOku(d), hata = girdiDenetle(g);
@@ -109,19 +111,21 @@ export function ozelTemizle(d) {
     for (const a of Object.keys(d.kirisOzel)) if (!adlar.has(a)) { delete d.kirisOzel[a]; deg = true; }
     if (!h.perdeler) {
       const var_ = new Set(perdeOku(d.form.perdeler).liste.map(p => perdeYaz([p])));
-      for (const a of Object.keys(d.perdeOzel)) if (!var_.has(a)) { delete d.perdeOzel[a]; deg = true; }
+      for (const ozel of [d.perdeOzel, d.perdeBoyOzel]) for (const a of Object.keys(ozel)) {
+        if (!var_.has(a)) { delete ozel[a]; deg = true; }
+      }
     }
   }
   if (d.dosemeOzel && d.dosemeOzel.tur !== d.form.dosemeTuru) { d.dosemeOzel = null; deg = true; }
   return deg;
 }
 // Perdeler aks adıyla yazıldığından aks eklenince kaymaz; aks sayısı azalınca planda kalmayan açıklıklar silinir (geçerli aks girdisinde)
-function perdeKirpD(d) {
-  const r = perdeOku(d.form.perdeler), h = girdiDenetle(girdiOku(d));
+function perdeKirpD(d, alan) {
+  const r = perdeOku(d.form[alan]), g = girdiOku(d), h = girdiDenetle(g);
   if (r.hata.length || !r.liste.length || h.ax || h.ay) return false;
-  const k = perdeYaz(perdeKirp(r.liste, liste(d.form.ax).length, liste(d.form.ay).length));
+  const k = perdeYaz(perdeKirp(r.liste, g.ax.length, g.ay.length));
   if (k === perdeYaz(r.liste)) return false;
-  d.form.perdeler = k; return true;
+  d.form[alan] = k; return true;
 }
 // Bir girdiyi yaz (form alanı ya da Girdiler hücresi). kesin: değişiklik bitti (change); aks/perde/tür temizliği o zaman yapılır.
 // Dönüş: kendisi dışında değişen alanlar ('ozel': elle değerler düştü) — sayfa onları da yeniden yazar, hemen hesaplar.
@@ -130,18 +134,61 @@ export function girdiYaz(d, k, v, kesin = true) {
   if (k === 'duvar' || k === 'tutulu') d[k] = !!v; else d.form[k] = String(v);
   if (k === 'kullanim') { const q = KULLANIM[v]?.q; if (q != null && d.form.q !== tr(q)) { d.form.q = tr(q); ek.add('q'); } } // q Çizelge 7 değeriyle dolar, elle değiştirilebilir
   if (kesin) {
-    if (k === 'perdeler') { const r = perdeOku(d.form.perdeler), t = perdeYaz(r.liste); if (!r.hata.length && t !== d.form.perdeler) { d.form.perdeler = t; ek.add('perdeler'); } }
-    if ((k === 'ax' || k === 'ay') && perdeKirpD(d)) ek.add('perdeler');
+    if (k === 'perdeler' || k === 'subasman') {
+      const r = perdeOku(d.form[k]), t = perdeYaz(r.liste);
+      if (!r.hata.length && t !== d.form[k]) { d.form[k] = t; ek.add(k); }
+    }
+    if (k === 'ax' || k === 'ay') for (const alan of ['perdeler', 'subasman'])
+      if (perdeKirpD(d, alan)) ek.add(alan);
     if (ozelTemizle(d)) ek.add('ozel');
   }
   return ek;
+}
+// Kaydırma: aksın bir yanındaki aralık uzar, öbürü kısalır. Sınır aksında tek aralık değişir.
+export function aksKaymaSiniri(araliklar, i) {
+  const a = araliklar[i - 1], b = araliklar[i];
+  return [Math.max(a == null ? -Infinity : AKS_MIN - a, b == null ? -Infinity : b - AKS_MAX),
+    Math.min(a == null ? Infinity : AKS_MAX - a, b == null ? Infinity : b - AKS_MIN)];
+}
+export function yerlesimKaydir(d, kaymalar) {
+  const g = girdiOku(d), denetim = girdiDenetle(g), yeni = {};
+  if (denetim.ax || denetim.ay) return { hata: denetim.ax ?? denetim.ay };
+  for (const [alan, { indeks, metin }] of Object.entries(kaymalar)) {
+    const araliklar = alan === 'ax' || alan === 'ay' ? g[alan] : [];
+    if (!araliklar.length || !Number.isInteger(indeks) || indeks < 0 || indeks > araliklar.length)
+      return { hata: 'Taşınacak aksı yeniden seç.' };
+    const v = metin.trim() || '0', ad = alan === 'ax' ? 'X' : 'Y';
+    // Kaydırma işaretli ve gruplanmamış metre değeridir. Virgül ya da nokta ondalık ayracı olabilir.
+    if (!/^[+-]?(?:\d+(?:[.,]\d{1,3})?|[.,]\d{1,3})$/.test(v))
+      return { alan, hata: `${ad} kaydırmasını metre cinsinden, en çok üç ondalık basamakla gir.` };
+    const fark = Number(v.replace(',', '.')), [alt, ust] = aksKaymaSiniri(araliklar, indeks);
+    if (fark < alt - 1e-9 || fark > ust + 1e-9)
+      return { alan, hata: `${ad} yönünde izin verilen kaydırma ${tr(alt, 6)} ile ${tr(ust, 6)} m arasıdır.` };
+    if (fark === 0) continue;
+    yeni[alan] = araliklar.map((L, i) => {
+      const delta = i === indeks - 1 ? fark : i === indeks ? -fark : 0;
+      const boy = delta ? Math.min(AKS_MAX, Math.max(AKS_MIN, Number((L + delta).toFixed(9)))) : L;
+      return boy.toString().replace('.', ',');
+    }).join(' ');
+  }
+  if (Object.keys(d.perdeBoyOzel).length && Object.keys(yeni).length) {
+    const hata = girdiDenetle(girdiOku({ ...d, form: { ...d.form, ...yeni } })).perdeBoyOzel;
+    if (hata) return { hata };
+  }
+  // İki yöndeki kaydırma birlikte doğrulanır. Aks kimlikleri ve sırası korunur.
+  const degisen = new Set();
+  for (const [alan, v] of Object.entries(yeni)) {
+    degisen.add(alan);
+    for (const k of girdiYaz(d, alan, v)) degisen.add(k);
+  }
+  return { degisen };
 }
 // Sonuç hücresine yazılan elle değer. Boş: otomatik. Dönüş: hata iletisi ya da null.
 // kolon: bir kenar girilince öbürü o anki değerle sabitlenir (elle boyutlanan kolon araçça büyütülmez); kiriş: aks hattı boyunca,
 // yalnız yazılan boyut; döşeme: kat döşemesinin tamamı; perde: perdenin yazımı ("A/1–2"); radye: tek.
 export function ozelDegistir(d, r, tip, ad, k, metin) {
   const bos = !String(metin).trim(), v = sayiOku(metin), [a, b] = SINIR[tip][k];
-  if (!bos && !(v >= a && v <= b)) return `${ad} ${{ bw: 'b_w', a: 'taşma' }[k] ?? k}: ${tr(a)}–${tr(b)} ${k === 'a' ? 'm' : 'mm'} arası bir değer gir`;
+  if (!bos && !(v >= a && v <= b)) return `${ad} ${{ bw: 'b_w', lw: 'uzunluğu', a: 'taşma' }[k] ?? k}: ${tr(a)}–${tr(b)} ${k === 'a' ? 'm' : 'mm'} arası bir değer gir`;
   const yaz = (o, x) => { if (bos) delete o[x]; else o[x] = v; return o; };
   if (tip === 'kolon') {
     if (bos) delete d.ozel[ad];
@@ -153,8 +200,16 @@ export function ozelDegistir(d, r, tip, ad, k, metin) {
     const tur = d.form.dosemeTuru, o = yaz(d.dosemeOzel?.tur === tur ? { ...d.dosemeOzel } : { tur }, k);
     if (o.t != null && o.h != null && !(o.t < o.h)) return `Tabla kalınlığı t (${tr(o.t)} mm) döşeme h'den (${tr(o.h)} mm) küçük olmalı`;
     d.dosemeOzel = o.h != null || o.t != null ? o : null;
-  } else if (tip === 'perde') yaz(d.perdeOzel, perdeYaz([r.perdeler.find(x => x.ad === ad)]));
-  else yaz(d.radyeOzel, k);
+  } else if (tip === 'perde') {
+    const p = r.perdeler.find(x => x.ad === ad);
+    if (!p) return 'Perdeyi yeniden seç.';
+    const aks = perdeYaz([p]);
+    if (k === 'lw' && !bos) {
+      const hata = perdeBoyHatasi(r.ag, p, v);
+      if (hata) return `${ad}: ${hata}`;
+    }
+    yaz(k === 'lw' ? d.perdeBoyOzel : d.perdeOzel, aks);
+  } else yaz(d.radyeOzel, k);
   return null;
 }
 
@@ -169,8 +224,12 @@ export const GIRDILER = [
   { k: 'katYukseklikleri', ad: 'Kat yükseklikleri', birim: 'mm', metin: 1, not: 'Katları ayrı hesaplamak için tabandan başlayarak her kat için bir değer gir: 3000 3200 3000. Boşsa ortak kesit hesabı yapılır.' },
   'Perdeler',
   { k: 'perdeler', ad: 'Perdeli açıklıklar', birim: '', metin: 1, not: 'A/1–2: A aksında 1–2 arası; 3/A–B: 3 aksında A–B arası; noktalı virgülle ayır' },
-  { k: 'perdeKal', ad: 'Perde kalınlığı b_w', birim: 'mm', not: 'Başlangıç değeri; TBDY 7.6.1 sağlanana dek büyür. Perde sayfasında perde başına elle verilebilir' },
+  { k: 'perdeKal', ad: 'Perde kalınlığı b_w', birim: 'mm', not: 'Başlangıç değeri; TBDY 7.6.1 sağlanana dek büyür. Perde sayfasında kalınlık ve toplam uzunluk ayrı ayrı girilebilir' },
   { k: 'tutulu', tip: 'onay', ad: 'Yanal ötelenme önlenmiş say', not: 'Plana çizilmeyen perdeler var: iki doğrultuda önlenmiş sayılır (TS 500 7.6.2.1)' },
+  'Su basman perdeleri',
+  { k: 'subasman', ad: 'Su basman açıklıkları', birim: '', metin: 1, not: 'Örnek: A/1–2 ya da 3/A–B. Mevcut kolon ve kirişler korunur.' },
+  { k: 'subasmanH', ad: 'Su basman perde yüksekliği', birim: 'mm', not: 'Radye üstündeki perde yüksekliği' },
+  { k: 'subasmanBw', ad: 'Su basman perde kalınlığı', birim: 'mm', not: 'Perde öz ağırlığı radye ön hesabına eklenir' },
   'Malzeme',
   { k: 'beton', tip: 'secim', ad: 'Beton', not: 'TBDY 7.2.5.1: C25 … C50' },
   { k: 'celik', tip: 'secim', ad: 'Donatı çeliği', not: 'TBDY 7.2.5.3' },
@@ -198,7 +257,7 @@ export const GIRDILER = [
 const girdiGorunur = d => GIRDILER.filter(x => typeof x === 'string' || !x.goster || x.goster(d.form));
 const girdiBul = k => GIRDILER.find(x => x.k === k);
 const girdiDeger = (d, x) => x.tip === 'onay' ? d[x.k] : d.form[x.k];
-const girdiHata = (hata, x) => hata[x.hata ?? x.k];
+const girdiHata = (hata, x) => hata[x.hata ?? x.k] ?? (x.k === 'perdeler' ? hata.perdeBoyOzel : undefined);
 const notYazi = (d, x) => typeof x.not === 'function' ? x.not(d.form) : x.not ?? '';
 const GSUT = [['Parametre', 240], ['Değer', 232], ['Birim', 72], ['Not', 460]];
 function girdiHucre(d, x, h) {
@@ -252,12 +311,13 @@ export const SPEC = {
   kiris: () => [['Ad', 56, 0, e => e.ad], ['Aks', 96, 0, e => e.aks], S('ℓ <small>m</small>', 56, e => e.L),
     GK('b <small>mm</small>', 64, e => e.b, 'kiris b'), GK('h <small>mm</small>', 64, e => e.h, 'kiris h'),
     S('M<sub>d</sub> mesnet', 88, e => e.MdMesnet, 1), S('M<sub>d</sub> açıklık', 88, e => e.MdAcik, 1), S('V<sub>e</sub> <small>kN</small>', 72, e => e.Ve, 1),
-    ['Üst (mesnet)', 128, 1, e => e.ust], ['Alt (açıklık)', 128, 1, e => e.alt],
-    ...[['Sol üst ek', 'solUstEk'], ['Sol alt ek', 'solAltEk'], ['Montaj', 'montaj'], ['Düz', 'duz'], ['Pilye', 'pilye'],
-      ['Sağ üst ek', 'sagUstEk'], ['Sağ alt ek', 'sagAltEk'], ['Gövde', 'govde']].map(([ad, alan]) => [ad, 120, 0, e => e[alan] ?? 'Hesaplanmadı']),
+    ['Üst (mesnet hesabı)', 160, 1, e => e.ust], ['Alt (açıklık hesabı)', 160, 1, e => e.alt],
+    ...[['Orta (üst / alt)', 'orta', 144], ['Sol üst ek', 'solUstEk'], ['Sol alt ek', 'solAltEk'],
+      ['Montaj (üst sürekli)', 'montaj', 156], ['Düz (alt sürekli)', 'duz', 136], ['Pilye', 'pilye'],
+      ['Sağ üst ek', 'sagUstEk'], ['Sağ alt ek', 'sagAltEk'], ['Gövde', 'govde']].map(([ad, alan, w = 120]) => [ad, w, 0, e => e[alan] ?? 'Hesaplanmadı']),
     ['Etriye sarılma', 104, 1, e => e.etrSar], ['Etriye orta', 96, 1, e => e.etrOrta],
     SEHIM(120), ...ORTAK],
-  perde: () => [['Ad', 48, 0, e => e.ad], ['Aks', 88, 0, e => e.aks], GK('b<sub>w</sub> <small>mm</small>', 64, e => e.bw, 'perde bw'), S('ℓ<sub>w</sub> <small>mm</small>', 76, e => e.lw, 0),
+  perde: () => [['Ad', 48, 0, e => e.ad], ['Aks', 88, 0, e => e.aks], GK('b<sub>w</sub> <small>mm</small>', 64, e => e.bw, 'perde bw'), GK('ℓ<sub>w</sub> <small>mm</small>', 92, e => e.lw, 'perde lw'),
     S('ℓ<sub>u</sub> <small>mm</small>', 68, e => e.lu, 0), S('N<sub>G</sub> <small>kN</small>', 80, e => e.NG, 0), S('β·N<sub>Q</sub> <small>kN</small>', 84, e => e.NQ, 0),
     S('N<sub>d</sub> <small>kN</small>', 80, e => e.Nd, 0), ['Uç boyuna', 92, 1, e => e.ucBoyuna ?? '—'], ['Uç etriye', 92, 1, e => e.ucEtriye ?? '—'],
     ['Gövde düşey', 96, 1, e => e.govdeDusey ?? '—'], ['Gövde yatay', 96, 1, e => e.govdeYatay ?? '—'], ...ORTAK],
@@ -268,6 +328,10 @@ export const SPEC = {
     ['Etriye sarılma', 104, 1, e => e.etrSar ?? '—'], ['Etriye orta', 96, 1, e => e.etrOrta ?? '—'], ['Kol', 200, 1, e => e.kol ?? '—'], ...ORTAK],
   katKolonYukleri: () => [S('Kat', 64, e => e.kat, 0), ['Ad', 64, 0, e => e.kolonAd], ['Aks', 64, 0, e => e.aks],
     S('N<sub>G</sub> <small>kN</small>', 112, e => e.NG, 1), S('β·N<sub>Q</sub> <small>kN</small>', 112, e => e.NQ, 1), S('N<sub>d</sub> <small>kN</small>', 112, e => e.Nd, 1)],
+  subasman: () => [['Ad', 64, 0, e => e.ad], ['Aks', 96, 0, e => e.aks], S('Net boy <small>m</small>', 88, e => e.L, 3),
+    S('Kalınlık <small>mm</small>', 88, e => e.bw, 0), S('Yükseklik <small>mm</small>', 96, e => e.h, 0),
+    S('Hacim <small>m³</small>', 88, e => e.hacim, 3), S('N<sub>G</sub> <small>kN</small>', 80, e => e.NG, 2),
+    S('1,4·N<sub>G</sub> <small>kN</small>', 112, e => e.Nd, 2), ...ORTAK],
   // İlk satır radyenin kendisi (h, taşma, zemin basıncı; h ve taşma düzenlenebilir), sonrakiler şeritler
   radye: () => [['Ad', 80, 0, e => e.ad], ['Aks', 112, 0, e => e.aks],
     ['ℓ<sub>1</sub> · h', 80, 1, e => RADYE(e) ? `${tr(e.h, 0)} mm` : tr(e.l1), 'giris radye h', e => RADYE(e) ? e.h : e.l1],
@@ -287,10 +351,12 @@ export const SAYFALAR = [
     dizi: r => (r.katKolonYukleri ?? []).map(e => ({ ...e, kolonAd: e.ad, ad: `${e.kat}-${e.ad}` })), spec: SPEC.katKolonYukleri },
   { ad: 'perde', baslik: 'Perde', adim: 'kolon', dizi: r => r.perdeler, spec: SPEC.perde, goster: r => r.perde },
   { ad: 'radye', baslik: 'Radye', adim: 'temel', dizi: r => [r.radye, ...r.radyeSerit, ...r.radyePerde], spec: SPEC.radye },
+  { ad: 'subasman', baslik: 'Su basman', adim: 'temel', dizi: r => r.subasmanlar ?? [], spec: SPEC.subasman, goster: r => r.subasman },
   { ad: 'radyeZ', baslik: 'Radye zımbalama', adim: 'temel', dizi: r => r.radyeZimb, spec: SPEC.zimb },
 ];
 // Görünen sekmeler girdiden (girdi hatasında da sekmeler yerinde kalsın)
-export const gorunur = (d, r) => SAYFALAR.filter(s => !(s.yuk && r?.katlar?.length) && (!s.goster || s.goster({ tur: d.form.dosemeTuru, perde: perdeOku(d.form.perdeler).liste.length > 0 })));
+export const gorunur = (d, r) => SAYFALAR.filter(s => !(s.yuk && r?.katlar?.length) && (!s.goster || s.goster({ tur: d.form.dosemeTuru, perde: perdeOku(d.form.perdeler).liste.length > 0, subasman: !!d.form.subasman.trim() })));
+const KIRIS_NOT = 'Kiriş donatısı düşey yük ön hesabıdır. Orta sütunu açıklık ortasındaki sürekli üst ve alt çubukları gösterir. İlave çubuk boyları, kenetlenme ve deprem etkileri kesin hesapta belirlenir.';
 const KAT_YUK_NOT = 'Zemin kat 1, çatı en büyük kattır. Yükler eşit kat yükü ve ortak kesit varsayımıyladır; katlara ayrı boyut ve donatı hesabı yapılmamıştır.';
 
 // Katların her biri hesaplanmış sonuçlar olmalı; eksik katı ortak sonuçla doldurma.
@@ -310,10 +376,10 @@ function hucre([, , sayi, dg, sinif = ''], e, d, baski, salt = false) {
   const [tip, t2, k] = sinif.split(' ');
   const cls = [sayi && 'sayi', tip === 'ayrac' && 'sinir-sol'].filter(Boolean).join(' ');
   const v = tip === 'giris' ? girisDeger(t2, k, e) : undefined;
-  if (v != null && !salt) {
+  if (v != null && (!salt || (t2 === 'perde' && k === 'lw'))) {
     const elle = elleMi(t2, k, e, d), yaz = k === 'a' ? tr(v) : String(v);
-    if (baski) return `<td class="sayi">${k === 'a' ? tr(v) : tr(v, 0)}${elle ? ' (elle)' : ''}</td>`;
-    return `<td class="hucre-gir"><input size="1" data-tip="${t2}" data-ad="${e.ad}" data-k="${k}" value="${yaz}"${elle ? ' class="ozel"' : ''} inputmode="decimal" spellcheck="false" aria-label="${e.ad} ${k === 'bw' ? 'b w' : k === 'a' ? 'taşma' : k}, ${k === 'a' ? 'm' : 'mm'}"></td>`;
+    if (baski) return `<td class="sayi">${tr(v, k === 'lw' ? 3 : k === 'a' ? 2 : 0)}${elle ? ' (elle)' : ''}</td>`;
+    return `<td class="hucre-gir"><input size="1" data-tip="${t2}" data-ad="${e.ad}" data-k="${k}" value="${yaz}"${elle ? ' class="ozel"' : ''} inputmode="decimal" spellcheck="false" aria-label="${e.ad} ${k === 'bw' ? 'b w' : k === 'lw' ? 'uzunluğu' : k === 'a' ? 'taşma' : k}, ${k === 'a' ? 'm' : 'mm'}"></td>`;
   }
   if (tip === 'dolgu') {
     const u = kul(e);
@@ -328,7 +394,8 @@ export function tabloHtml(sf, r, d, baski = false) {
   const spec = sf.spec(r), l = sf.dizi(r);
   const salt = !!r.aktifKat && sf.adim !== 'temel';
   const ad = s => `<th scope="col"${s[2] || s[4] === 'ayrac' ? ` class="${[s[2] && 'sayi', s[4] === 'ayrac' && 'sinir-sol'].filter(Boolean).join(' ')}"` : ''}>${s[0]}</th>`;
-  if (baski) return `<table>${sf.yuk ? `<caption>${KAT_YUK_NOT}</caption>` : ''}<thead><tr>${spec.map(ad).join('')}</tr></thead><tbody>${l.map(e => `<tr>${spec.map(s => hucre(s, e, d, true, salt)).join('')}</tr>`).join('')}</tbody></table>`;
+  const not = sf.yuk ? KAT_YUK_NOT : sf.ad === 'kiris' ? KIRIS_NOT : '';
+  if (baski) return `<table>${not ? `<caption>${not}</caption>` : ''}<thead><tr>${spec.map(ad).join('')}</tr></thead><tbody>${l.map(e => `<tr>${spec.map(s => hucre(s, e, d, true, salt)).join('')}</tr>`).join('')}</tbody></table>`;
   return `<colgroup><col style="width:2.75rem">${spec.map(s => `<col style="width:${s[1] / 16}rem">`).join('')}</colgroup>` + // rem: tema yazı boyutuyla büyür
     `<thead><tr class="harfler"><th class="no"></th>${spec.map((s, j) => `<th aria-hidden="true"${s[4] === 'ayrac' ? ' class="sinir-sol"' : ''}>${HARF[j]}</th>`).join('')}</tr>` +
     `<tr class="adlar"><th class="no" aria-hidden="true">1</th>${spec.map(ad).join('')}</tr></thead>` +
@@ -344,9 +411,10 @@ export function maddeTablosu(e) {
 const IPUCU = {
   girdi: ' · Değer hücresine yaz, Enter ya da ↓ sonraki satır; hesap kendiliğinden yenilenir',
   doseme: r => ` · h${r.tur === 'disli' || r.tur === 'kaset' ? ', t' : ''} hücresine yaz: kat döşemesi elle (turuncu, denetlenir), sil: otomatik`,
-  kiris: ' · b, h hücresine yaz: aks boyunca elle (turuncu, denetlenir), sil: otomatik',
+  kiris: ' · Düşey yük ön hesabı · b, h hücresine yaz: aks boyunca elle (turuncu, denetlenir), sil: otomatik',
   kolon: ' · b, h hücresine yaz: elle boyut, sil: otomatik',
-  perde: ' · b<sub>w</sub> hücresine yaz: elle kalınlık (turuncu, denetlenir), sil: otomatik',
+  perde: ' · ℓ<sub>w</sub> tüm katlar için toplam perde uzunluğu, sil: otomatik',
+  subasman: ' · Net uzunluk mevcut mesnet yüzleri arasındadır. Radyeye perde öz ağırlığı eklenir.',
   radye: ' · Radye satırında h, taşma hücresine yaz: elle (turuncu, denetlenir), sil: otomatik',
 };
 
@@ -354,7 +422,7 @@ const IPUCU = {
 const duvarYaz = (tur, w) => DUVAR[tur] ? `${DUVAR[tur].ad.toLowerCase()} ${tr(DUVAR[tur].q)} kN/m² (net yükseklikle)` : `${tr(w)} kN/m`;
 export function girdiOzet(d, r) {
   const g = girdiOku(d), y = yon => `${yon.toUpperCase()} ${r.yanal[yon].tutulu ? 'önlenmiş' : 'önlenmemiş'}${r.yanal[yon].phi != null ? ` (φ ${tr(r.yanal[yon].phi, 3)})` : ''}`;
-  return `Aks aralıkları X: ${g.ax.map(v => tr(v)).join(' · ')} m; Y: ${g.ay.map(v => tr(v)).join(' · ')} m · ${tr(g.katSayisi, 0)} kat, H ${g.katYukseklikleri ? g.katYukseklikleri.map(v => tr(v, 0)).join(' · ') : tr(g.H, 0)} mm · ${g.beton}, ${g.celik} · ${(TUR_AD[g.dosemeTuru] ?? '').toLowerCase()} döşeme${r ? `, h ${r.h} mm` : ''}${disMi(d.form) ? ` (diş aralığı ${tr(g.disAralik, 0)} mm, diş genişliği ${tr(g.disGen, 0)} mm, dolgu ${tr(g.dolgu)} kN/m²)` : ''}, bölme duvar ${g.dosemeDuvar ? 'var (sehim ℓ<sub>n</sub>/480)' : 'yok (ℓ<sub>n</sub>/360)'} · kullanım: ${secimYazi('kullanim', g.kullanim)}${r ? ` (β ${tr(r.beta)})` : ''} · g ${tr(g.gKaplama)} kN/m², q ${tr(g.q)} kN/m² · duvar dış ${duvarYaz(g.duvarDisTur, g.duvarDis)}, iç ${duvarYaz(g.duvarIcTur, g.duvarIc)} · S<sub>DS</sub> ${tr(g.sds)}, deprem katsayısı ${tr(g.kDeprem)}${g.yanalTutulu ? ', yanal ötelenme elle önlenmiş sayıldı' : ''}${r?.perdeler.length ? ` · perdeler: ${r.perdeler.map(p => `${p.ad} ${p.aks.replace(' / ', '/')} (b<sub>w</sub> ${p.bw} mm, ℓ<sub>w</sub> ${tr(p.lw, 0)} mm)`).join(', ')}; yanal ötelenme ${['x', 'y'].map(y).join(', ')}` : ''} · zemin q<sub>k</sub> ${tr(g.zemin, 0)} kN/m² (q<sub>t</sub> = q<sub>k</sub>/1,4), temel derinliği ${tr(g.Df)} m, radye taşması ≥ ${tr(g.tasma)} m.`;
+  return `Aks aralıkları X: ${g.ax.map(v => tr(v)).join(' · ')} m; Y: ${g.ay.map(v => tr(v)).join(' · ')} m · ${tr(g.katSayisi, 0)} kat, H ${g.katYukseklikleri ? g.katYukseklikleri.map(v => tr(v, 0)).join(' · ') : tr(g.H, 0)} mm · ${g.beton}, ${g.celik} · ${(TUR_AD[g.dosemeTuru] ?? '').toLowerCase()} döşeme${r ? `, h ${r.h} mm` : ''}${disMi(d.form) ? ` (diş aralığı ${tr(g.disAralik, 0)} mm, diş genişliği ${tr(g.disGen, 0)} mm, dolgu ${tr(g.dolgu)} kN/m²)` : ''}, bölme duvar ${g.dosemeDuvar ? 'var (sehim ℓ<sub>n</sub>/480)' : 'yok (ℓ<sub>n</sub>/360)'} · kullanım: ${secimYazi('kullanim', g.kullanim)}${r ? ` (β ${tr(r.beta)})` : ''} · g ${tr(g.gKaplama)} kN/m², q ${tr(g.q)} kN/m² · duvar dış ${duvarYaz(g.duvarDisTur, g.duvarDis)}, iç ${duvarYaz(g.duvarIcTur, g.duvarIc)} · S<sub>DS</sub> ${tr(g.sds)}, deprem katsayısı ${tr(g.kDeprem)}${g.yanalTutulu ? ', yanal ötelenme elle önlenmiş sayıldı' : ''}${r?.perdeler.length ? ` · perdeler: ${r.perdeler.map(p => `${p.ad} ${p.aks.replace(' / ', '/')} (b<sub>w</sub> ${p.bw} mm, ℓ<sub>w</sub> ${tr(p.lw, 3)} mm)`).join(', ')}; yanal ötelenme ${['x', 'y'].map(y).join(', ')}` : ''} · zemin q<sub>k</sub> ${tr(g.zemin, 0)} kN/m² (q<sub>t</sub> = q<sub>k</sub>/1,4), temel derinliği ${tr(g.Df)} m, radye taşması ≥ ${tr(g.tasma)} m.`;
 }
 
 // ── Kitap denetçisi: sayfa tablosu, sekmeler, formül çubuğu, durum çubuğu, ayrıntı. Her iki sayfa kendi öğeleriyle kurar.
@@ -363,6 +431,19 @@ export function girdiOzet(d, r) {
 export function kitapKur(el, { yenile, secildi = () => {}, katDegisti = () => {}, girdiYazildi = () => {} }) {
   const $s = s => el.sayfa.querySelector(s);
   const k = { d: durumYukle(), g: null, hata: {}, sonuc: null, tumSonuc: null, kat: 1, sayfaAd: 'girdi', secili: null, bekle: 0 };
+  const boySifirla = document.createElement('button');
+  boySifirla.type = 'button'; boySifirla.className = 'dugme perde-boy-sifirla'; boySifirla.hidden = true;
+  boySifirla.textContent = 'Geçersiz perde uzunluklarını otomatiğe al';
+  boySifirla.addEventListener('click', () => {
+    const g = girdiOku(k.d);
+    const perdeler = new Map(perdeOku(g.perdeler).liste.map(p => [perdeYaz([p]), p]));
+    for (const [ad, lw] of Object.entries(k.d.perdeBoyOzel)) {
+      const p = perdeler.get(ad);
+      if (!p || perdeBoyHatasi(g, p, lw)) delete k.d.perdeBoyOzel[ad];
+    }
+    k.simdi();
+  });
+  el.kap.before(boySifirla);
   const katAlan = document.createElement('label');
   katAlan.hidden = true; katAlan.className = 'alan'; katAlan.textContent = 'Kat ';
   const katSecici = document.createElement('select'); katSecici.setAttribute('aria-label', 'Gösterilen kat'); katAlan.append(katSecici); el.kap.before(katAlan);
@@ -372,6 +453,7 @@ export function kitapKur(el, { yenile, secildi = () => {}, katDegisti = () => {}
   k.hesap = () => { const h = hesap(k.d); k.g = h.g; k.hata = h.hata; k.tumSonuc = h.sonuc;
     const katlar = k.tumSonuc?.katlar ?? []; if (katlar.length && !katlar.some(x => x.kat === k.kat)) k.kat = katlar[0].kat;
     k.sonuc = katGorunumu(k.tumSonuc, k.kat); katAlan.hidden = !katlar.length;
+    boySifirla.hidden = !k.hata.perdeBoyOzel;
     katSecici.innerHTML = katlar.map(x => `<option value="${x.kat}">${x.kat}. kat${x.H != null ? ` · ${tr(x.H, 0)} mm` : ''}</option>`).join('');
     katSecici.value = String(k.kat); durumKaydet(k.d); };
   // yazarken her tuşta değil, 150 ms durunca hesapla (büyük ağda hesap 0,1–0,5 s)
@@ -404,7 +486,7 @@ export function kitapKur(el, { yenile, secildi = () => {}, katDegisti = () => {}
     else {
       const l = sf.dizi(r), bad = l.filter(e => !e.gecti).length, ip = IPUCU[sf.ad];
       const yanal = sf.ad === 'perde' && r.yanal ? ' · yanal ötelenme ' + ['x', 'y'].map(y => `${y.toUpperCase()} <b>${r.yanal[y].tutulu ? 'önlenmiş' : 'önlenmemiş'}</b>${r.yanal[y].phi != null ? ` (φ ${tr(r.yanal[y].phi, 3)})` : ''}`).join(', ') : '';
-      el.durumSol.innerHTML = sf.yuk ? `${sf.baslik} <b>${l.length}</b> · ${KAT_YUK_NOT}` : `${r.aktifKat && sf.adim !== 'temel' ? `${r.aktifKat}. kat · ` : ''}${sf.baslik} <b>${l.length}</b> · Uygun değil <b>${bad}</b>${r.aktifKat && sf.adim !== 'temel' ? '' : typeof ip === 'function' ? ip(r) : ip ?? ''}${yanal}`;
+      el.durumSol.innerHTML = sf.yuk ? `${sf.baslik} <b>${l.length}</b> · ${KAT_YUK_NOT}` : `${r.aktifKat && sf.adim !== 'temel' ? `${r.aktifKat}. kat · ` : ''}${sf.baslik} <b>${l.length}</b> · Uygun değil <b>${bad}</b>${r.aktifKat && sf.adim !== 'temel' && sf.ad !== 'perde' ? '' : typeof ip === 'function' ? ip(r) : ip ?? ''}${yanal}`;
     }
     el.durumSag.innerHTML = r ? `Kat yükü ortalaması (G + Q) <b>${tr(r.katYukAlan, 1)}</b> kN/m² · β = <b>${tr(r.beta)}</b>` : '';
   };
@@ -491,7 +573,10 @@ export function kitapKur(el, { yenile, secildi = () => {}, katDegisti = () => {}
     const yon = e.key === 'ArrowUp' || (e.key === 'Enter' && e.shiftKey) ? -1 : 1, hucreMi = !!x.dataset.k, rows = t.tBodies[0].rows;
     let hedef = tr_;
     do hedef = rows[hedef.sectionRowIndex + yon]; while (hedef && !(hucreMi ? hedef.querySelector(`[data-k="${x.dataset.k}"]`) : hedef.dataset.ad));
-    if (!hedef) return;
+    if (!hedef) {
+      if (e.key === 'Enter' && x.dataset.tip === 'perde' && x.dataset.k === 'lw') { e.preventDefault(); x.blur(); }
+      return;
+    }
     e.preventDefault();
     if (hucreMi) { const el2 = hedef.querySelector(`[data-k="${x.dataset.k}"]`); el2.focus(); if (metinMi(el2)) el2.select(); } // önceki hücrenin change olayı yeniden çizimi sonraya bırakır
     else { k.secili = hedef.dataset.ad; k.secimCiz(); hedef.focus(); }
@@ -528,6 +613,7 @@ export function excelSayfalar(d, r = hesap(d).sonuc, { liste: kl } = {}) {
   for (const [a, o] of Object.entries(d.kirisOzel)) for (const x of ['b', 'h']) if (o[x] != null) E(`${a} aksı kirişleri ${x}`, o[x], 'mm', 'Kiriş sayfası; aks boyunca');
   for (const [a, o] of Object.entries(girdiOku(d).kolonOzel)) for (const x of ['b', 'h']) if (o[x] != null) E(`${a} kolonu ${x}`, o[x], 'mm', 'Kolon sayfası');
   for (const [a, v] of Object.entries(d.perdeOzel)) E(`${a} perdesi b_w`, v, 'mm', 'Perde sayfası');
+  for (const [a, v] of Object.entries(d.perdeBoyOzel)) E(`${a} perdesi ℓw`, v, 'mm', 'Perde sayfası; tüm katlar');
   if (d.radyeOzel.h != null) E('Radye h', d.radyeOzel.h, 'mm', 'Radye sayfası');
   if (d.radyeOzel.a != null) E('Radye taşması', d.radyeOzel.a, 'm', 'Radye sayfası');
   sayfalar.push({ ad: 'Girdiler', not: 'Kesit — döşemeden temele ön boyutlandırma: proje girdileri',
@@ -537,7 +623,7 @@ export function excelSayfalar(d, r = hesap(d).sonuc, { liste: kl } = {}) {
     const cols = s.spec(r).flatMap(exSutun), katSatirlari = katli && s.adim !== 'temel' && !s.yuk;
     const satirlar = katSatirlari ? r.katlar.flatMap(k => s.dizi(katGorunumu(r, k.kat)).map(e => ({ e, kat: k.kat }))) : s.dizi(r).map(e => ({ e, kat: '' }));
     const bad = satirlar.filter(({ e }) => !e.gecti).length;
-    sayfalar.push({ ad: s.baslik, not: s.yuk ? KAT_YUK_NOT : `${s.baslik}: ${satirlar.length} eleman, ${bad ? `${bad} uygun değil` : 'tümü uygun'}${s.ad === 'doseme' && !katSatirlari ? ` · ${TUR_AD[r.tur]}, h = ${r.h} mm` : ''}`,
+    sayfalar.push({ ad: s.baslik, not: s.yuk ? KAT_YUK_NOT : `${s.baslik}: ${satirlar.length} eleman, ${bad ? `${bad} uygun değil` : 'tümü uygun'}${s.ad === 'doseme' && !katSatirlari ? ` · ${TUR_AD[r.tur]}, h = ${r.h} mm` : ''}${s.ad === 'kiris' ? ` · ${KIRIS_NOT}` : ''}`,
       sutunlar: [...(katSatirlari ? [{ baslik: 'Kat', sayi: true }] : []), ...cols.map(([b, , n]) => ({ baslik: b, sayi: !!n }))],
       satirlar: satirlar.map(({ e, kat }) => [...(katSatirlari ? [kat] : []), ...cols.map(([, f]) => f(e) ?? null)]) });
     if (!s.yuk) for (const { e, kat } of satirlar) for (const x of e.maddeler) kos.push([...(katli ? [kat] : []), e.ad, e.aks ?? '', s.baslik, x.ad, sayiMi(x.deger) ? x.deger : String(x.deger), sayiMi(x.deger) ? birim(x.sinir) : '',

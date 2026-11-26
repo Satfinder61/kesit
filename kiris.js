@@ -17,7 +17,59 @@ const sonla = e => {
   return e;
 };
 const cn = c => `${c.n}φ${c.phi}${c.sira === 2 ? ' (2 sıra)' : ''}`;
-const ETR = Math.max(...CAP.etriye); // sığmada etriye en büyük çapla (φ10; d2 = h − 75 de bunu varsayar)
+const ETR = Math.max(...CAP.etriye); // sığmada en büyük etriye çapı
+const ORTU = 25;
+const NET = 4 / 3 * 22; // TS 500 9.5.2, varsayılan en büyük agrega 22 mm
+
+// Kiriş yüzü boyunca aynı çap: sürekli çubuklar ile ilaveler tek bir düzen olarak sığar.
+function yuzDonati(b, h, mz, moment, enAzAs = 0) {
+  const sec = (d, sira) => {
+    const gerekli = M => Math.max(egilmeAs(M, b, d, mz), rhoMinKiris(mz) * b * d);
+    const gerek = Math.max(gerekli(moment), enAzAs);
+    const c = kirisCubuk(gerek, b, { ortu: ORTU, etriye: ETR, sira, net: NET });
+    return { ...c, d, gerekli };
+  };
+  const tek = sec(h - 50, 1);
+  return tek.sigar ? tek : sec(h - 75, 2);
+}
+
+function kirisDonati(e, tSlab, mz, surekli) {
+  const { b, h, ln } = e;
+  const ust = yuzDonati(b, h, mz, e.MdMesnet);
+  const alt = yuzDonati(b, h, mz, e.MdAcik, ust.As / 2);
+  const adet = (As, c) => Math.ceil(As / alan(c.phi) - TOL);
+  const ustS = Math.max(2, Math.ceil(ust.n / 4), e.MdOrtaUst > TOL ? adet(ust.gerekli(e.MdOrtaUst), ust) : 0);
+  const altS = Math.max(2, adet(alt.gerekli(e.MdAcik), alt));
+  const ustUclar = [e.MdSolUst, e.MdSagUst].map(M => Math.max(ustS, adet(ust.gerekli(M), ust)));
+  const altUclar = [e.MdSolAlt, e.MdSagAlt].map((M, i) =>
+    Math.max(altS, adet(Math.max(alt.gerekli(M), ustUclar[i] * alan(ust.phi) / 2), alt)));
+  const yaz = (n, c) => n > 0 ? `${n}φ${c.phi}` : 0;
+  const yuksekKiris = ln > TOL && ln * 1000 < (surekli ? 2.5 : 1.5) * h - TOL;
+  const serbest = h - 2 * (ORTU + ETR) - (ust.phi + alt.phi) / 2;
+  const icSinir = serbest - (ust.sira - 1) * (ust.phi + NET) - (alt.sira - 1) * (alt.phi + NET);
+  const sigar = ust.sigar && alt.sigar && icSinir >= NET + (ust.phi + alt.phi) / 2 - TOL;
+  const sinirda = Math.max(ust.As / (b * ust.d), alt.As / (b * alt.d)) <= rhoMax(mz) + TOL;
+  const durum = ln <= TOL ? 'Geçersiz açıklık' : yuksekKiris ? 'Özel hesap gerekli' : !sigar ? 'Sığmıyor' : !sinirda ? 'Kesit yetersiz' : null;
+
+  const tbd = ln > TOL && h > ln * 250 + TOL, ts = h - tSlab > 600 + TOL;
+  const mesnetAs = Math.max(...ustUclar.map((n, i) => n * alan(ust.phi) + altUclar[i] * alan(alt.phi)));
+  const govdeAs = Math.max(tbd ? 0.30 * mesnetAs : 0, ts ? 0.001 * b * (h - 50) : 0);
+  // Eşit dağılımda, dış sıra köşe donatıları ile gövde çubukları arasında da 300 mm sınırını uygula.
+  let govde = null;
+  if (!durum && govdeAs > TOL) for (const phi of CAP.kiris) {
+    const n = Math.max(1, Math.ceil(govdeAs / (2 * alan(phi)) - TOL), Math.ceil(serbest / 300 - TOL) - 1);
+    if (icSinir / (n + 1) >= NET + Math.max(phi, ust.phi, alt.phi) - TOL) { govde = { n, phi }; break; }
+  }
+  const metin = {
+    montaj: yaz(ustS, ust), duz: yaz(altS, alt), orta: `${yaz(ustS, ust)} / ${yaz(altS, alt)}`, pilye: 0,
+    solUstEk: yaz(ustUclar[0] - ustS, ust), sagUstEk: yaz(ustUclar[1] - ustS, ust),
+    solAltEk: yaz(altUclar[0] - altS, alt), sagAltEk: yaz(altUclar[1] - altS, alt),
+    govde: govde ? `${yaz(govde.n, govde)}/yüz` : govdeAs > TOL ? 'Sığmıyor' : 0,
+  };
+  if (durum) for (const k of Object.keys(metin)) metin[k] = durum;
+
+  return { ust, alt, ustUclar, altS, metin, durum, yuksekKiris, sigar, tbd, ts, govdeAs, govde };
+}
 
 // Bir doğrultuda taşıyan şeritlerin süreklilik katsayısı: sürekli kiriş mesnet tepkisi / alan payı (p·s/2), kenar başına.
 // Şeritler döşeme tasarımındakiyle aynı (TS 500 11.2.2 / 11.3.2 sürekli kiriş); G tüm açıklıklarda, Q dama zarfı (6.3.3).
@@ -97,17 +149,10 @@ function hatTasarla(ag, hat, hi, g, mz, dos, kolonOlcu, b, h) {
     // Kolonlar açıklıktan genişse ℓn ≤ 0 (sehim sınırı 0/0 = NaN ya da eksi): hesapta en az 0,1 m, ayrıca 'Net açıklık' sağlanmaz
     const ln = kr.L - (boy[0] + boy[1]) / 2, lnH = Math.max(ln, 0.1), e = { ad: kr.ad, aks: kr.aks, hat: hi, k: K, L: kr.L, ln, b, h, duvar: dv.w,
       gOrt: rG.acikliklar[k].W / kr.L, qOrt: rQ.acikliklar[k].W / kr.L, ...z[k], maddeler: [], iz: [...iz[k]] };
-    // Boyuna donatı: mesnet üst, açıklık alt (TBDY 7.4.2: ρ ≥ 0,8fctd/fyd, mesnet altı ≥ 0,5·üst, en az 2φ12)
-    // Tek sıra sığmazsa iki sıra (d = h − 75: örtü 25 + etriye 10 + φ + sıra arası/2)
-    const sec = (M, ek = 0) => {
-      const tek = kirisCubuk(Math.max(egilmeAs(M, b, d, mz), rhoMinKiris(mz) * b * d, ek), b, { caplar: CAP.kiris, etriye: ETR });
-      if (tek.sigar) return { ...tek, d, gerek: Math.max(egilmeAs(M, b, d, mz), rhoMinKiris(mz) * b * d, ek) };
-      const d2 = h - 75, gerek = Math.max(egilmeAs(M, b, d2, mz), rhoMinKiris(mz) * b * d2, ek);
-      return { ...kirisCubuk(gerek, b, { caplar: CAP.kiris, sira: 2, etriye: ETR }), d: d2, gerek };
-    };
-    const ust = sec(e.MdMesnet), alt = sec(e.MdAcik, 0.5 * ust.As);
-    const AsU = ust.gerek, AsA0 = alt.gerek;
-    const surekliUst = kirisCubuk(Math.max(ust.As / 4, 0), b, { caplar: CAP.kiris, etriye: ETR });            // TBDY 7.4.3.1(a) ≥ 1/4, en az 2φ12
+    const { ust, alt, ustUclar, altS, metin, durum, yuksekKiris, sigar, tbd, ts, govdeAs, govde: govdeDonati } =
+      kirisDonati(e, tSlab, mz, n > 1 || ank?.some(Boolean));
+    const AsOrtaAlt = altS * alan(alt.phi);
+    const altAcik = { ...alt, n: altS, sira: kirisCubuk(AsOrtaAlt, b, { caplar: [alt.phi], ortu: ORTU, etriye: ETR, net: NET }).sigar ? 1 : alt.sira };
     // Kesme: TBDY 7.4.5.1 kapasite kesmesi Ve kirişin tüm boyunda enine donatıyı belirler; orta bölgede Vc = 0,8Vcr (7.4.5.3 →
     // TS 500 8.1.4), sarılma bölgesinde Vc = 0 (güvenli yan). TS 500 8.1 düşey yük kesmesi Vd de sağlanır.
     const Vcr = 0.65 * mz.fctd * b * d / 1000, Vc = 0.8 * Vcr, fywd = mz.fyd;
@@ -117,9 +162,9 @@ function hatTasarla(ag, hat, hi, g, mz, dos, kolonOlcu, b, h) {
     const awsMin = 0.3 * mz.fctd * b / fywd;
     const Vo = Math.max(e.Vd, Ve);                                                                  // orta bölge tasarım kesmesi
     const orta = etriyeSec(Math.max((Vo - Vc) * 1000 / (fywd * d), awsMin), Vo > 3 * Vcr ? d / 4 : d / 2); // TS 500 8.1.5 aralık sınırı
-    const phiMin = Math.min(ust.phi, alt.phi);
+    const phiMin = Math.min(ust.phi, alt.phi, govdeDonati?.phi ?? Infinity);
     const sar = etriyeSec(Math.max(Ve * 1000 / (fywd * d), awsMin), Math.min(d / 4, 8 * phiMin, 150));
-    Object.assign(e, { Ve, ust: cn(ust), alt: cn(alt), surekliUst: cn(surekliUst), etrSar: `φ${sar.phi}/${sar.s}`, etrOrta: `φ${orta.phi}/${orta.s}`,
+    Object.assign(e, metin, { Ve, ust: durum ?? cn(ust), alt: durum ?? cn(altAcik), surekliUst: metin.montaj, yuksekKiris, etrSar: `φ${sar.phi}/${sar.s}`, etrOrta: `φ${orta.phi}/${orta.s}`,
       AsUst: ust.As, AsAlt: alt.As, sarilma: 2 * h,
       etrKul: Math.max(Ve * 1000 / (fywd * d), (Vo - Vc) * 1000 / (fywd * d)) / (2 * alan(ETR) / 50) }); // > 1: iki kollu φ10/50 yetmez
     // Boyut koşulları (TBDY 7.4.1.1)
@@ -133,7 +178,10 @@ function hatTasarla(ag, hat, hi, g, mz, dos, kolonOlcu, b, h) {
     const MkU = mMax(b, ust.d, mz), MkA = mMax(b, alt.d, mz);
     madde(e, 'Mesnet momenti', e.MdMesnet, `ρ ≤ min(0,02; 0,85ρb) → M ≤ ${tr(MkU, 1)} kNm`, e.MdMesnet <= MkU, 'TBDY 7.4.2.4; TS 500 Denk. 7.4, 7.5', e.MdMesnet / MkU);
     madde(e, 'Açıklık momenti', e.MdAcik, `ρ ≤ min(0,02; 0,85ρb) → M ≤ ${tr(MkA, 1)} kNm`, e.MdAcik <= MkA, 'TBDY 7.4.2.4; TS 500 Denk. 7.4, 7.5', e.MdAcik / MkA);
-    madde(e, 'Donatı sığma', `${cn(ust)} / ${cn(alt)}`, 'en çok iki sırada sığmalı (net aralık ≥ 25 mm, ≥ φ)', ust.sigar && alt.sigar, 'TS 500 9.5.2');
+    madde(e, 'Donatı sığma', `${cn(ust)} / ${cn(alt)}`, `en çok iki sıra, net aralık ≥ ${tr(NET, 1)} mm`, sigar, 'TS 500 9.5.2');
+    if (yuksekKiris) madde(e, 'Yüksek kiriş', 'Özel hesap gerekli', 'Gerilme dağılımı ve kesme yüksek kiriş olarak denetlenmeli', false, 'TS 500 7.3, 8.5', 2);
+    if (govdeAs > TOL && ln > TOL && !yuksekKiris) madde(e, 'Gövde donatısı', metin.govde, `iki yüzde toplam ≥ ${tr(govdeAs, 1)} mm², düşey aralık ≤ 300 mm`, !!govdeDonati,
+      [tbd && 'TBDY 7.4.1.1(c)', ts && 'TS 500 7.3'].filter(Boolean).join(' / '), govdeDonati ? govdeAs / (2 * govdeDonati.n * alan(govdeDonati.phi)) : null);
     const rhoK = Math.max(ust.As / (b * ust.d), alt.As / (b * alt.d)), rM = rhoMax(mz); // seçilen çubuklarla (yuvarlama sonrası)
     madde(e, 'Konan donatı oranı', `%${tr(rhoK * 100, 2)}`, `ρ ≤ min(0,02; 0,85ρb) = %${tr(rM * 100, 2)}`, rhoK <= rM + TOL, 'TBDY 7.4.2.4; TS 500 Denk. 7.4', rhoK / rM);
     const Vmax = 0.22 * mz.fcd * b * d / 1000;
@@ -144,17 +192,19 @@ function hatTasarla(ag, hat, hi, g, mz, dos, kolonOlcu, b, h) {
     // Sehim: T (iç hat) ya da L (dış hat) kesit, TS 500 6.3.6 tabla genişliği
     const lp = (n === 1 ? 1 : k === 0 || k === n - 1 ? 0.8 : 0.6) * kr.L * 1000;
     const bf = hat.dis ? Math.min(b + 0.1 * lp, b + 6 * tSlab) : Math.min(b + 0.2 * lp, b + 12 * tSlab);
-    const kes = { m: kesit({ bw: b, h, bf, hf: tSlab, As: alt.As, d: alt.d }, mz.fck, mz.fctd), s1: kesit({ bw: b, h, bf, hf: tSlab, As: ust.As, d: ust.d, cekme: 'ust' }, mz.fck, mz.fctd) };
-    kes.s2 = kes.s1;
+    const ucKesit = n => kesit({ bw: b, h, bf, hf: tSlab, As: n * alan(ust.phi), d: ust.d, cekme: 'ust' }, mz.fck, mz.fctd);
+    const kes = { m: kesit({ bw: b, h, bf, hf: tSlab, As: AsOrtaAlt, d: alt.d }, mz.fck, mz.fctd), s1: ucKesit(ustUclar[0]), s2: ucKesit(ustUclar[1]) };
     const sh = aciklikSehim({ l: kr.L * 1000, ln: lnH * 1000, kesitler: kes, G: sG[k], GQ: sGQ[k], rhoP: Math.min(ust.As, alt.As) / (b * d) * 0, duvar: e.duvar > 0 || g.dosemeDuvar, fck: mz.fck });
     e.sehim = sh;
     madde(e, 'Sehim', sh.deger, `${sh.yazi.replace(/ ≤.*/, '')} ≤ ${tr(sh.sinir, 1)} mm`, sh.deger <= sh.sinir + TOL, 'TS 500 13.2, Çizelge 13.3', sh.deger / sh.sinir);
     e.iz.push(`${n} açıklıklı sürekli kiriş, rijit mesnet; 1,4G + 1,6Q, hareketli yük dama yüklemesi (TS 500 6.3.3)`,
-      `Düşey yük uç momentleri (kNm): sol üst ${tr(e.MdSolUst, 1)}, sol alt ${tr(e.MdSolAlt, 1)}; sağ üst ${tr(e.MdSagUst, 1)}, sağ alt ${tr(e.MdSagAlt, 1)}. Deprem etkisi ve donatı detaylandırması hesaplanmadı.`,
-      `M_d mesnet ${tr(e.MdMesnet, 1)} kNm → üst ${cn(ust)} (gerekli ${tr(AsU, 0)} mm²); açıklık ${tr(e.MdAcik, 1)} kNm → alt ${cn(alt)} (gerekli ${tr(Math.max(AsA0, 0.5 * ust.As), 0)} mm²)`,
+      `Düşey yük uç momentleri (kNm): sol üst ${tr(e.MdSolUst, 1)}, sol alt ${tr(e.MdSolAlt, 1)}; sağ üst ${tr(e.MdSagUst, 1)}, sağ alt ${tr(e.MdSagAlt, 1)}. Açıklık ortası üst momenti ${tr(e.MdOrtaUst, 1)} kNm.`,
+      `Donatı ön hesabı: orta üst/alt ${e.orta}; sol üst/alt ilave ${e.solUstEk} / ${e.solAltEk}; sağ üst/alt ilave ${e.sagUstEk} / ${e.sagAltEk}. Mesnet alt alanı aynı mesnette üst alanın en az %50’si. Sürekli üst alan en büyük mesnet üst alanının en az %25’i (TBDY 7.4.2–7.4.3).`,
+      'Çubuk adetleri ve çapları düşey yük ön hesabına aittir. İlave çubuk uzatmaları, kenetlenme, donatı bindirmeleri ve deprem momentleri kesin hesapta belirlenir.',
       `Orta bölge: max(V_d ${tr(e.Vd, 1)}; V_e ${tr(Ve, 1)}) − V_c ${tr(Vc, 1)} = ${tr(Vo - Vc, 1)} kN (V_c = 0,8·V_cr, TBDY 7.4.5.3) → ${e.etrOrta}`,
       `V_e = V_dy + (M_pi + M_pj)/ℓn = ${tr(Vdy, 1)} + (${tr(MpU, 1)} + ${tr(MpA, 1)})/${tr(lnH)} = ${tr(Ve, 1)} kN (M_p ≈ 1,4·M_r) → sarılma bölgesi (2h = ${tr(2 * h)} mm) ${e.etrSar}`,
       `Sehim: tabla ${tr(bf, 0)} mm; δ_G ${tr(sh.dG)}, δ_G+Q ${tr(sh.dGQ)} → ${tr(sh.deger)} mm`);
+    if (tbd && govdeDonati) e.iz.push('Gövde çirozlarının düşeyde en çok 600 mm ve kiriş boyunca en çok 400 mm aralıkla düzenlenmesi ve gövde çubuklarının kenetlenmesi kesin detayda denetlenir (TBDY 7.4.1.1(c)).');
     return sonla(e);
   });
   return { kirisler, G, Q, rG, rQ };
@@ -186,16 +236,17 @@ export function kirisBul(ag, g, mz, dos, kolonOlcu, { perde = new Set(), hEk = n
       let son = a; while (son < n && !pMi(son)) son++;
       const par = { ...hat, L: hat.L.slice(a, son), kirisler: hat.kirisler.slice(a, son), ofs: a, uc: [a > 0, son < n] };
       const { b: bS, h: hS } = ozel[hat.aks] ?? {};
+      const boyutlanabilir = e => e.ln > TOL && !e.yuksekKiris;
       let b = bS ?? 250, h = hS ?? hMin, r, enIyi = null, bos = 0;
       for (let adim = 0; adim < 60; adim++) {
         r = hatTasarla(ag, par, hi, g, mz, dos, kolonOlcu, b, h);
         if (bS != null && hS != null) break;
-        // ℓn ≤ 0 açıklık kiriş büyütmekle düzelmez (kolon boyutu): büyütmeyi o açıklık sürmez, 'Net açıklık' sağlanmaz kalır
-        if (r.kirisler.every(e => e.gecti || e.ln <= TOL)) break;
+        // Net açıklık yoksa veya yüksek kiriş hesabı gerekiyorsa kesiti büyütmek çözmez.
+        if (r.kirisler.every(e => e.gecti || !boyutlanabilir(e))) break;
         // Yalnız etriye yetmiyor ve büyütme gereksinimi azaltmıyorsa dur: V_e'nin kapasite terimi (TBDY Denk. 7.9) kesitle büyür,
         // iki kollu etriye kesit büyütmekle çözülmez (sınırsız büyüme); üç adımda iyileşmezse en iyi kesitte kalınır.
-        if (r.kirisler.every(e => e.ln <= TOL || e.maddeler.every(m => m.gecti || m.uyari || m.ad === 'Etriye'))) {
-          const kul = Math.max(...r.kirisler.filter(e => e.ln > TOL).map(e => e.etrKul));
+        if (r.kirisler.every(e => !boyutlanabilir(e) || e.maddeler.every(m => m.gecti || m.uyari || m.ad === 'Etriye'))) {
+          const kul = Math.max(...r.kirisler.filter(boyutlanabilir).map(e => e.etrKul));
           if (!enIyi || kul < enIyi.kul - TOL) { enIyi = { r, kul }; bos = 0; }
           else if (++bos >= 3) {
             r = enIyi.r;

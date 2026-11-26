@@ -4,6 +4,8 @@
 // Momentler: ters kirişsiz döşeme, TS 500 11.4.4.2 katsayıları ve kolon/orta şeritleri (yorum: TS 500 radye için yöntem vermez,
 // 10.4.2 doğrusal zemin basıncına izin verir). Kenar taşmasında konsol momenti p·l2·a²/2.
 import { ddmCerceveler, seritDonati, zimbalama } from './doseme.js';
+import { perdeDugumOlcu, perdeUzatma } from './perde.js';
+import { subasmanBul } from './subasman.js';
 
 const TOL = 1e-9;
 const NF = {}; // Intl biçimleyici her çağrıda kurulursa hesap süresinin çoğunu yer: ondalık sayısına göre önbellek
@@ -19,15 +21,21 @@ const cy = c => `φ${c.phi}/${c.s}`;
 
 // kolonlar: [{ ad, aks, i, j, b, h, Nd }] (mm, kN; tüm katlar). Taşma a: aks dışına (m), g.tasma en küçük değer.
 // perdeler: [{ ad, aks, yon, no, bw, lw, Nd, dugumler }] (perde.js): yükü radyeye çizgisel iner; perde ucunda zımbalama aranmaz
-// (uç bölgesi tekil kolon gibi zımbalamaz), perde boyunca tek doğrultulu kesme denetlenir. Perde düğümleri şerit açıklığında b_w × b_w.
+// (uç bölgesi tekil kolon gibi zımbalamaz), perde boyunca tek doğrultulu kesme denetlenir. Perde düğümleri şerit açıklığında geometrilerine göre mesnet olarak alınır.
 // g.radyeOzel = { h? (mm), a? (m) }: elle verilen kalınlık ve taşma boyutlandırılmaz, yalnız denetlenir.
 export function radyeBul(ag, g, mz, kolonlar, perdeler = []) {
-  const W = ag.xs.at(-1), L = ag.ys.at(-1), qt = g.zemin / 1.4, SNd = kolonlar.reduce((t, c) => t + c.Nd, 0) + perdeler.reduce((t, p) => t + p.Nd, 0);
-  const dugum = new Map(), { h: hS, a: aS } = g.radyeOzel ?? {};
-  for (const p of perdeler) for (const ad of p.dugumler) dugum.set(ad, Math.max(dugum.get(ad) ?? 0, p.bw));
-  const olcu = c => kolonlar.find(k => k.ad === c.ad) ?? { b: dugum.get(c.ad), h: dugum.get(c.ad) };
-  // Taşma en az kenar kolonun dış yüzüne kadar (yoksa kolon radye dışına taşar, zımbalama çevresi yanlış olur)
-  const aYuz = Math.max(...kolonlar.map(c => Math.max(c.b, c.h)), ...perdeler.map(p => p.bw)) / 2000;
+  const W = ag.xs.at(-1), L = ag.ys.at(-1), qt = g.zemin / 1.4, SNdUst = kolonlar.reduce((t, c) => t + c.Nd, 0) + perdeler.reduce((t, p) => t + p.Nd, 0);
+  const { h: hS, a: aS } = g.radyeOzel ?? {};
+  const dugum = new Map();
+  for (const p of perdeler) for (const ad of p.dugumler) if (!dugum.has(ad)) dugum.set(ad, perdeDugumOlcu(perdeler, ad));
+  const olcu = c => kolonlar.find(k => k.ad === c.ad) ?? dugum.get(c.ad);
+  const subasmanlar = subasmanBul(ag, g, olcu, perdeler);
+  const subasmanNd = subasmanlar.reduce((t, s) => t + s.Nd, 0), SNd = SNdUst + subasmanNd;
+  // Taşma en az kenar kolonun ve perdenin dış yüzüne kadar.
+  const ucBoyu = p => p.k0 === 0 || p.k1 + 1 === (p.yon === 'x' ? ag.nx : ag.ny) ? perdeUzatma(p) : 0;
+  const kenarSubasman = subasmanlar.filter(s => s.L > 0 && (s.no === 0 || s.no === (s.yon === 'x' ? ag.ny : ag.nx)));
+  const aYuz = Math.max(...kolonlar.map(c => Math.max(c.b, c.h)), ...perdeler.map(p => Math.max(p.bw, ucBoyu(p))),
+    ...kenarSubasman.map(s => s.bw)) / 2000;
   let son;
   for (let h = hS ?? 300; h <= (hS ?? 3000); h += 50) {
     // Zemin: taşmayı 0,25 m adımla büyüt
@@ -35,13 +43,15 @@ export function radyeBul(ag, g, mz, kolonlar, perdeler = []) {
     let a = aS ?? Math.max(g.tasma, Math.ceil(aYuz * 1000 / 50) * 0.05), A, qo;
     for (;; a += 0.25) { A = (W + 2 * a) * (L + 2 * a); qo = SNd / A + yuk; if (aS != null || qo <= qt + TOL || a + 0.25 > 10 + TOL) break; } // en çok 10 m
     const p = SNd / A;                                                    // net katsayılı zemin tepkisi (öz ağırlık dengede)
+    // Su basman çizgisel yükünün yerel dağılımı çözülmediğinden kolon zımbalamasında yukarı tepki avantajı sayılmaz.
+    const pZimb = SNdUst / A;
     const d = h - 70;                                                     // iki doğrultu ortalaması: örtü 50 + φ
     const zimb = kolonlar.map(c => {
       const kx = c.i === 0 || c.i === ag.nx ? a - c.b / 2000 : Infinity, ky = c.j === 0 || c.j === ag.ny ? a - c.h / 2000 : Infinity;
-      const z = zimbalama({ V: c.Nd, p, b: c.b, hk: c.h, d, kx: Math.max(kx, 0), ky: Math.max(ky, 0), fctd: mz.fctd });
+      const z = zimbalama({ V: c.Nd, p: pZimb, b: c.b, hk: c.h, d, kx: Math.max(kx, 0), ky: Math.max(ky, 0), fctd: mz.fctd });
       const e = { ad: c.ad.replace('S', 'T'), kolon: c.ad, aks: c.aks, i: c.i, j: c.j, Nd: c.Nd, d, ...z, maddeler: [] };
       madde(e, 'Zımbalama', z.Vpd, `≤ γ·fctd·u_p·d = ${tr(z.Vpr, 0)} kN`, z.Vpd <= z.Vpr + TOL, 'TS 500 8.3.1, 10.4.2 (donatısız)', z.Vpd / z.Vpr);
-      e.iz = [`N_d = ${tr(c.Nd, 0)} kN, p = ΣN_d/A = ${tr(p, 1)} kN/m², d = ${d} mm`,
+      e.iz = [`N_d = ${tr(c.Nd, 0)} kN, p = ΣN_d${subasmanlar.length ? ' (su basman hariç)' : ''}/A = ${tr(pZimb, 1)} kN/m², d = ${d} mm`,
         `u_p = ${tr(z.up, 3)} m${z.acik ? ' (serbest kenara açık çevre, TS 500 Şekil 8.5)' : ''}, çevre içi ${tr(z.Ap, 3)} m²`,
         `V_pd = N_d − p·A_p = ${tr(z.Vpd, 0)} kN; γ = ${tr(z.gam, 3)} (kolon momenti yok sayıldı)`];
       return sonla(e);
@@ -73,7 +83,8 @@ export function radyeBul(ag, g, mz, kolonlar, perdeler = []) {
       e.iz = [`Perde N_d = ${tr(pr.Nd, 0)} kN, ℓw = ${tr(pr.lw, 0)} mm → q_w = ${tr(qw, 1)} kN/m; p = ΣN_d/A = ${tr(p, 1)} kN/m², d = ${d} mm`,
         `Etki genişliği ${yan.map(x => tr(x)).join(' + ')} m (komşu açıklık yarısı${yan.includes(a) ? ', kenarda taşma' : ''}) → p_w = max(p; q_w/Σb) = ${tr(pw, 1)} kN/m²; ` +
           `v = p_w·(${tr(Math.max(...yan))} − b_w/2 − d) = ${tr(v, 1)} kN/m (yüzden d uzakta, TS 500 8.1.2)`,
-        'Perde ucunda zımbalama aranmadı: perde yükü radyeye çizgisel aktarılır (uç bölgesi tekil kolon gibi zımbalamaz); kesme perde boyunca denetlendi'];
+        pr.kismi ? 'Kısa perde için yalnız öz ağırlık ile çizgisel kesme ön kontrolü yapıldı; çerçeveyle yük aktarımı ayrıca çözülmeli.'
+          : 'Perde ucunda zımbalama aranmadı: perde yükü radyeye çizgisel aktarılır (uç bölgesi tekil kolon gibi zımbalamaz); kesme perde boyunca denetlendi'];
       return sonla(e);
     });
     son = { h, a, Bx: W + 2 * a, By: L + 2 * a, A, qo, qt, p, SNd, zimb, seritler, perde };
@@ -92,5 +103,17 @@ export function radyeBul(ag, g, mz, kolonlar, perdeler = []) {
   if (hS != null || aS != null) e.ozel = { h: hS != null, a: aS != null };
   if (hS == null && r.h >= 3000 && !(r.qo <= r.qt + TOL && r.zimb.every(x => x.gecti) && r.seritler.every(x => x.gecti) && r.perde.every(x => x.gecti))) e.iz.push('h = 3.000 mm sınırına ulaşıldı; zımbalama, kesme ya da donatı koşulları sağlanamadı');
   if (r.seritler.some(s => !s.minKod)) e.iz.push(`h = ${r.h} mm'de durduruldu: en az donatı (0,00175·h) φ16 ile TS 500 9.5.2 aralığına sığmıyor; kalınlaştırmak çözmez, daha büyük çap ya da iki sıra donatı gerekir`);
-  return { radye: sonla(e), zimb: r.zimb, seritler: r.seritler, perde: r.perde, p: r.p };
+  const kisalar = new Set(perdeler.filter(p => p.kismi).map(p => p.ad));
+  const eksikYuk = x => madde(x, 'Kısa perde yük aktarımı', 'Model dışında',
+    'Radye yerel etkileri perde ile çerçeve arasındaki yük aktarımı çözülerek denetlenmeli', false, 'hesap kapsamı', 2);
+  if (kisalar.size) {
+    eksikYuk(e);
+    for (const p of r.perde.filter(x => kisalar.has(x.perde))) { eksikYuk(p); sonla(p); }
+  }
+  if (subasmanlar.length) {
+    madde(e, 'Su basman bağlantısı', 'Model dışında',
+      'Su basman çizgisel yükünün yerel etkileri ve duvarın temel ile bağlantısı ayrıca çözülmeli', false, 'hesap kapsamı', 2);
+    e.iz.push(`Su basman perdelerinin yalnız katsayılı öz ağırlığı (${tr(subasmanNd)} kN) ortalama zemin tepkisine bir kez eklendi. Kolon zımbalamasında bu ilave tepki düşülmedi.`);
+  }
+  return { radye: sonla(e), zimb: r.zimb, seritler: r.seritler, perde: r.perde, p: r.p, subasmanlar };
 }

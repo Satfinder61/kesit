@@ -77,9 +77,12 @@ export function durumYukle(depo = globalThis.localStorage, temizle = true) {
   if (temizle) ozelTemizle(d); // başka sekmeden gelen yarım yazılmış girdi elle değerleri sildirmesin
   return d;
 }
+export const durumMetni = d => JSON.stringify({ form: d.form, duvar: d.duvar, tutulu: d.tutulu, ozel: d.ozel, ozelNx: d.ozelNx,
+  kirisOzel: d.kirisOzel, perdeOzel: d.perdeOzel, perdeBoyOzel: d.perdeBoyOzel, dosemeOzel: d.dosemeOzel, radyeOzel: d.radyeOzel });
+// Yalnız içerik değişince yazar; tarayıcı kaydında 'kesit-kayit' olayı projeler.js'e "aktif proje değişti" der (eşitleme).
 export function durumKaydet(d, depo = globalThis.localStorage) {
-  try { depo.setItem(ANAHTAR, JSON.stringify({ form: d.form, duvar: d.duvar, tutulu: d.tutulu, ozel: d.ozel, ozelNx: d.ozelNx,
-    kirisOzel: d.kirisOzel, perdeOzel: d.perdeOzel, perdeBoyOzel: d.perdeBoyOzel, dosemeOzel: d.dosemeOzel, radyeOzel: d.radyeOzel })); } catch {}
+  try { const s = durumMetni(d); if (depo.getItem(ANAHTAR) === s) return;
+    depo.setItem(ANAHTAR, s); if (depo === globalThis.localStorage) globalThis.dispatchEvent?.(new Event('kesit-kayit')); } catch {}
 }
 
 // Durum → motor girdisi. Kolon adları X aks sayısına bağlı (S = j·(nx+1) + i + 1): X aks sayısı yazılırken eski adlar kaymasın diye
@@ -750,5 +753,6 @@ export function listeSayfasi(veri = [], a = {}) {
   return { ad: 'Kolon listesi', not: `Kolon / perde ön kontrol listesi · varsayılan ${ayar.beton}, H ${tr(ayar.H)} mm${ayar.kirissiz > 0 ? `, kirişsiz ℓ = ${tr(ayar.kirissiz)} mm` : ''}`,
     sutunlar: b.map((x, i) => ({ baslik: x, sayi: [1, 2, 3, 5, 6, 8, 9, 12].includes(i) })), satirlar };
 }
-export const dosyaAdi = (t = new Date()) => `kesit-${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}.xlsx`;
-export const excelIndir = (d, r, ek) => indir(xlsxYap(excelSayfalar(d, r, ek), { baslik: 'Kesit — döşemeden temele ön boyutlandırma' }), dosyaAdi());
+// Dosya adı: proje adı (dosya sisteminde yasak işaretler atılır) ya da kesit, ardından tarih
+export const dosyaAdi = (t = new Date(), ad = '') => `${ad.replace(/[\\/:*?"<>|\u0000-\u001f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60) || 'kesit'}-${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}.xlsx`;
+export const excelIndir = (d, r, ek = {}) => indir(xlsxYap(excelSayfalar(d, r, ek), { baslik: 'Kesit — döşemeden temele ön boyutlandırma' }), dosyaAdi(new Date(), ek.ad));

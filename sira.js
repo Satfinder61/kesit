@@ -2,6 +2,7 @@
 // Proje durumu, sayfalar (Girdiler dahil), hücre düzenleme ve Excel'e aktarma calisma.js'te (tablo.html de kullanır).
 import { perdeOku, perdeAciklik, perdeBirlestir, perdeYaz } from './perde.js';
 import { tr, simge, HARF, TUR_AD, ALANLAR, ANAHTAR, SECENEK, SAYFALAR, kitapKur, sekmeOk, girdiYaz, kullanimNot, tabloHtml, girdiOzet, durumYukle, excelIndir, aksKaymaSiniri, yerlesimKaydir, kolonDuzenDegistir, girdiOku } from './calisma.js';
+import { projeAdi } from './projeler.js';
 import { kolonDuzenOku, kolonKaymaSiniri, isaretli, uzunAciklikYazi } from './kolonduzen.js';
 import { girdiDenetle } from './zincir.js';
 
@@ -526,12 +527,12 @@ addEventListener('storage', e => { if (e.key === ANAHTAR) { K.d = durumYukle(und
 
 $('#yazdir').addEventListener('click', async () => { await K.hazir(); await b3Yukle().catch(() => null); baskiResmi(); print(); }); // hesap sürüyorsa önce sonuç; 3B resim için modül
 // Excel'e aktar: düzenlenen hücre ve bekleyen hesap önce işlenir (işçideki hesap beklenir)
-$('#excel').addEventListener('click', async () => { if (sayfa.contains(document.activeElement) || f.contains(document.activeElement)) document.activeElement.blur(); await K.hazir(); excelIndir(K.d, K.tumSonuc); });
+$('#excel').addEventListener('click', async () => { if (sayfa.contains(document.activeElement) || f.contains(document.activeElement)) document.activeElement.blur(); await K.hazir(); excelIndir(K.d, K.tumSonuc, { ad: projeAdi() }); });
 addEventListener('beforeprint', () => {
   if (sayfa.contains(document.activeElement)) document.activeElement.blur(); // düzenlenen hücre çıktıya girsin
   K.kesinlestir(); planOlc(); // sonuç güncel değilse eşzamanlı hesap (tarayıcı menüsünden yazdırma); tema.js yazı boyutunu baskı için %100'e çekti: plan o genişlikle
   document.querySelectorAll('#plan .secili, #plan .aks-secili').forEach(x => x.classList.remove('secili', 'aks-secili')); // raporda seçim vurgusu olmasın (afterprint → planOlc geri koyar)
-  $('#tarih').textContent = new Date().toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
+  $('#tarih').textContent = `${projeAdi()} · ${new Date().toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })}`;
   $('#girdi-ozet').innerHTML = girdiOzet(K.d, K.sonuc);
   baslikYaz(true); // 3B açıkken de çıktıda 2B plan var
   baskiResmi(); // tarayıcı menüsünden yazdırmada 3B modülü yüklenmemişse resim yok (ponytail: Yazdır düğmesi yükler)

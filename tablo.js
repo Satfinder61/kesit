@@ -1,6 +1,7 @@
 // Tablo sayfası: döşemeden temele zinciri tam genişlik çalışma kitabında (Girdiler + zincir sayfaları; proje sira.html ile aynı,
 // kesit.sira.v3) ve kolon listesi sekmesi (tablo.html'deki satır içi betik). Kitap, düzenleme ve Excel'e aktarma calisma.js'te.
 import { kitapKur, sekmeOk, simge, ANAHTAR, durumYukle, excelIndir, girdiOzet, tabloHtml } from './calisma.js';
+import { projeAdi } from './projeler.js';
 
 const $ = s => document.querySelector(s);
 const LISTE = { ad: 'liste', baslik: 'Kolon listesi', kontrol: 'sayfa' }, SEKME = 'kesit.tablo.sekme';
@@ -49,7 +50,7 @@ $('#excel').addEventListener('click', async () => {
   await K.hazir(); // işçideki hesap beklenir
   let liste;
   try { const k = JSON.parse(localStorage.getItem('kesit.tablo.v1')); if (Array.isArray(k?.veri)) liste = { veri: k.veri, ayar: k.ayar ?? {} }; } catch {}
-  excelIndir(K.d, K.tumSonuc, { liste });
+  excelIndir(K.d, K.tumSonuc, { liste, ad: projeAdi() });
 });
 // Yazdır düğmesi (tablo.html satır içi betiği print() çağırır): zincir hesabı sürüyorsa önce sonuç beklenir
 $('#yazdir').addEventListener('click', e => {
@@ -61,7 +62,7 @@ addEventListener('beforeprint', () => {
   if (gorunum !== 'zincir') return;
   if (zs.contains(document.activeElement)) document.activeElement.blur();
   K.kesinlestir(); // sonuç güncel değilse eşzamanlı hesap (tarayıcı menüsünden yazdırma)
-  $('#z-tarih').textContent = new Date().toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
+  $('#z-tarih').textContent = `${projeAdi()} · ${new Date().toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })}`;
   $('#z-girdi-ozet').innerHTML = girdiOzet(K.d, K.sonuc);
   $('#baski-zincir').innerHTML = K.sonuc ? K.gorunur().filter(s => !s.girdi).map((s, i) => `<section class="baski-sayfa"><h2>${i + 1}. ${s.baslik}${K.sonuc.aktifKat && s.adim !== 'temel' ? ` · ${K.sonuc.aktifKat}. kat` : ''}</h2>${tabloHtml(s, K.sonuc, K.d, true)}</section>`).join('') : '';
   $('#z-baski-notlar').innerHTML = (K.sonuc?.notlar ?? Object.values(K.hata)).map(n => `<li>${simge(n)}</li>`).join('');

@@ -1,0 +1,53 @@
+/* Proje düğmesi ve paneli (projeler.js): sira.html ve tablo.html'de başlığın üstünde, bina.html'de üst çubukta.
+   Açılır pencere tema.css'teki görünüm paneliyle aynı dil (popover, panel zemini, hap düğmeler). */
+.proje { display: flex; min-width: 0; margin: 0 0 .75rem; }
+.ust .proje { margin: 0; }
+.proje-dugme { display: inline-flex; align-items: center; gap: .5rem; min-width: 0; max-width: min(22rem, 100%); height: 32px; padding: 0 .625rem 0 .75rem;
+  border: 1px solid var(--cizgi-2); border-radius: 999px; background: transparent; color: var(--murekkep); font: 600 .8125rem var(--yazi); cursor: pointer;
+  transition: border-color var(--hizli), transform var(--hizli); }
+.proje-dugme:hover, .proje:has(:popover-open) .proje-dugme { border-color: var(--murekkep); }
+.proje-dugme:active { transform: scale(.98); }
+.proje-dugme:focus-visible, .proje-panel :is(button, input):focus-visible { outline: 2px solid var(--turuncu); outline-offset: 2px; }
+.proje-dugme > svg { flex: none; width: 15px; height: 15px; color: var(--soluk); }
+.proje-dugme > .proje-ok { width: 12px; height: 12px; }
+.proje-ad { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.proje-isaret { flex: none; width: 7px; height: 7px; border-radius: 50%; }
+.proje-isaret:not([data-durum]), .proje-isaret[data-durum=""] { display: none; }
+.proje-isaret[data-durum="esit"] { background: var(--nane); }
+.proje-isaret[data-durum="bekliyor"] { box-shadow: inset 0 0 0 1.5px var(--soluk); }
+
+.proje-panel { position: fixed; inset: auto; margin: 0; width: min(24rem, calc(100vw - 16px)); max-height: calc(100dvh - 96px); overflow: auto; padding: 1rem;
+  border: 1px solid var(--cizgi-2); border-radius: var(--r, 3px); background: var(--panel); color: var(--murekkep); box-shadow: var(--acilir-golge); font: 400 .875rem/1.45 var(--yazi); }
+.proje-bas { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin-bottom: .75rem; }
+.proje-bas h2 { margin: 0; font-size: .9375rem; font-weight: 600; letter-spacing: -.015em; }
+.proje-k { flex: none; height: 30px; padding: 0 .875rem; border-radius: 999px; border: 1px solid var(--cizgi-2); background: transparent; color: var(--murekkep);
+  font: 600 .8125rem var(--yazi); cursor: pointer; transition: border-color var(--hizli); }
+.proje-k:hover { border-color: var(--murekkep); }
+.proje-k.ana { background: var(--turuncu); border-color: var(--turuncu); color: var(--turuncu-ustu, #140c08); }
+.proje-yeni, .proje-adform { display: flex; gap: .5rem; }
+.proje-yeni { margin-bottom: .75rem; }
+.proje-yeni[hidden], .proje-giris[hidden] { display: none; }
+.proje-panel input { flex: 1; min-width: 0; height: 30px; padding: 0 .625rem; border: 1px solid var(--cizgi-2); border-radius: var(--r, 3px); background: var(--alan); color: var(--murekkep); font: inherit; }
+
+.proje-liste { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--cizgi); }
+.proje-liste li { display: flex; align-items: center; gap: .125rem; padding: .3125rem 0; border-bottom: 1px solid var(--cizgi); }
+.proje-sec { flex: 1; min-width: 0; display: grid; padding: .25rem .5rem; border: 0; border-radius: var(--r, 3px); background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer;
+  transition: background var(--hizli); }
+.proje-sec:hover { background: color-mix(in srgb, var(--murekkep) 6%, transparent); }
+.proje-sec[aria-disabled="true"] { cursor: default; background: none; box-shadow: inset 2px 0 0 var(--turuncu); border-radius: 0; }
+.proje-sec b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.proje-sec small { font-size: .75rem; color: var(--soluk); }
+.proje-islem { flex: none; display: grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--soluk); cursor: pointer;
+  transition: color var(--hizli), background var(--hizli); }
+.proje-islem:hover { color: var(--murekkep); background: color-mix(in srgb, var(--murekkep) 8%, transparent); }
+.proje-islem[data-islem="sil"]:hover { color: var(--kirmizi); }
+.proje-islem svg { width: 15px; height: 15px; }
+.proje-adform { flex: 1; padding: .125rem 0; }
+
+.proje-hesap { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin-top: .875rem; }
+.proje-hesap p { margin: 0; font-size: .75rem; color: var(--soluk); }
+.proje-hesap b { color: var(--murekkep); font-weight: 600; }
+
+@media (max-width: 640px) { .ust .proje { display: none; } } /* 3B Bina'da telefonda üst çubuk tek satır kalsın; proje Döşemeden temele'de değişir */
+@media (pointer: coarse) { .proje-islem { width: 40px; height: 40px; } .proje-k, .proje-panel input { height: 36px; } }
+@media print { .proje, .proje-panel { display: none !important; } }

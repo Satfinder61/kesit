@@ -6,11 +6,15 @@ Statik site, derleme adımı yok. `index.html` giriş sayfası, `hesap.html` tek
 
 Yerelde: `python3 -m http.server 8000` → http://localhost:8000
 
+Projeler: Döşemeden temele ve Tablo sayfalarında başlığın üstündeki, 3B Bina'da üst çubuktaki proje düğmesi (`projeler.js`, `projeler.css`). Yeni proje, aç, yeniden adlandır, çoğalt, sil; kaydet düğmesi yok, her değişiklik kendiliğinden kaydedilir. Açık projenin durumu yine `kesit.sira.v3`'te durur (sayfalar bilmeden çalışır), öbürleri `kesit.proje.<id>`, liste `kesit.projeler.v1`. Sunucu varsa (kesit.replit.app) Replit hesabıyla girişte projeler hesaba gider ve her cihazda eşitlenir: sürüm numaralı iyimser yazım, çakışmada bu cihazdaki hâl «(bu cihazdaki)» kopyası olarak kalır; başka cihazda silinen proje burada da silinir. Sunucu yoksa (yerel geliştirme) projeler yalnız tarayıcıda.
+
+Sunucu sözleşmesi (aynı kök, oturum çerezi httpOnly/Secure/SameSite=Lax, yanıtlar `no-store`, CORS yok): `GET /api/ben` → `{ id, ad }` ya da girişsizken `{ id: null }`; `GET /api/giris?donus=/yol` ve `GET /api/cikis?donus=/yol` (yalnız `/` ile başlayan, `//` olmayan dönüş yolu); `GET /api/projeler` → `[{ id, ad, surum, degisti, durum }]` (yalnız kendi projeleri); `PUT /api/projeler/:id` `{ ad, durum, surum }` → kayıt yoksa oluşturur (surum 1), sürüm eşitse günceller (surum + 1) → `{ surum, degisti }`, değilse 409 `{ kayit }`, başkasınınsa 404; `DELETE /api/projeler/:id` → 204. Denetim: id `^[a-z0-9-]{8,40}$`, ad 1–80 karakter, durum nesne, gövde ≤ 256 KB, PUT/DELETE `X-Kesit: 1` başlığı ister (yoksa 403); `degisti` sunucu zamanı (ms).
+
 Tek kolon kaldırma ya da kendi kiriş aksı boyunca kaydırma (bütün katlarda): planda «Yerleşimi düzenle» → kolonu seç, ya da Girdiler sayfasında `2B kaldırıldı; 3A X +0,40 m`. Kolon düzeni değişince kirişler ızgara kiriş sistemi olarak birlikte çözülür (`kiris.js`, `kolonduzen.js`); kirişsiz döşemede kaldırma yok, kaçıklık açıklığın 1/10'u ile sınırlı (TS 500 11.4.4.2).
 
 Katlı ön hesap için kat yüksekliklerini tabandan yukarı mm cinsinden girin (ör. `3000 3200 3000`); sonuç ve Excel her katı ayrı gösterir. Alan boşsa ortak kesit hesabı yapılır. Kirişsiz ve perdeli sistemlerde deprem etkileri kesin hesapta denetlenmelidir.
 
-Testler: `node kurallar.test.mjs`, `node donati.test.mjs`, `node zincir.test.mjs`, `node calisma.test.mjs`, `node katli.test.mjs`, `node katli-kirissiz.test.mjs`, `node perde-katli.test.mjs`, `node kolon-duzen.test.mjs`, `node hesap-isci.test.mjs`, `node bina.test.mjs` ve `node xlsx.test.mjs`
+Testler: `node kurallar.test.mjs`, `node donati.test.mjs`, `node zincir.test.mjs`, `node calisma.test.mjs`, `node katli.test.mjs`, `node katli-kirissiz.test.mjs`, `node perde-katli.test.mjs`, `node kolon-duzen.test.mjs`, `node hesap-isci.test.mjs`, `node bina.test.mjs`, `node projeler.test.mjs` ve `node xlsx.test.mjs`
 
 Kaynaklar: TBDY 2018, TS 500 (2000), TS 498 (1997), 1 Mart kararnamesi (kolon uzun/kısa ≤ 1,5). Ön boyutlandırma aracıdır; kesin statik hesabın yerine geçmez.
 

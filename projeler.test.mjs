@@ -1,6 +1,6 @@
 // Çalıştır: node projeler.test.mjs — proje listesi ve eşitleme (projeler.js): yerel işlemler, ilk giriş, ikinci cihaz, çakışma, silme
 import assert from 'node:assert/strict';
-import { dizinOku, projeAc, yeniProje, cogalt, yenidenAdlandir, yerelDegisti, projeSil, esitle, normal, projeAdi, DIZIN } from './projeler.js';
+import { dizinOku, hesabaGec, projeAc, yeniProje, cogalt, yenidenAdlandir, yerelDegisti, projeSil, esitle, normal, projeAdi, DIZIN } from './projeler.js';
 import { ANAHTAR, yeniDurum, durumYukle, durumMetni, durumKaydet, dosyaAdi } from './calisma.js';
 
 const depoYap = () => { const m = new Map(); return { m, getItem: k => m.has(k) ? m.get(k) : null, setItem: (k, v) => m.set(k, String(v)), removeItem: k => m.delete(k) }; };
@@ -114,5 +114,23 @@ assert.ok(S.db.has(x)); assert.ok(dizinOku(B).liste.some(p => p.id === x));
   const once = JSON.stringify([...A.m]);
   await assert.rejects(esitle(A, { ...S.api, liste: async () => { throw new Error('ağ'); } }));
   assert.equal(JSON.stringify([...A.m]), once);
+}
+// Başka hesaba geçiş: projeler yeni kimlikle yeni hesaba gider, içerik ve aktif proje korunur; aynı hesapta hiçbir şey değişmez
+{
+  const D = depoYap(), S1 = sunucu(), S2 = sunucu();
+  assert.equal(hesabaGec(D, 'a'), true); // ilk giriş: henüz gönderilmemişler yeniden kimliklenir, zararsız
+  const id2 = yeniProje(D, 'Ali Bey', durumla('9 9')); projeAc(D, id2); await esitle(D, S1.api);
+  assert.equal(S1.db.size, 2); assert.equal(hesabaGec(D, 'a'), false); assert.equal(dizinOku(D).liste.every(p => p.surum === 1), true);
+  projeSil(D, dizinOku(D).liste.find(p => p.ad === 'Proje 1').id);
+  yeniProje(D, 'Veli'); assert.equal(dizinOku(D).silinecek.length, 1);
+  assert.equal(hesabaGec(D, 'b'), true);
+  const dz = dizinOku(D); assert.deepEqual(dz.silinecek, []); assert.ok(dz.liste.every(p => !p.surum && p.kirli && !S1.db.has(p.id)));
+  assert.equal(aktif(D).ad, 'Ali Bey'); assert.equal(ax(D, dz.aktif), '9 9');
+  await esitle(D, S2.api); assert.deepEqual([...S2.db.values()].map(k => k.ad).sort(), ['Ali Bey', 'Veli']); assert.equal(S1.db.size, 2);
+  assert.equal(ax(D, dizinOku(D).aktif), '9 9');
+  // Eski dizin (hesapId yok) girişliyse aynı hesap sayılır; çıkmışsa yeni hesaba taşınır
+  const E = depoYap(); E.setItem(DIZIN, JSON.stringify({ ...dizinOku(E), hesap: { ad: 'X' } })); const once = dizinOku(E).aktif;
+  assert.equal(hesabaGec(E, 'x'), false); assert.equal(dizinOku(E).aktif, once); assert.equal(dizinOku(E).hesapId, 'x');
+  const F = depoYap(); dizinOku(F); F.setItem(DIZIN, JSON.stringify({ ...dizinOku(F), hesap: null })); assert.equal(hesabaGec(F, 'y'), true);
 }
 console.log('projeler.test.mjs: tamam');

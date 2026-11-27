@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<script>addEventListener("pagereveal",function(e){var v=e.viewTransition;if(v){v.ready.catch(function(){});v.finished.catch(function(){})}});(function(d){var t={},m;try{t=JSON.parse(localStorage.getItem("kesit.tema.v1"))||{}}catch(e){}m=t.mod||"koyu";if(m=="sistem")m=matchMedia("(prefers-color-scheme: light)").matches?"acik":"koyu";if(m!="acik"&&m!="krem")m="koyu";d.dataset.tema=m;if(m!="koyu")document.querySelector('meta[name="color-scheme"]').content="light";if(t.olcek==90||t.olcek==110||t.olcek==120)d.dataset.olcek=t.olcek;if(t.hareket=="az")d.dataset.hareket="az";if(t.css&&t.css[m]){var s=document.createElement("style");s.id="tema-renk";s.textContent="@media screen{:root{"+t.css[m]+"}}";document.head.appendChild(s)}})(document.documentElement)</script>
+<title>Giriş — Kesit</title>
+<link rel="icon" href="img/favicon.svg" type="image/svg+xml">
+<meta name="description" content="Kesit hesabına gir: projelerin hesabında saklanır, her cihazda aynı.">
+<link rel="preload" href="fonts/HankenGrotesk-600-latin.woff2" as="font" type="font/woff2" crossorigin>
+<style>
+/* ponytail: belirteçler index.html ile aynı (DESIGN.md); ortak css dosyası gelince oradan */
+@font-face { font-family: "Hanken Grotesk"; src: url("fonts/HankenGrotesk-400-latin.woff2") format("woff2"); font-weight: 400; font-display: swap; unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "Hanken Grotesk"; src: url("fonts/HankenGrotesk-400-latin-ext.woff2") format("woff2"); font-weight: 400; font-display: swap; unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: "Hanken Grotesk"; src: url("fonts/HankenGrotesk-600-latin.woff2") format("woff2"); font-weight: 600; font-display: swap; unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "Hanken Grotesk"; src: url("fonts/HankenGrotesk-600-latin-ext.woff2") format("woff2"); font-weight: 600; font-display: swap; unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: "JetBrains Mono"; src: url("fonts/JetBrainsMono-latin.woff2") format("woff2"); font-weight: 100 800; font-display: swap; unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+
+:root {
+  --zemin: #121110; --panel: #191816; --levha: #151412; --alan: #0d0c0b;
+  --cizgi: rgb(236 230 218 / .10); --cizgi-2: rgb(236 230 218 / .20);
+  --murekkep: #ece6da; --soluk: #a39e94;
+  --turuncu: #ff6a2b; --nane: #8fd9b0; --kirmizi: #ff5c57;
+  --yazi: "Hanken Grotesk", system-ui, sans-serif;
+  --olcu: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  --hizli: 180ms cubic-bezier(.16, 1, .3, 1);
+  --kenar: clamp(1.25rem, 4vw, 3.5rem);
+}
+* { box-sizing: border-box; }
+html { scrollbar-color: #3a3733 var(--zemin); }
+body { margin: 0; min-height: 100svh; background: var(--zemin); color: var(--murekkep); font: 400 1rem/1.5 var(--yazi); -webkit-font-smoothing: antialiased; }
+::selection { background: var(--turuncu); color: var(--zemin); }
+:focus-visible { outline: 2px solid var(--turuncu); outline-offset: 3px; }
+h1, p { margin: 0; }
+[hidden] { display: none !important; }
+
+/* İki yarım: solda form, sağda kontur alanı üstünde pafta. Dar ekranda pafta gizlenir, kontur ince bant olur. */
+.giris { min-height: 100svh; display: grid; grid-template-columns: minmax(0, 34rem) minmax(0, 1fr); }
+.yan { display: flex; flex-direction: column; gap: 2.5rem; padding: 1.75rem var(--kenar) 2rem; border-right: 1px solid var(--cizgi); }
+.marka { display: inline-flex; align-items: center; gap: .625rem; align-self: flex-start; font-weight: 600; font-size: 1.1875rem; text-decoration: none; color: inherit; }
+.marka svg { width: 26px; height: 26px; color: var(--turuncu); }
+.kutu { width: 100%; max-width: 24rem; margin: auto 0; }
+.ust-yazi { font: 600 .8125rem var(--yazi); letter-spacing: .06em; text-transform: uppercase; color: var(--soluk); }
+.ust-yazi i { font: 400 .8125rem var(--olcu); font-style: normal; color: var(--turuncu); margin-right: .5rem; }
+h1 { margin-top: .75rem; font-size: clamp(2.25rem, 4vw, 2.75rem); line-height: 1.05; font-weight: 600; letter-spacing: -.03em; text-wrap: balance; }
+h1 span { color: var(--turuncu); }
+.lede { margin-top: .875rem; color: var(--soluk); font-size: 1.0625rem; max-width: 26rem; }
+
+.sekme { display: inline-flex; gap: 2px; margin-top: 2rem; padding: 3px; border: 1px solid var(--cizgi); border-radius: 999px; background: var(--alan); }
+.sekme button { height: 30px; padding: 0 14px; border: 0; border-radius: 999px; background: transparent; color: var(--soluk); font: 600 .8125rem var(--yazi); cursor: pointer; transition: color var(--hizli), background var(--hizli); }
+.sekme button:hover { color: var(--murekkep); }
+.sekme button[aria-selected="true"] { background: var(--murekkep); color: var(--zemin); }
+
+form { display: grid; gap: 1.125rem; margin-top: 1.5rem; }
+.alan { display: grid; gap: .375rem; }
+.alan > span { font-size: .8125rem; color: var(--soluk); }
+.alan small { font-size: .75rem; color: var(--soluk); }
+.kuyu { position: relative; display: flex; }
+.kuyu input { flex: 1; min-width: 0; height: 44px; padding: 0 12px; border: 1px solid var(--cizgi-2); border-radius: 3px; background: var(--alan); color: var(--murekkep); font: 400 1rem var(--yazi);
+  caret-color: var(--turuncu); transition: border-color var(--hizli), box-shadow var(--hizli); }
+.kuyu input:hover { border-color: rgb(236 230 218 / .34); }
+.kuyu input:focus { outline: none; border-color: var(--turuncu); box-shadow: 0 0 0 3px rgb(255 106 43 / .22); }
+.kuyu input:user-invalid, .kuyu input[aria-invalid="true"] { border-color: var(--kirmizi); }
+.kuyu input[type=password], .kuyu input[name=sifre] { padding-right: 46px; }
+.goster { position: absolute; right: 4px; top: 4px; width: 36px; height: 36px; display: grid; place-items: center; border: 0; border-radius: 3px; background: transparent; color: var(--soluk); cursor: pointer; transition: color var(--hizli); }
+.goster:hover { color: var(--murekkep); }
+.goster svg { width: 18px; height: 18px; }
+.goster .kapali, .goster[aria-pressed="true"] .acik { display: none; }
+.goster[aria-pressed="true"] .kapali { display: block; }
+
+.hata { display: flex; gap: .5rem; align-items: flex-start; padding: .625rem .75rem; border: 1px solid color-mix(in srgb, var(--kirmizi) 45%, transparent); border-radius: 3px;
+  background: color-mix(in srgb, var(--kirmizi) 8%, transparent); color: var(--murekkep); font-size: .875rem; }
+.hata svg { flex: none; width: 16px; height: 16px; margin-top: 2px; color: var(--kirmizi); }
+
+.dugme { display: inline-flex; align-items: center; justify-content: center; gap: .5rem; height: 44px; padding: 0 1.25rem; border-radius: 999px; border: 1px solid var(--cizgi-2); background: transparent;
+  color: var(--murekkep); font: 600 .9375rem var(--yazi); text-decoration: none; white-space: nowrap; cursor: pointer; transition: background var(--hizli), border-color var(--hizli), transform var(--hizli), opacity var(--hizli); }
+.dugme:hover { border-color: var(--murekkep); }
+.dugme:active { transform: scale(.97); }
+.dugme.ana { background: var(--turuncu); border-color: var(--turuncu); color: #140c08; }
+.dugme.ana:hover { background: #ff7d45; }
+.dugme svg { width: 16px; height: 16px; }
+.dugme[aria-busy="true"] { opacity: .7; pointer-events: none; }
+.dugme[aria-busy="true"] svg { animation: don 0.9s linear infinite; }
+@keyframes don { to { transform: rotate(1turn); } }
+form .dugme { margin-top: .375rem; }
+
+.girisli { margin-top: 2rem; padding: 1rem; border: 1px solid var(--cizgi-2); border-radius: 3px; background: var(--panel); }
+.girisli p { color: var(--soluk); }
+.girisli b { color: var(--murekkep); font-weight: 600; }
+.girisli div { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1rem; }
+
+.not { margin-top: 1.75rem; padding-top: 1.25rem; border-top: 1px solid var(--cizgi); font-size: .875rem; color: var(--soluk); }
+.not a { color: var(--murekkep); text-underline-offset: 3px; text-decoration-color: var(--cizgi-2); transition: text-decoration-color var(--hizli); }
+.not a:hover { text-decoration-color: var(--turuncu); }
+.alt { font-size: .8125rem; color: var(--soluk); }
+
+/* Sağ: kontur (kontur.js) ve canlı pafta. Antetteki "Çizen" kullanıcı adıyla dolar. */
+.sahne { position: relative; overflow: hidden; display: grid; place-items: center; padding: 3rem clamp(1.5rem, 5vw, 5rem); }
+.sahne canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.pafta { position: relative; width: min(100%, 42rem); margin: 0; border: 1px solid var(--cizgi-2); border-radius: 3px; background: color-mix(in srgb, var(--levha) 94%, transparent); box-shadow: 0 30px 80px -20px rgb(0 0 0 / .7); }
+.pafta-bas { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: .75rem 1rem; border-bottom: 1px solid var(--cizgi); font-size: .875rem; }
+.pafta-bas small { color: var(--soluk); font-size: .8125rem; }
+.cizim { display: block; width: 100%; height: auto; color: var(--murekkep);
+  background-image: linear-gradient(var(--cizgi) 1px, transparent 1px), linear-gradient(90deg, var(--cizgi) 1px, transparent 1px); background-size: 24px 24px; background-position: -1px -1px; }
+.cizim text { font: 400 11px var(--olcu); fill: currentColor; }
+.cizim .turuncu { color: var(--turuncu); }
+.cizim .ciz { stroke-dasharray: var(--u) var(--u); stroke-dashoffset: var(--u); animation: ciz 700ms cubic-bezier(.16, 1, .3, 1) forwards; animation-delay: var(--g, 0ms); }
+.cizim .belir { opacity: 0; animation: belir 400ms cubic-bezier(.16, 1, .3, 1) forwards; animation-delay: var(--g, 0ms); }
+@keyframes ciz { to { stroke-dashoffset: 0; } }
+@keyframes belir { to { opacity: 1; } }
+.antet { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid var(--cizgi); }
+.antet div { min-width: 0; padding: .625rem 1rem; border-left: 1px solid var(--cizgi); }
+.antet div:first-child { border-left: 0; }
+.antet dt { font-size: .75rem; color: var(--soluk); }
+.antet dd { margin: .125rem 0 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.antet .olcu { font: 400 .9375rem var(--olcu); font-feature-settings: "tnum"; }
+#cizen:empty::before { content: "—"; color: var(--soluk); font-weight: 400; }
+#cizen { color: var(--turuncu); }
+.sahne-soz { position: absolute; left: clamp(1.5rem, 5vw, 5rem); bottom: 1.75rem; right: 1.5rem; font-size: .875rem; color: var(--soluk); }
+
+@media (max-width: 900px) {
+  .giris { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+  .sahne { order: -1; height: 112px; padding: 0; border-bottom: 1px solid var(--cizgi); }
+  .pafta, .sahne-soz { display: none; }
+  .yan { border-right: 0; gap: 2rem; }
+  .marka { position: absolute; top: 1.25rem; left: var(--kenar); z-index: 1; }
+  .kutu { margin: 0; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition-duration: 0ms !important; } .cizim .ciz, .cizim .belir { animation: none; stroke-dashoffset: 0; opacity: 1; } }
+:root[data-hareket="az"] .cizim :is(.ciz, .belir) { animation: none; stroke-dashoffset: 0; opacity: 1; }
+@media (prefers-reduced-motion: no-preference) { @view-transition { navigation: auto; } }
+</style>
+<link rel="stylesheet" href="gecis.css">
+<link rel="stylesheet" href="tema.css">
+<script type="module" src="tema.js"></script>
+</head>
+<body>
+<main class="giris">
+  <section class="yan">
+    <a class="marka" href="./">
+      <svg viewBox="0 0 26 26" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="4" y="8" width="18" height="10"/><path d="M4 13h18M13 4v18" stroke-dasharray="3 2 1 2"/><path d="M4 21.5h18M3 20.5l2 2M21 20.5l2 2" stroke-width="1.2"/></svg>
+      Kesit
+    </a>
+
+    <div class="kutu">
+      <p class="ust-yazi"><i>01</i>Hesap</p>
+      <h1 id="baslik">Projelerin <span>her cihazda.</span></h1>
+      <p class="lede" id="lede">Giriş yap; projelerin hesabında saklansın, telefondan da bilgisayardan da aynısını aç.</p>
+
+      <div class="sekme" role="tablist" aria-label="Giriş ya da yeni hesap">
+        <button type="button" role="tab" id="sekme-giris" aria-selected="true" aria-controls="form">Giriş yap</button>
+        <button type="button" role="tab" id="sekme-kayit" aria-selected="false" aria-controls="form" tabindex="-1">Hesap aç</button>
+      </div>
+
+      <form id="form" role="tabpanel" aria-labelledby="sekme-giris" novalidate>
+        <label class="alan"><span>Kullanıcı adı</span>
+          <span class="kuyu"><input name="kullanici" id="kullanici" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" required minlength="3" maxlength="32"
+            pattern="[\p{L}\p{N}._\-]{3,32}" aria-describedby="kullanici-ipucu"></span>
+          <small id="kullanici-ipucu" hidden>3–32 karakter: harf, rakam, nokta, alt çizgi ya da tire. Büyük küçük harf fark etmez.</small>
+        </label>
+        <label class="alan"><span>Şifre</span>
+          <span class="kuyu"><input name="sifre" id="sifre" type="password" autocomplete="current-password" required minlength="8" maxlength="128" aria-describedby="sifre-ipucu">
+            <button type="button" class="goster" aria-label="Şifreyi göster" aria-pressed="false">
+              <svg class="acik" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M1.5 9S4.25 3.75 9 3.75 16.5 9 16.5 9 13.75 14.25 9 14.25 1.5 9 1.5 9z"/><circle cx="9" cy="9" r="2.25"/></svg>
+              <svg class="kapali" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M7.4 4A7.6 7.6 0 0 1 9 3.75C13.75 3.75 16.5 9 16.5 9a13.6 13.6 0 0 1-1.9 2.6M10.6 10.6A2.25 2.25 0 0 1 7.4 7.4M12.9 12.9A7.4 7.4 0 0 1 9 14.25C4.25 14.25 1.5 9 1.5 9a13.4 13.4 0 0 1 3.6-3.9M2.25 2.25l13.5 13.5"/></svg>
+            </button></span>
+          <small id="sifre-ipucu" hidden>En az 8 karakter. Unutursan e-postayla sıfırlama yok; bir yere not et.</small>
+        </label>
+        <p class="hata" id="hata" role="alert" hidden><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="8" cy="8" r="6.5"/><path d="M8 4.75v4M8 11v.25"/></svg><span></span></p>
+        <button class="dugme ana" id="gonder">
+          <span>Giriş yap</span>
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
+        </button>
+      </form>
+
+      <div class="girisli" id="girisli" hidden>
+        <p>Bu tarayıcıda <b id="girisli-ad"></b> olarak girişlisin.</p>
+        <div><a class="dugme ana" id="devam" href="sira.html">Devam et</a><a class="dugme" id="cikis" href="/api/cikis">Çıkış yap</a></div>
+      </div>
+
+      <p class="not">Hesapsız da kullanabilirsin; projeler bu tarayıcıda kalır. <a href="sira.html" id="hesapsiz">Hesaba dön</a></p>
+    </div>
+
+    <p class="alt">Ön boyutlandırma aracıdır; kesin statik hesabın yerine geçmez.</p>
+  </section>
+
+  <aside class="sahne" aria-hidden="true">
+    <canvas id="kontur"></canvas>
+    <figure class="pafta">
+      <div class="pafta-bas"><span>Kesit A–A · Kolon S1</span><small>pafta K-01</small></div>
+      <svg class="cizim" viewBox="0 0 480 300">
+        <!-- Kolon 40 × 60 cm (3 px/cm), 8φ16, etriye φ8/10 -->
+        <g fill="none" stroke="currentColor">
+          <path class="ciz" style="--u:600;--g:100ms" d="M180 60h120v180H180z" stroke-width="1.6"/>
+          <rect class="ciz" style="--u:520;--g:260ms" x="192" y="72" width="96" height="156" rx="5" stroke-width="1"/>
+          <path class="ciz" style="--u:300;--g:420ms" d="M240 40v220M160 150h160" stroke-width=".7" stroke-dasharray="14 4 2 4" opacity=".55"/>
+          <path class="ciz" style="--u:200;--g:520ms" d="M180 266h120M180 258v16M300 258v16M176 270l8-8M296 270l8-8" stroke-width=".9"/>
+          <path class="ciz" style="--u:240;--g:600ms" d="M336 60v180M328 60h16M328 240h16M332 64l8-8M332 244l8-8" stroke-width=".9"/>
+          <path class="ciz turuncu" style="--u:140;--g:860ms" d="M199 84L160 52H96M192 196l-32 30H96" stroke-width=".9"/>
+        </g>
+        <g fill="currentColor" class="belir" style="--g:640ms">
+          <circle cx="202" cy="94" r="5"/><circle cx="240" cy="94" r="5"/><circle cx="278" cy="94" r="5"/>
+          <circle cx="202" cy="150" r="5"/><circle cx="278" cy="150" r="5"/>
+          <circle cx="202" cy="206" r="5"/><circle cx="240" cy="206" r="5"/><circle cx="278" cy="206" r="5"/>
+        </g>
+        <g class="belir" style="--g:900ms">
+          <text x="240" y="290" text-anchor="middle">40</text>
+          <text x="348" y="154">60</text>
+          <text x="96" y="45" class="turuncu" fill="currentColor">8φ16</text>
+          <text x="96" y="219" class="turuncu" fill="currentColor">φ8/10</text>
+        </g>
+      </svg>
+      <dl class="antet">
+        <div><dt>Çizen</dt><dd id="cizen"></dd></div>
+        <div><dt>Tarih</dt><dd class="olcu" id="tarih"></dd></div>
+        <div><dt>Ölçek</dt><dd class="olcu">1:20</dd></div>
+      </dl>
+    </figure>
+    <p class="sahne-soz">Hesap ücretsizdir. Yalnız kullanıcı adı ve şifre; e-posta istenmez.</p>
+  </aside>
+</main>
+
+<script type="module">
+import { kontur } from './kontur.js';
+kontur(document.getElementById('kontur'));
+
+const $ = s => document.querySelector(s);
+const form = $('#form'), hataEl = $('#hata'), gonder = $('#gonder'), k = form.kullanici, s = form.sifre;
+// Dönüş yolu: yalnız bu sitenin bir sayfası (sunucudaki returnPath ile aynı kural)
+const donus = (d => typeof d === 'string' && /^\/(?![/\\])/.test(d) && !/[\u0000-\u001f]/.test(d) ? d : '/sira.html')(new URLSearchParams(location.search).get('donus'));
+$('#devam').href = $('#hesapsiz').href = donus;
+$('#cikis').href = `/api/cikis?donus=${encodeURIComponent(location.pathname + location.search)}`;
+$('#tarih').textContent = new Date().toLocaleDateString('tr-TR');
+
+const METIN = {
+  giris: { h1: 'Projelerin <span>her cihazda.</span>', lede: 'Giriş yap; projelerin hesabında saklansın, telefondan da bilgisayardan da aynısını aç.', dugme: 'Giriş yap', yol: 'oturum', sifre: 'current-password' },
+  kayit: { h1: 'Kendi <span>hesabını aç.</span>', lede: 'Yalnız kullanıcı adı ve şifre. Bu tarayıcıdaki projelerin yeni hesabına taşınır.', dugme: 'Hesabı aç', yol: 'kayit', sifre: 'new-password' },
+};
+let kip = location.hash === '#hesap-ac' ? 'kayit' : 'giris';
+function kipYap(yeni, odak) {
+  kip = yeni; const m = METIN[kip];
+  for (const b of document.querySelectorAll('[role=tab]')) { const sec = b.id === `sekme-${kip}`; b.setAttribute('aria-selected', sec); b.tabIndex = sec ? 0 : -1; }
+  form.setAttribute('aria-labelledby', `sekme-${kip}`);
+  $('#baslik').innerHTML = m.h1; $('#lede').textContent = m.lede; gonder.firstElementChild.textContent = m.dugme;
+  s.autocomplete = m.sifre; $('#kullanici-ipucu').hidden = $('#sifre-ipucu').hidden = kip !== 'kayit';
+  hata(''); history.replaceState(null, '', kip === 'kayit' ? '#hesap-ac' : location.pathname + location.search);
+  if (odak) $(`#sekme-${kip}`).focus();
+}
+document.querySelector('[role=tablist]').addEventListener('click', e => { const b = e.target.closest('[role=tab]'); if (b) kipYap(b.id.slice(6)); });
+document.querySelector('[role=tablist]').addEventListener('keydown', e => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'Home' || e.key === 'End') { e.preventDefault(); kipYap(kip === 'giris' ? 'kayit' : 'giris', true); } });
+
+const goster = $('.goster');
+goster.addEventListener('click', () => { const acik = s.type === 'password'; s.type = acik ? 'text' : 'password'; goster.setAttribute('aria-pressed', acik); goster.setAttribute('aria-label', acik ? 'Şifreyi gizle' : 'Şifreyi göster'); });
+
+k.addEventListener('input', () => { $('#cizen').textContent = k.value.trim(); k.removeAttribute('aria-invalid'); });
+s.addEventListener('input', () => s.removeAttribute('aria-invalid'));
+
+function hata(metin, alan) {
+  hataEl.hidden = !metin; hataEl.lastElementChild.textContent = metin;
+  if (alan) { alan.setAttribute('aria-invalid', 'true'); alan.focus(); }
+}
+const dk = sn => Math.max(1, Math.ceil(sn / 60));
+form.addEventListener('submit', async e => {
+  e.preventDefault();
+  const ad = k.value.trim();
+  if (!ad) return hata('Kullanıcı adını yaz.', k);
+  if (kip === 'kayit' && !k.checkValidity()) return hata('Kullanıcı adı 3–32 karakter olmalı: harf, rakam, nokta, alt çizgi ya da tire.', k);
+  if (!s.value) return hata('Şifreni yaz.', s);
+  if (kip === 'kayit' && s.value.length < 8) return hata('Şifre en az 8 karakter olmalı.', s);
+  hata(''); gonder.setAttribute('aria-busy', 'true');
+  try {
+    const r = await fetch(`/api/${METIN[kip].yol}`, { method: 'POST', credentials: 'same-origin', cache: 'no-store',
+      headers: { 'Content-Type': 'application/json', 'X-Kesit': '1' }, body: JSON.stringify({ kullanici: ad, sifre: s.value }) });
+    if (r.ok) return location.replace(donus);
+    const j = await r.json().catch(() => ({})), bekle = +r.headers.get('Retry-After') || 900;
+    if (r.status === 401) { s.value = ''; return hata('Kullanıcı adı ya da şifre yanlış.', s); }
+    if (r.status === 409) return hata('Bu kullanıcı adı alınmış. Başka bir ad dene.', k);
+    if (r.status === 429) return hata(j.hata === 'kilit' ? `Çok sayıda yanlış şifre girildi. Hesap ${dk(bekle)} dakika kilitli.` : `Çok fazla deneme. ${dk(bekle)} dakika sonra yeniden dene.`);
+    if (r.status === 400) return j.hata === 'sifre' ? hata('Şifre 8 ile 128 karakter arası olmalı.', s) : hata('Kullanıcı adı 3–32 karakter olmalı: harf, rakam, nokta, alt çizgi ya da tire.', k);
+    hata('Sunucu şu an yanıt vermiyor. Biraz sonra yeniden dene.');
+  } catch { hata('Bağlantı kurulamadı. İnternetini denetleyip yeniden dene.'); }
+  finally { gonder.removeAttribute('aria-busy'); }
+});
+
+kipYap(kip);
+// Zaten girişliyse form yerine devam; sunucu yoksa (yerel geliştirme) form kapalı
+try {
+  const r = await fetch('/api/ben', { credentials: 'same-origin', cache: 'no-store' });
+  const j = r.ok && /json/.test(r.headers.get('content-type') ?? '') ? await r.json() : null;
+  if (j?.id) { $('#girisli-ad').textContent = j.ad || j.id; $('#girisli').hidden = false; form.hidden = $('.sekme').hidden = true; $('#cizen').textContent = j.ad || ''; }
+  else if (!j) { hata('Hesap hizmetine ulaşılamadı. Projeler bu tarayıcıda saklanmaya devam eder.'); gonder.disabled = true; }
+  else k.focus();
+} catch { hata('Bağlantı kurulamadı. Projeler bu tarayıcıda saklanmaya devam eder.'); }
+</script>
+</body>
+</html>

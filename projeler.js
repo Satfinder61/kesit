@@ -14,8 +14,9 @@ const bul = (dz, id) => dz.liste.find(p => p.id === id);
 export const normal = v => durumMetni(durumYukle({ getItem: () => typeof v === 'string' ? v : JSON.stringify(v ?? null) }));
 const VARSAYILAN = () => durumMetni(yeniDurum());
 
-// Dizin: { aktif, liste: [{ id, ad, degisti, surum, kirli }], silinecek: [id], hesap: { ad } | null }
+// Dizin: { aktif, liste: [{ id, ad, degisti, surum, kirli }], silinecek: [id], hesap: { ad } | null, hesapId }
 // surum: sunucudaki sürüm (0 = hiç gönderilmedi); kirli: gönderilmemiş yerel değişiklik sayacı (0 = temiz).
+// hesapId: bu tarayıcıda en son girilen hesap; çıkışta da kalır (başka hesaba geçişi tanımak için).
 export function dizinOku(depo = globalThis.localStorage) {
   let k = null; try { k = JSON.parse(depo.getItem(DIZIN)); } catch {}
   const gor = new Set(), say = x => Math.max(0, Math.floor(+x) || 0);
@@ -24,7 +25,8 @@ export function dizinOku(depo = globalThis.localStorage) {
   if (!liste.length) liste.push(kayit('Proje 1')); // ilk açılış: bugüne dek çalışılan proje (kesit.sira.v3) bu olur
   return { aktif: liste.some(p => p.id === k?.aktif) ? k.aktif : liste[0].id, liste,
     silinecek: (Array.isArray(k?.silinecek) ? k.silinecek : []).filter(x => ID.test(x)),
-    hesap: typeof k?.hesap?.ad === 'string' ? { ad: k.hesap.ad.slice(0, 80) } : null };
+    hesap: typeof k?.hesap?.ad === 'string' ? { ad: k.hesap.ad.slice(0, 80) } : null,
+    hesapId: typeof k?.hesapId === 'string' ? k.hesapId.slice(0, 80) : null };
 }
 const dizinYaz = (depo, dz) => depo.setItem(DIZIN, JSON.stringify(dz));
 // Oku → değiştir → yaz, arada bekleme yok (başka sekme ve süren eşitleme aynı dizine yazar)
@@ -88,6 +90,21 @@ async function gonder(depo, api, id) {
   degistir(depo, dz => { const q = bul(dz, id); if (q) { q.surum = +r.surum; q.degisti = +r.degisti || q.degisti; if (q.kirli === r0) q.kirli = 0; } });
   return null;
 }
+// Başka hesaba geçildi: bu tarayıcıdaki projeler yeni kimlikle yeni hesaba gönderilir, öncekinin sunucudaki kopyaları orada kalır.
+// (Kimlik değişmezse yeni hesap onları "başka cihazda silinmiş" sanıp buradan silerdi, ya da sunucu başkasının diye reddederdi.)
+// Kimliksiz eski dizin hâlâ girişliyse aynı hesap sayılır.
+export const hesabaGec = (depo, hid) => degistir(depo, dz => {
+  const once = dz.hesapId ?? (dz.hesap ? hid : null); dz.hesapId = hid;
+  if (once === hid) return false;
+  dz.silinecek = [];
+  for (const p of dz.liste) {
+    const y = yeniId();
+    if (p.id === dz.aktif) dz.aktif = y; else { depo.setItem(SLOT(y), depo.getItem(SLOT(p.id)) ?? VARSAYILAN()); depo.removeItem(SLOT(p.id)); }
+    Object.assign(p, { id: y, surum: 0, kirli: 1 });
+  }
+  return true;
+});
+
 // Kendiliğinden açılmış, dokunulmamış örnek proje ("Proje N", varsayılan içerik): hesapta proje varsa yüklenmez, yerine hesaptakiler gelir
 const bos = (depo, dz, p) => !p.surum && /^Proje \d+$/.test(p.ad) && normal(durumOku(depo, dz, p.id)) === normal(VARSAYILAN());
 export async function esitle(depo, api) {
@@ -199,7 +216,7 @@ function kur(yer, depo = localStorage) {
     try {
       const r = await fetch('/api/ben', { credentials: 'same-origin', cache: 'no-store' });
       const j = r.ok && /json/.test(r.headers.get('content-type') ?? '') ? await r.json() : null;
-      if (j?.id) { hesap = 'giris'; ad = adTemiz(j.ad || j.id); degistir(depo, dz => { dz.hesap = { ad }; }); return esitleSimdi(); }
+      if (j?.id) { hesap = 'giris'; ad = adTemiz(j.ad || j.id); hesabaGec(depo, String(j.id)); degistir(depo, dz => { dz.hesap = { ad }; }); return esitleSimdi(); }
       hesap = j && 'id' in j || r.status === 401 ? 'cikis' : 'yok'; // girişsiz: 200 { id: null }
       if (hesap === 'cikis') degistir(depo, dz => { dz.hesap = null; });
     } catch { hesap = 'baglanti'; ad = dizinOku(depo).hesap?.ad ?? ''; }
@@ -255,7 +272,7 @@ function kur(yer, depo = localStorage) {
   $('.proje-giris').addEventListener('click', () => {
     const donus = encodeURIComponent(location.pathname + location.search + location.hash);
     if (hesap === 'giris') { degistir(depo, dz => { dz.hesap = null; }); location.href = `/api/cikis?donus=${donus}`; }
-    else location.href = `/api/giris?donus=${donus}`;
+    else location.href = `/giris.html?donus=${donus}`;
   });
   ciz(); hesapBak();
 }
